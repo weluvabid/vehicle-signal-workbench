@@ -190,6 +190,13 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
     selectionKey,
   ]);
 
+  // Initial data acquisition must not depend on ECharts emitting onChartReady.
+  // The chart is a viewport control; it is not the owner of the first data load.
+  // This also guarantees statistics are available when chart initialization is
+  // delayed by dynamic import, resize, or a renderer lifecycle transition.
+  useEffect(() => {
+    requestViewport(props.startSeconds, props.endSeconds, 1_024);
+  }, [requestViewport, props.startSeconds, props.endSeconds]);
 
   const exportVisibleCsv = useCallback(async () => {
     if (!resultsRange || exporting) return;

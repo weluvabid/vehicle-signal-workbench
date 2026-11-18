@@ -128,7 +128,7 @@ export function CsvImportPanel({ title, role, client, dataset, onDataset }: CsvI
           <label><span>Timestamp column</span>
             <select value={timestampColumn} onChange={(event) => setTimestampColumn(event.target.value)} disabled={status === 'importing'}>
               <option value="" disabled>Select timestamp column</option>
-              {headers.map((header) => <option key={header} value={header}>{header}</option>)}
+              {headers.map((header, index) => <option key={`${index}:${header}`} value={header}>{header}</option>)}
             </select>
           </label>
           <label><span>Timestamp format</span>

@@ -80,10 +80,11 @@ test('imports both runs concurrently without cross-contaminating their descripto
     referencePanel.getByLabel('Timestamp format').selectOption('unix-seconds'),
     comparisonPanel.getByLabel('Timestamp format').selectOption('unix-seconds'),
   ]);
-  await Promise.all([
-    referencePanel.getByRole('button', { name: 'Import run' }).click(),
-    comparisonPanel.getByRole('button', { name: 'Import run' }).click(),
-  ]);
+  // Start both operations without awaiting either import. UI actions on the
+  // same Playwright page are deliberately sequential; Promise.all(click, click)
+  // races the browser input dispatch and can drop one of the clicks.
+  await referencePanel.getByRole('button', { name: 'Import run' }).click();
+  await comparisonPanel.getByRole('button', { name: 'Import run' }).click();
   await Promise.all([
     expect(page.getByTestId('reference-dataset-summary')).toBeVisible({ timeout: 60_000 }),
     expect(page.getByTestId('comparison-dataset-summary')).toBeVisible({ timeout: 60_000 }),

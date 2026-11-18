@@ -63,7 +63,11 @@ for (const [scenario, description] of acceptedPairs) {
       await expect(page.locator('.signal-difference-summary').first()).toContainText('Δ bias 0');
     }
     if (scenario === '09-missing-values' || scenario === '10-long-missing-interval') {
-      await expect(page.locator('.signal-statistics')).toBeVisible();
+      const statistics = page.locator('.signal-statistics');
+
+      await expect(statistics).toHaveCount(2);
+      await expect(statistics.nth(0)).toBeVisible();
+      await expect(statistics.nth(1)).toBeVisible();
     }
     if (scenario === '11-entirely-empty-channel') {
       await expect(page.getByTestId('reference-dataset-summary').locator('dd').nth(1)).toHaveText('1');
