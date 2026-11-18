@@ -68,11 +68,13 @@ export function useComparisonWorkspace() {
     });
   }, [effectiveSelectedChannelIds]);
   const setRun = useCallback((role: 'reference' | 'comparison', dataset: DatasetDescriptor | null) => {
+    const previous = role === 'reference' ? reference : comparison;
+    if (previous && previous.id !== dataset?.id) client.releaseDataset(previous.id);
     setMappings([]);
     setSelectedChannelIds(null);
     if (role === 'reference') setReference(dataset);
     else setComparison(dataset);
-  }, []);
+  }, [client, comparison, reference]);
 
   return {
     client, reference, comparison, offset, offsetInput, setOffsetInput, validOffset, overlap,

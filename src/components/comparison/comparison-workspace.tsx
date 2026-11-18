@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Activity, ArrowLeftRight, Check, ChevronUp, Settings2, SlidersHorizontal } from 'lucide-react';
-import { CsvImportPanel } from '@/components/ingestion/csv-import-panel';
+import { Activity, ArrowLeftRight, Check, ChevronUp, Plus, Settings2, SlidersHorizontal } from 'lucide-react';
+import { ComparisonWizard } from '@/components/ingestion/comparison-wizard';
 import { ChannelMappingPanel } from '@/components/comparison/channel-mapping-panel';
 import { SignalComparisonPlot } from '@/components/comparison/signal-comparison-plot';
 import { useComparisonWorkspace } from '@/features/comparison/use-comparison-workspace';
@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export function ComparisonWorkspace() {
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const {
     client, reference, comparison, offset, offsetInput, setOffsetInput, validOffset, overlap,
     suggestedMappings, compatibleCount, compatibleMappings, effectiveSelectedChannelIds,
@@ -35,6 +36,7 @@ export function ComparisonWorkspace() {
         </div>
         <div className="flex items-center gap-2">
           {ready && <Badge variant={canPlot ? 'default' : 'secondary'}>{compatibleCount}/{suggestedMappings.length} compatible · {canPlot ? `${selectedSignals.length} signals selected` : 'Setup required'}</Badge>}
+          <Button size="sm" onClick={() => setWizardOpen(true)}><Plus className="size-4" /> New comparison</Button>
           <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
             <SheetTrigger render={<Button variant="outline" size="sm"><SlidersHorizontal className="size-4" /> Workspace controls</Button>} />
             <SheetContent side="bottom" className="max-h-[88dvh] overflow-y-auto">
@@ -43,18 +45,11 @@ export function ComparisonWorkspace() {
                 <SheetDescription>Manage measurement runs, timeline alignment, channel mapping and visible signals.</SheetDescription>
               </SheetHeader>
               <div className="mx-auto w-full max-w-6xl pb-8">
-                <Tabs defaultValue="runs" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 sm:w-[420px]">
-                    <TabsTrigger value="runs">Runs</TabsTrigger>
+                <Tabs defaultValue="alignment" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 sm:w-[320px]">
                     <TabsTrigger value="alignment" disabled={!ready}>Alignment</TabsTrigger>
                     <TabsTrigger value="channels" disabled={!ready}>Channels</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="runs" className="mt-5">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <CsvImportPanel title="Reference run" role="reference" client={client} dataset={reference} onDataset={(dataset) => setRun('reference', dataset)} />
-                      <CsvImportPanel title="Comparison run" role="comparison" client={client} dataset={comparison} onDataset={(dataset) => setRun('comparison', dataset)} />
-                    </div>
-                  </TabsContent>
                   {reference && comparison && <>
                     <TabsContent value="alignment" className="mt-5">
                       <Card><CardHeader><CardTitle className="text-base">Timeline alignment</CardTitle><CardDescription>Set the comparison offset in the workspace summary above the visualization. Samples remain on their native time axes.</CardDescription></CardHeader></Card>
@@ -111,10 +106,12 @@ export function ComparisonWorkspace() {
             <div className="mx-auto grid size-12 place-items-center rounded-xl border bg-muted"><Activity className="size-5 text-muted-foreground" /></div>
             <h2 className="text-lg font-semibold">Your comparison workspace</h2>
             <p className="text-sm leading-6 text-muted-foreground">Import a reference run and a comparison run. Once compatible channels and a shared time interval are available, synchronized signal plots will appear here.</p>
-            <Button onClick={() => setControlsOpen(true)}><SlidersHorizontal className="size-4" /> Configure measurement runs</Button>
+            <Button onClick={() => setWizardOpen(true)}><Plus className="size-4" /> Start a comparison</Button>
           </CardContent>
         </Card>
       )}
+
+      <ComparisonWizard open={wizardOpen} onOpenChange={setWizardOpen} client={client} onComplete={(referenceDataset, comparisonDataset) => { setRun('reference', referenceDataset); setRun('comparison', comparisonDataset); }} />
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-3">
@@ -124,7 +121,7 @@ export function ComparisonWorkspace() {
             <span className="flex items-center gap-1.5">{comparison ? <Check className="size-3.5 text-primary" /> : <span className="size-2 rounded-full bg-muted-foreground" />} Comparison</span>
             {ready && <><Separator orientation="vertical" className="hidden h-4 sm:block" /><span className="hidden sm:inline">{compatibleCount} compatible channels</span></>}
           </div>
-          <Button size="sm" onClick={() => setControlsOpen(true)}><Settings2 className="size-4" /> Manage workspace <ChevronUp className="size-3.5" /></Button>
+          <Button size="sm" onClick={() => ready ? setControlsOpen(true) : setWizardOpen(true)}>{ready ? <><Settings2 className="size-4" /> Manage workspace</> : <><Plus className="size-4" /> New comparison</>} <ChevronUp className="size-3.5" /></Button>
         </div>
       </div>
     </div>

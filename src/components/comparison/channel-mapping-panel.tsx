@@ -12,6 +12,7 @@ import { MAPPING_COMPATIBILITY, MAPPING_PRESENTATION } from '@/features/measurem
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 interface ChannelMappingPanelProps {
   readonly leftDataset: DatasetDescriptor;
