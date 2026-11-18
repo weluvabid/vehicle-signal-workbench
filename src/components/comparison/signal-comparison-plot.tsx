@@ -85,7 +85,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageRows = rows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
-  const visiblePoints = panels.reduce((sum, panel) => sum + panel.reference.length + panel.comparison.length, 0);
+
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-4" data-testid="plot-workspace">

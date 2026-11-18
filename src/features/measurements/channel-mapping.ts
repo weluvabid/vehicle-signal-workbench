@@ -1,16 +1,6 @@
 import type { ChannelDescriptor, DatasetDescriptor } from './model';
-import { MAPPING_COMPATIBILITY, MAPPING_CONFIDENCE } from './mapping-constants';
-import type { MappingCompatibility, MappingConfidence } from './mapping-constants';
-
-export type { MappingCompatibility, MappingConfidence } from './mapping-constants';
-
-export interface ChannelMapping {
-  readonly leftChannelId: string;
-  readonly rightChannelId: string | null;
-  readonly compatibility: MappingCompatibility;
-  readonly reason: string;
-  readonly confidence: MappingConfidence;
-}
+import { MAPPING_COMPATIBILITY } from './mapping-constants';
+import type { MappingCompatibility } from './mapping-constants';
 
 export interface SuggestedChannelMapping {
   readonly left: ChannelDescriptor;
@@ -71,7 +61,7 @@ export function suggestChannelMappings(
         right: null,
         compatibility: MAPPING_COMPATIBILITY.UNMATCHED,
         reason: ambiguousLeft || candidates.length > 1
-          ? 'Multiple channels share this label; map manually.'
+          ? 'Multiple channels share this label; automatic matching is ambiguous.'
           : 'No exact channel-name match found.',
       };
     }
@@ -92,31 +82,4 @@ export function suggestChannelMappings(
       reason: 'Exact normalized label and unit match.',
     };
   });
-}
-
-export function createManualChannelMapping(
-  left: ChannelDescriptor,
-  right: ChannelDescriptor | null,
-): ChannelMapping {
-  if (!right) {
-    return {
-      leftChannelId: left.id,
-      rightChannelId: null,
-      compatibility: MAPPING_COMPATIBILITY.UNMATCHED,
-      reason: 'No right-side channel selected.',
-      confidence: MAPPING_CONFIDENCE.NONE,
-    };
-  }
-
-  const compatible = areUnitsCompatible(left.unit, right.unit);
-
-  return {
-    leftChannelId: left.id,
-    rightChannelId: right.id,
-    compatibility: compatible ? MAPPING_COMPATIBILITY.COMPATIBLE : MAPPING_COMPATIBILITY.UNIT_MISMATCH,
-    reason: compatible
-      ? 'Units match.'
-      : `Units differ (${left.unit ?? 'unspecified'} vs ${right.unit ?? 'unspecified'}); conversion is not available.`,
-    confidence: MAPPING_CONFIDENCE.MANUAL,
-  };
 }

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   areUnitsCompatible,
-  createManualChannelMapping,
   suggestChannelMappings,
 } from './channel-mapping.ts';
 import type { DatasetDescriptor } from './model.ts';
@@ -71,11 +70,6 @@ test('unit compatibility is exact and case-insensitive only', () => {
   assert.equal(areUnitsCompatible(null, 'rpm'), false);
 });
 
-test('manual mappings retain incompatible-unit status', () => {
-  const mapping = createManualChannelMapping(left.channels[1], right.channels[1]);
-  assert.equal(mapping.compatibility, 'unit-mismatch');
-  assert.equal(mapping.confidence, 'manual');
-});
 
 test('does not map duplicate normalized labels from the reference side to one comparison channel', () => {
   const duplicateLeft = {
