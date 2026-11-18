@@ -1,26 +1,20 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
-import type { ComparisonPlotData } from '@/features/measurements/plot-data';
-import { formatChannelStatistics, formatMeasurementCount, formatMeasurementValue } from '@/features/measurements/formatting';
+import type { ComparisonPlotData, SignalPoint } from '@/features/measurements/plot-data';
+import { formatMeasurementValue } from '@/features/measurements/formatting';
 import { buildSignalPoints } from '@/features/measurements/plot-data';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
-import type { CsvExportChannel } from '@/features/ingestion/worker-protocol';
 import type { SignalSelection } from '@/features/comparison/types';
 import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const EChartsSignalChart = dynamic(
   () => import('./echarts-signal-chart').then((module) => module.EChartsSignalChart),
-  {
-    ssr: false,
-    loading: () => <p className="py-12 text-center text-sm text-muted-foreground">Initializing interactive chart…</p>,
-  },
+  { ssr: false, loading: () => <p className="py-12 text-center text-sm text-muted-foreground">Initializing interactive charts…</p> },
 );
 
 interface SignalComparisonPlotProps {
@@ -31,142 +25,125 @@ interface SignalComparisonPlotProps {
   readonly offsetSeconds: number;
   readonly startSeconds: number;
   readonly endSeconds: number;
+  readonly ingestionMetrics: { readonly durationMs: number; readonly totalBytes: number } | null;
+}
+
+interface TableRowData {
+  readonly timeSeconds: number;
+  readonly signalId: string;
+  readonly signalLabel: string;
+  readonly unit: string | null;
+  readonly color: string;
+  readonly reference: number | null;
+  readonly comparison: number | null;
+  readonly delta: number | null;
 }
 
 const EMPTY_DATA: ComparisonPlotData = { reference: [], comparison: [] };
+const SERIES_COLORS = ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'];
+const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+const PAGE_SIZE = 100;
+
+function buildRows(panels: readonly {
+  id: string; label: string; unit: string | null; color: string;
+  reference: SignalPoint[]; comparison: SignalPoint[]; delta: SignalPoint[];
+}[]): TableRowData[] {
+  const rows: TableRowData[] = [];
+  for (const panel of panels) {
+    const byTime = new Map<number, { reference: number | null; comparison: number | null; delta: number | null }>();
+    for (const [time, value] of panel.reference) byTime.set(time, { ...(byTime.get(time) ?? { reference: null, comparison: null, delta: null }), reference: value });
+    for (const [time, value] of panel.comparison) byTime.set(time, { ...(byTime.get(time) ?? { reference: null, comparison: null, delta: null }), comparison: value });
+    for (const [time, value] of panel.delta) byTime.set(time, { ...(byTime.get(time) ?? { reference: null, comparison: null, delta: null }), delta: value });
+    for (const [timeSeconds, values] of byTime) rows.push({ timeSeconds, signalId: panel.id, signalLabel: panel.label, unit: panel.unit, color: panel.color, ...values });
+  }
+  rows.sort((a, b) => a.timeSeconds - b.timeSeconds || a.signalLabel.localeCompare(b.signalLabel));
+  return rows;
+}
 
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
-  const { loading, error, results, resultsRange, requestViewport, selectionKey, setError } = useSignalViewport(props);
-  const [exporting, setExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
-  const exportAbortController = useRef<AbortController | null>(null);
-  useEffect(() => () => exportAbortController.current?.abort(), []);
-
-  const exportVisibleCsv = useCallback(async () => {
-    if (!resultsRange || exporting) return;
-    const controller = new AbortController();
-    exportAbortController.current = controller;
-    setExporting(true);
-    setExportProgress(0);
-    setError(null);
-    try {
-      const channels: CsvExportChannel[] = props.selections.map((selection) => {
-        const channel = props.reference.channels.find((item) => item.id === selection.referenceChannelId);
-        if (!channel) throw new Error(`Reference channel ${selection.referenceChannelId} is unavailable.`);
-        return {
-          referenceChannelId: selection.referenceChannelId,
-          comparisonChannelId: selection.comparisonChannelId,
-          label: channel.label,
-          unit: channel.unit ?? '',
-        };
-      });
-      const chunks: Blob[] = [new Blob([new Uint8Array([0xef, 0xbb, 0xbf])])];
-      const exportedRows = await props.client.exportDifferenceCsv(
-        props.reference.id,
-        props.comparison.id,
-        channels,
-        resultsRange.start,
-        resultsRange.end,
-        props.offsetSeconds,
-        (chunk) => chunks.push(new Blob([chunk], { type: 'text/csv;charset=utf-8' })),
-        setExportProgress,
-        controller.signal,
-      );
-      if (exportedRows === 0) throw new Error('The selected viewport contains no reference samples to export.');
-      const url = URL.createObjectURL(new Blob(chunks, { type: 'text/csv;charset=utf-8' }));
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `vsw-comparison-${new Date().toISOString().replaceAll(':', '-')}.csv`;
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-    } catch (cause) {
-      if (!(cause instanceof DOMException && cause.name === 'AbortError')) {
-        setError(cause instanceof Error ? cause.message : 'Unable to export comparison data.');
-      }
-    } finally {
-      if (exportAbortController.current === controller) exportAbortController.current = null;
-      setExporting(false);
-    }
-  }, [exporting, props.client, props.reference, props.comparison, props.selections, props.offsetSeconds, resultsRange, setError]);
-
+  const { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading } = useSignalViewport(props);
+  const [page, setPage] = useState(0);
+  const [interactionFps, setInteractionFps] = useState<number | null>(null);
   const resultById = useMemo(() => new Map(results.map((result) => [result.id, result])), [results]);
-  const chartPanels = useMemo(() => props.selections.map((selection) => {
+  const panels = useMemo(() => props.selections.map((selection, index) => {
     const channel = props.reference.channels.find((item) => item.id === selection.referenceChannelId);
     const result = resultById.get(selection.referenceChannelId);
     return {
       id: selection.referenceChannelId,
       label: channel?.label ?? selection.referenceChannelId,
       unit: channel?.unit ?? null,
+      color: SERIES_COLORS[index % SERIES_COLORS.length],
       reference: result?.data.reference ?? EMPTY_DATA.reference,
       comparison: result?.data.comparison ?? EMPTY_DATA.comparison,
       delta: result ? buildSignalPoints(result.differenceSeries.timeSeconds, result.differenceSeries.delta) : [],
+      visible: true,
     };
   }), [props.selections, props.reference.channels, resultById]);
-
-  const hasSamples = results.some((result) => result.data.reference.length > 0 || result.data.comparison.length > 0);
+  const rows = useMemo(() => buildRows(panels), [panels]);
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = rows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const visiblePoints = panels.reduce((sum, panel) => sum + panel.reference.length + panel.comparison.length, 0);
 
   return (
-    <Card className="min-w-0 overflow-hidden">
-      <CardHeader className="flex flex-col justify-between gap-3 pb-3 sm:flex-row sm:items-start">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Synchronized signal overlay</p>
-          <CardTitle className="text-base">{props.selections.length} mapped signals</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Native run overlays and a separate delta axis · linked crosshair · exact sampled values in tooltips</p>
-        </div>
-        <div className="flex shrink-0 items-center justify-end gap-2"><Badge variant="outline">{loading ? 'Updating' : 'Viewport ready'}</Badge><Button variant="outline" size="sm" type="button" onClick={exportVisibleCsv} disabled={!resultsRange || exporting || loading}>{exporting ? `Exporting ${Math.round(exportProgress * 100)}%…` : 'Export visible CSV'}</Button></div>
-      </CardHeader>
-      <CardContent className="space-y-4 px-3 pb-4 sm:px-5">
-        {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-        {!error && (
-          <EChartsSignalChart
-            key={`${selectionKey}:${props.offsetSeconds}:${props.startSeconds}:${props.endSeconds}`}
-            panels={chartPanels}
-            domainStartSeconds={props.startSeconds}
-            domainEndSeconds={props.endSeconds}
-            onViewportChange={requestViewport}
-          />
-        )}
-        {!error && !loading && !hasSamples && (
-          <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected overlap window.</p>
-        )}
-        {results.length > 0 && (
-          <div className="space-y-4" aria-live="polite">
-            {resultsRange && <p className="signal-statistics-range text-xs text-muted-foreground">Statistics interval: {resultsRange.start.toFixed(3)}–{resultsRange.end.toFixed(3)} s · end exclusive</p>}
-            {results.map((result) => {
-              const reference = formatChannelStatistics(result.referenceStatistics);
-              const comparison = formatChannelStatistics(result.comparisonStatistics);
-              const difference = result.differenceStatistics;
-              return (
-                <section className="signal-statistics overflow-hidden rounded-lg border" key={result.id} aria-label={`${result.label} visible interval statistics`}>
-                  <div className="flex items-center justify-between gap-3 border-b px-3 py-2.5 text-sm">
-                    <strong>{result.label}</strong>
-                    <span className="text-xs text-muted-foreground">{result.unit ?? 'Unit unspecified'}</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader><TableRow><TableHead>Run</TableHead><TableHead className="text-right">Samples</TableHead><TableHead className="text-right">Valid</TableHead><TableHead className="text-right">Missing</TableHead><TableHead className="text-right">Min</TableHead><TableHead className="text-right">Max</TableHead><TableHead className="text-right">Mean</TableHead><TableHead className="text-right">Std dev</TableHead></TableRow></TableHeader>
-                      <TableBody>
-                        <TableRow><TableHead scope="row">Reference</TableHead><TableCell className="text-right tabular-nums">{reference.samples}</TableCell><TableCell className="text-right tabular-nums">{reference.valid}</TableCell><TableCell className="text-right tabular-nums">{reference.missing}</TableCell><TableCell className="text-right tabular-nums">{reference.min}</TableCell><TableCell className="text-right tabular-nums">{reference.max}</TableCell><TableCell className="text-right tabular-nums">{reference.mean}</TableCell><TableCell className="text-right tabular-nums">{reference.standardDeviation}</TableCell></TableRow>
-                        <TableRow><TableHead scope="row">Comparison</TableHead><TableCell className="text-right tabular-nums">{comparison.samples}</TableCell><TableCell className="text-right tabular-nums">{comparison.valid}</TableCell><TableCell className="text-right tabular-nums">{comparison.missing}</TableCell><TableCell className="text-right tabular-nums">{comparison.min}</TableCell><TableCell className="text-right tabular-nums">{comparison.max}</TableCell><TableCell className="text-right tabular-nums">{comparison.mean}</TableCell><TableCell className="text-right tabular-nums">{comparison.standardDeviation}</TableCell></TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <div className="signal-difference-summary flex flex-wrap gap-x-5 gap-y-2 border-t px-3 py-3 text-xs text-muted-foreground tabular-nums" aria-label={`${result.label} difference analysis`}>
-                    <span><strong className="mr-1 font-medium text-foreground">Δ bias</strong> {formatMeasurementValue(difference.bias)}</span>
-                    <span><strong className="mr-1 font-medium text-foreground">MAE</strong> {formatMeasurementValue(difference.meanAbsoluteError)}</span>
-                    <span><strong className="mr-1 font-medium text-foreground">RMSE</strong> {formatMeasurementValue(difference.rootMeanSquareError)}</span>
-                    <span><strong className="mr-1 font-medium text-foreground">Max |Δ|</strong> {formatMeasurementValue(difference.maximumAbsoluteError)}</span>
-                    <span><strong className="mr-1 font-medium text-foreground">Matched</strong> {formatMeasurementCount(difference.matchedCount)} / {formatMeasurementCount(difference.matchedCount + difference.unavailableCount)}</span>
-                  </div>
-                </section>
-              );
-            })}
+    <div className="flex min-h-0 min-w-0 flex-col gap-4" data-testid="plot-workspace">
+      <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-5">
+        <Metric label="Samples / run" value={props.reference.sampleCount.toLocaleString()} />
+        <Metric label="CSV ingestion" value={props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs / 1000).toFixed(2)} s` : '—'} detail={props.ingestionMetrics ? `${(props.ingestionMetrics.totalBytes / 1_048_576).toFixed(1)} MiB · ${((props.reference.sampleCount + props.comparison.sampleCount) / Math.max(props.ingestionMetrics.durationMs / 1000, 0.001) / 1_000_000).toFixed(2)}M rows/s` : 'Parse + typed-array ingestion'} />
+        <Metric label="Initial viewport prep" value={initialPreparationMs === null ? (loading ? 'Preparing…' : '—') : `${initialPreparationMs.toFixed(2)} ms`} detail="First query + series preparation" />
+        <Metric label="Interaction query" value={interactionLoading ? 'Updating…' : interactionQueryMs === null ? 'Interact with chart' : `${interactionQueryMs.toFixed(2)} ms`} detail="Latest zoom / pan query" />
+        <Metric label="UI FPS" value={interactionFps === null ? 'Interact with chart' : String(interactionFps)} />
+      </div>
+
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+      {!error && !loading && rows.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected time interval.</p>}
+
+      <section className="h-[58dvh] min-h-[420px] max-h-[760px] shrink-0" aria-label="Synchronized signal charts">
+        <EChartsSignalChart
+          key={`${selectionKey}:${props.offsetSeconds}:${props.startSeconds}:${props.endSeconds}`}
+          panels={panels}
+          domainStartSeconds={props.startSeconds}
+          domainEndSeconds={props.endSeconds}
+          onViewportChange={requestViewport}
+          onFpsChange={setInteractionFps}
+        />
+      </section>
+
+      <section className="flex min-h-0 flex-col border-t pt-3" aria-label="Measurement samples">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Measurement data</h2>
+            <p className="text-xs text-muted-foreground">Bounded samples for the current chart viewport · {rows.length.toLocaleString()} rows</p>
           </div>
-        )}
-        <p className="px-1 text-xs leading-5 text-muted-foreground">ECharts owns zoom, pan, pinch, shared crosshair and range-slider interactions. Difference metrics use reference − comparison at reference timestamps: exact matches within 1 ns, otherwise linear interpolation only between adjacent finite comparison samples no more than 2.5 median comparison sample intervals apart. No extrapolation, unit conversion, or interpolation across missing samples. Unmatched reference samples are excluded from difference metrics.</p>
-      </CardContent>
-    </Card>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Page {safePage + 1} of {pageCount}</span>
+            <Button size="xs" variant="outline" disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</Button>
+            <Button size="xs" variant="outline" disabled={safePage + 1 >= pageCount} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>Next</Button>
+          </div>
+        </div>
+        <div className="max-h-[min(30dvh,360px)] min-h-32 overflow-auto rounded-md border" data-testid="measurement-table-scroll">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-background [&_tr]:bg-background">
+              <TableRow><TableHead>Time (s)</TableHead><TableHead>Signal</TableHead><TableHead className="text-right">Reference</TableHead><TableHead className="text-right">Comparison</TableHead><TableHead className="text-right">Δ (Ref − Comp)</TableHead></TableRow>
+            </TableHeader>
+            <TableBody>
+              {pageRows.map((row, index) => <TableRow key={`${row.signalId}:${row.timeSeconds}:${index}`}>
+                <TableCell className="whitespace-nowrap font-mono text-xs tabular-nums">{TIME_FORMATTER.format(row.timeSeconds)}</TableCell>
+                <TableCell className="whitespace-nowrap"><span className="mr-2 inline-block size-2 rounded-full" style={{ backgroundColor: row.color }} /><span className="font-medium">{row.signalLabel}</span><span className="ml-2 text-xs text-muted-foreground">{row.unit ?? ''}</span></TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.reference)}</TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.comparison)}</TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.delta)}</TableCell>
+              </TableRow>)}
+              {pageRows.length === 0 && <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Waiting for viewport samples…</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </div>
+        {resultsRange && <p className="mt-2 text-[11px] text-muted-foreground">Time range {TIME_FORMATTER.format(resultsRange.start)}–{TIME_FORMATTER.format(resultsRange.end)} s · end exclusive</p>}
+      </section>
+    </div>
   );
+}
+
+function Metric({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail?: string }) {
+  return <div className="rounded-md border px-3 py-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 font-mono text-sm font-semibold tabular-nums">{value}</p>{detail && <p className="mt-0.5 text-[10px] text-muted-foreground">{detail}</p>}</div>;
 }

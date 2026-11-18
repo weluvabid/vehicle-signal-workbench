@@ -60,9 +60,11 @@ for (const [scenario, description] of acceptedPairs) {
 
     if (scenario === '01-basic-comparison') {
       await expect(page.getByTestId('signal-chart')).toBeVisible();
+      await page.getByRole('tab', { name: 'Statistics' }).click();
       await expect(page.locator('.signal-difference-summary').first()).toContainText('Δ bias 0');
     }
     if (scenario === '09-missing-values' || scenario === '10-long-missing-interval') {
+      await page.getByRole('tab', { name: 'Statistics' }).click();
       const statistics = page.locator('.signal-statistics');
 
       await expect(statistics).toHaveCount(2);

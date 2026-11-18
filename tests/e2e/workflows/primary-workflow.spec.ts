@@ -15,8 +15,10 @@ test('complete comparison workflow: import, map, inspect, navigate and export', 
 
   await expect(page.getByText('3/3 compatible')).toBeVisible();
   await expect(page.getByTestId('signal-chart')).toBeVisible();
+  await page.getByRole('tab', { name: 'Statistics' }).click();
   await expect(page.locator('.signal-statistics')).toHaveCount(3);
   await expect(page.locator('.signal-difference-summary').first()).toContainText('Matched');
+  await page.getByRole('tab', { name: 'Overlay' }).click();
 
   const chart = page.getByTestId('signal-chart');
   const canvas = chart.locator('canvas').first();
@@ -50,7 +52,7 @@ test('complete comparison workflow: import, map, inspect, navigate and export', 
   expect(csv).toContain('Vehicle Speed');
   expect(csv.split(/\r?\n/).length).toBeGreaterThan(10);
 
-  // Removing a selected signal must remove its reference, comparison and delta panels together.
+  // Hiding a selected signal must remove its overlay panel without affecting the other signals.
   await page.getByRole('button', { name: /Workspace controls/ }).click();
   await page.getByRole('tab', { name: 'Channels' }).click();
   const signals = page.getByRole('checkbox');
@@ -58,6 +60,7 @@ test('complete comparison workflow: import, map, inspect, navigate and export', 
   await signals.nth(0).click();
   await page.getByRole('button', { name: /Workspace controls/ }).click();
   await expect(page.getByRole('group', { name: /Synchronized comparison of 2 signals/ })).toBeVisible();
+  await page.getByRole('tab', { name: 'Statistics' }).click();
   await expect(page.locator('.signal-statistics')).toHaveCount(2);
 
   expect(pageErrors).toEqual([]);

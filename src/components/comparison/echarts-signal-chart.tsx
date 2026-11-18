@@ -14,7 +14,7 @@ import {
   TitleComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { parseFiniteChartNumber } from './chart-viewport';
@@ -38,6 +38,7 @@ interface EChartsSignalChartProps {
   readonly domainStartSeconds: number;
   readonly domainEndSeconds: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
+  readonly onFpsChange: (fps: number) => void;
 }
 
 interface DataZoomEvent {
@@ -54,23 +55,51 @@ interface PendingViewport {
   readonly pixelWidth: number;
 }
 
-
 export function EChartsSignalChart({
   panels,
   domainStartSeconds,
   domainEndSeconds,
   onViewportChange,
+  onFpsChange,
 }: EChartsSignalChartProps) {
   const container = useRef<HTMLDivElement>(null);
   const pendingViewport = useRef<PendingViewport | null>(null);
   const lastViewport = useRef<PendingViewport | null>(null);
   const animationFrame = useRef<number | null>(null);
   const chartWidth = useRef(1);
+  const fpsFrame = useRef<number | null>(null);
+  const fpsLastInteraction = useRef(0);
+  const fpsWindowStart = useRef(0);
+  const fpsFrames = useRef(0);
+  const [chartHeight, setChartHeight] = useState(0);
   const latestProps = useRef({ domainStartSeconds, domainEndSeconds, onViewportChange });
 
   useEffect(() => {
     latestProps.current = { domainStartSeconds, domainEndSeconds, onViewportChange };
   }, [domainStartSeconds, domainEndSeconds, onViewportChange]);
+
+  const recordInteraction = useCallback(() => {
+    fpsLastInteraction.current = performance.now();
+    if (fpsFrame.current !== null) return;
+    fpsWindowStart.current = 0;
+    fpsFrames.current = 0;
+    const tick = (now: number) => {
+      if (fpsWindowStart.current === 0) fpsWindowStart.current = now;
+      fpsFrames.current += 1;
+      const elapsed = now - fpsWindowStart.current;
+      if (elapsed >= 500) {
+        onFpsChange(Math.round((fpsFrames.current * 1000) / elapsed));
+        fpsWindowStart.current = now;
+        fpsFrames.current = 0;
+      }
+      if (now - fpsLastInteraction.current < 900) {
+        fpsFrame.current = requestAnimationFrame(tick);
+      } else {
+        fpsFrame.current = null;
+      }
+    };
+    fpsFrame.current = requestAnimationFrame(tick);
+  }, [onFpsChange]);
 
   const dispatchViewport = useCallback((viewport: PendingViewport) => {
     lastViewport.current = viewport;
@@ -108,12 +137,16 @@ export function EChartsSignalChart({
 
     let previousWidth = 0;
     const observer = new ResizeObserver((entries) => {
-      const width = Math.floor(entries[0]?.contentRect.width ?? 0);
-      if (width < 1 || Math.abs(width - previousWidth) < 24) return;
-      previousWidth = width;
-      chartWidth.current = width;
-      const viewport = lastViewport.current;
-      if (viewport) dispatchViewport({ ...viewport, pixelWidth: width });
+      const entry = entries[0];
+      const width = Math.floor(entry?.contentRect.width ?? 0);
+      const height = Math.floor(entry?.contentRect.height ?? 0);
+      if (width > 0 && Math.abs(width - previousWidth) >= 24) {
+        previousWidth = width;
+        chartWidth.current = width;
+        const viewport = lastViewport.current;
+        if (viewport) dispatchViewport({ ...viewport, pixelWidth: width });
+      }
+      if (height > 0) setChartHeight((current) => current === height ? current : height);
     });
 
     observer.observe(element);
@@ -122,6 +155,7 @@ export function EChartsSignalChart({
 
   useEffect(() => () => {
     if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+    if (fpsFrame.current !== null) cancelAnimationFrame(fpsFrame.current);
   }, []);
 
   const requestInitialViewport = useCallback((chart: { getWidth: () => number }) => {
@@ -146,37 +180,58 @@ export function EChartsSignalChart({
     const end = endValue ?? (endPercent === null ? null : domainStart + duration * endPercent / 100);
 
     if (start === null || end === null || end <= start) return;
+    const boundedStart = Math.max(domainStart, start);
+    const boundedEnd = Math.min(domainEnd, end);
     dispatchViewport({
-      startSeconds: Math.max(domainStart, start),
-      endSeconds: Math.min(domainEnd, end),
+      startSeconds: boundedStart,
+      endSeconds: boundedEnd,
       pixelWidth: chartWidth.current,
     });
   }, [dispatchViewport]);
 
   const option = useMemo(
-    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds),
-    [domainEndSeconds, domainStartSeconds, panels],
+    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600),
+    [chartHeight, domainEndSeconds, domainStartSeconds, panels],
   );
-
-  const chartHeight = Math.max(520, panels.length * 330 + 100);
 
   return (
     <div
       ref={container}
-      className="echarts-signal-chart"
+      className="echarts-signal-chart relative h-full min-h-0"
       data-testid="signal-chart"
       role="group"
+      onPointerMove={recordInteraction}
+      onWheel={recordInteraction}
+      onTouchMove={recordInteraction}
       aria-label={`Synchronized comparison of ${panels.length} signals. Use the mouse wheel or pinch to zoom, drag to pan, and the shared range slider to navigate all timelines.`}
     >
+      {chartHeight > 0 && panels.map((panel, index) => {
+        const sliderReserve = 42;
+        const panelSlot = Math.max(120, (chartHeight - sliderReserve - 12) / Math.max(1, panels.length));
+        return (
+          <div
+            key={panel.id}
+            className="absolute left-[76px] z-20 flex h-7 max-w-[calc(100%-110px)] items-center gap-2 rounded-sm bg-background/90 pr-2"
+            style={{ top: `${8 + index * panelSlot}px` }}
+          >
+            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: panel.color }} aria-hidden="true" />
+            <span className="truncate font-mono text-xs font-semibold">{panel.label}</span>
+            <span className="shrink-0 text-[10px] text-muted-foreground">{panel.unit ?? 'Unit unspecified'}</span>
+          </div>
+        );
+      })}
       <ReactEChartsCore
         echarts={echarts}
         option={option}
         notMerge={false}
+        replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
         lazyUpdate
         opts={{ renderer: 'canvas' }}
-        onChartReady={requestInitialViewport}
+        onChartReady={(chart) => {
+          requestInitialViewport(chart);
+        }}
         onEvents={{ datazoom: handleDataZoom }}
-        style={{ width: '100%', height: chartHeight }}
+        style={{ width: '100%', height: '100%' }}
       />
     </div>
   );

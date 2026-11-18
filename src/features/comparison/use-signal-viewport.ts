@@ -34,6 +34,10 @@ export function useSignalViewport(options: SignalViewportOptions) {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<readonly SignalPanelResult[]>([]);
   const [resultsRange, setResultsRange] = useState<{ readonly start: number; readonly end: number } | null>(null);
+  const [initialPreparationMs, setInitialPreparationMs] = useState<number | null>(null);
+  const [interactionQueryMs, setInteractionQueryMs] = useState<number | null>(null);
+  const [interactionLoading, setInteractionLoading] = useState(false);
+  const hasStartedInitialQuery = useRef(false);
   const generation = useRef(0);
   const lastRequestKey = useRef('');
   const selectionKey = useMemo(
@@ -52,7 +56,11 @@ export function useSignalViewport(options: SignalViewportOptions) {
     lastRequestKey.current = requestKey;
 
     const current = ++generation.current;
+    const queryStartedAt = performance.now();
+    const isInitialPreparation = !hasStartedInitialQuery.current;
+    hasStartedInitialQuery.current = true;
     setLoading(true);
+    if (!isInitialPreparation) setInteractionLoading(true);
     setError(null);
     setResults([]);
     setResultsRange(null);
@@ -85,17 +93,27 @@ export function useSignalViewport(options: SignalViewportOptions) {
       if (generation.current !== current) return;
       setResults(nextResults);
       setResultsRange({ start, end });
+      const elapsedMs = performance.now() - queryStartedAt;
+      if (isInitialPreparation) setInitialPreparationMs(elapsedMs);
+      else setInteractionQueryMs(elapsedMs);
     }).catch((cause: unknown) => {
       if (generation.current !== current) return;
       setError(cause instanceof Error ? cause.message : 'Unable to query signal data.');
     }).finally(() => {
-      if (generation.current === current) setLoading(false);
+      if (generation.current === current) {
+        setLoading(false);
+        if (!isInitialPreparation) setInteractionLoading(false);
+      }
     });
   }, [options.client, options.reference, options.comparison, options.selections,
     options.offsetSeconds, options.startSeconds, options.endSeconds, selectionKey]);
 
   useEffect(() => {
     lastRequestKey.current = '';
+    hasStartedInitialQuery.current = false;
+    setInitialPreparationMs(null);
+    setInteractionQueryMs(null);
+    setInteractionLoading(false);
     return () => { generation.current += 1; };
   }, [options.reference.id, options.comparison.id, selectionKey,
     options.offsetSeconds, options.startSeconds, options.endSeconds]);
@@ -104,5 +122,5 @@ export function useSignalViewport(options: SignalViewportOptions) {
     requestViewport(options.startSeconds, options.endSeconds, 1_024);
   }, [requestViewport, options.startSeconds, options.endSeconds]);
 
-  return { loading, error, results, resultsRange, requestViewport, selectionKey, setError };
+  return { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading };
 }

@@ -22,6 +22,7 @@ test.describe('large-file browser stress tests', () => {
     await page.getByRole('checkbox').nth(3).click();
     await page.getByRole('button', { name: /Workspace controls/ }).click();
     await expect(page.getByTestId('signal-chart')).toBeVisible();
+    await page.getByRole('tab', { name: 'Statistics' }).click();
     await expect(page.locator('.signal-statistics')).toHaveCount(4);
     const browserMetrics = await page.evaluate(() => {
       const memory = (performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;
@@ -49,6 +50,7 @@ test.describe('large-file browser stress tests', () => {
     await page.getByRole('tab', { name: 'Channels' }).click();
     await page.getByRole('button', { name: /Workspace controls/ }).click();
     await expect(page.getByTestId('signal-chart')).toBeVisible();
+    await page.getByRole('tab', { name: 'Statistics' }).click();
     await expect(page.locator('.signal-statistics')).toHaveCount(3);
     const browserMetrics = await page.evaluate(() => {
       const memory = (performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;

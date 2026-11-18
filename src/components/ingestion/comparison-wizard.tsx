@@ -27,7 +27,7 @@ interface ComparisonWizardProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly client: MeasurementWorkerClient;
-  readonly onComplete: (reference: DatasetDescriptor, comparison: DatasetDescriptor) => void;
+  readonly onComplete: (reference: DatasetDescriptor, comparison: DatasetDescriptor, metrics: { durationMs: number; totalBytes: number }) => void;
 }
 
 const steps = [
@@ -104,6 +104,7 @@ export function ComparisonWizard({ open, onOpenChange, client, onComplete }: Com
 
   async function startComparison() {
     if (!reference || !comparison || !pairValid || duplicateFile || importing) return;
+    const importStartedAt = performance.now();
     setImporting(true);
     setImportError(null);
     setProgress({ reference: 0, comparison: 0 });
@@ -119,7 +120,10 @@ export function ComparisonWizard({ open, onOpenChange, client, onComplete }: Com
       const failure = results.find((result) => result.status === 'rejected');
       if (failure?.status === 'rejected') throw failure.reason;
       if (!importedReference || !importedComparison) throw new Error('Both measurement imports must complete before comparison can begin.');
-      onComplete(importedReference, importedComparison);
+      onComplete(importedReference, importedComparison, {
+        durationMs: performance.now() - importStartedAt,
+        totalBytes: reference.file.size + comparison.file.size,
+      });
       onOpenChange(false);
     } catch (error) {
       if (importedReference) client.releaseDataset(importedReference.id);

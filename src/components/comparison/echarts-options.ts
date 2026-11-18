@@ -2,7 +2,19 @@ import type { EChartsOption } from 'echarts';
 import type { SignalChartPanel } from './signal-chart-types';
 
 const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
-const PANEL_GAP = 330;
+const scientificFormatter = new Intl.NumberFormat(undefined, {
+  notation: 'scientific',
+  maximumSignificantDigits: 4,
+});
+
+function formatChartValue(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  const magnitude = Math.abs(value);
+  if (magnitude !== 0 && (magnitude >= 1e9 || magnitude < 1e-4)) {
+    return scientificFormatter.format(value);
+  }
+  return numberFormatter.format(Object.is(value, -0) ? 0 : value);
+}
 const AXIS_COLOR = '#454b55';
 const GRID_COLOR = '#25292f';
 const LABEL_COLOR = '#858b95';
@@ -11,10 +23,16 @@ export function createSignalChartOption(
   panels: readonly SignalChartPanel[],
   domainStartSeconds: number,
   domainEndSeconds: number,
+  chartHeight: number,
 ): EChartsOption {
-  const axisCount = panels.length * 2;
-  const axisIndexes = Array.from({ length: axisCount }, (_, index) => index);
-  const series = panels.flatMap(createPanelSeries);
+  const axisIndexes = panels.map((_, index) => index);
+  const series = panels.flatMap((panel, index) => panel.visible ? createPanelSeries(panel, index) : []);
+  // Reserve space for the shared range slider and distribute plot height evenly.
+  const sliderReserve = 42;
+  const panelSlot = Math.max(120, (chartHeight - sliderReserve - 12) / Math.max(1, panels.length));
+  const plotTop = 30;
+  const plotBottomReserve = 42;
+  const plotHeight = Math.max(64, panelSlot - plotTop - plotBottomReserve);
 
   return {
     animation: false,
@@ -24,27 +42,50 @@ export function createSignalChartOption(
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 10,
     },
-    grid: createGrids(axisCount),
-    title: createTitles(panels),
-    legend: {
-      top: 7,
-      right: 16,
-      type: 'scroll',
-      itemWidth: 16,
-      itemHeight: 2,
-      textStyle: { color: '#b6bbc3', fontSize: 10 },
-      data: series.map((item) => item.name),
-    },
+    grid: panels.map((_, index) => ({
+      top: 8 + index * panelSlot + plotTop,
+      left: 76,
+      right: 28,
+      height: plotHeight,
+      containLabel: true,
+    })),
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross', snap: false },
       backgroundColor: '#171a1f',
       borderColor: AXIS_COLOR,
       textStyle: { color: '#f1f2f3', fontSize: 10 },
-      valueFormatter: (value) => value === null || value === undefined ? 'Missing' : numberFormatter.format(Number(value)),
+      valueFormatter: (value) => value === null || value === undefined ? 'Missing' : formatChartValue(Number(value)),
     },
-    xAxis: createXAxis(axisCount, domainStartSeconds, domainEndSeconds),
-    yAxis: createYAxis(panels),
+    xAxis: panels.map((_, index) => ({
+      type: 'value' as const,
+      gridIndex: index,
+      show: panels[index].visible,
+      min: domainStartSeconds,
+      max: domainEndSeconds,
+      name: index === panels.length - 1 ? 'Elapsed time (s)' : '',
+      nameLocation: 'middle' as const,
+      nameGap: 29,
+      axisLine: { lineStyle: { color: AXIS_COLOR } },
+      axisTick: { lineStyle: { color: AXIS_COLOR } },
+      axisLabel: { show: panels[index].visible, color: LABEL_COLOR, hideOverlap: true, width: 72, overflow: 'truncate' as const, formatter: (value: number) => formatChartValue(value) },
+      splitLine: { show: panels[index].visible, lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
+      nameTextStyle: { color: LABEL_COLOR, fontSize: 10 },
+    })),
+    yAxis: panels.map((panel, index) => ({
+      type: 'value' as const,
+      gridIndex: index,
+      show: panel.visible,
+      name: panel.unit ?? 'Value',
+      nameLocation: 'middle' as const,
+      nameGap: 52,
+      scale: true,
+      axisLine: { show: true, lineStyle: { color: AXIS_COLOR } },
+      axisTick: { lineStyle: { color: AXIS_COLOR } },
+      axisLabel: { show: panel.visible, color: LABEL_COLOR, hideOverlap: true, width: 76, overflow: 'truncate' as const, formatter: (value: number) => formatChartValue(value) },
+      splitLine: { show: panel.visible, lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
+      nameTextStyle: { color: LABEL_COLOR, fontSize: 10 },
+    })),
     axisPointer: {
       link: [{ xAxisIndex: 'all' }],
       label: { backgroundColor: AXIS_COLOR },
@@ -65,7 +106,9 @@ export function createSignalChartOption(
         id: 'viewport-slider',
         type: 'slider',
         xAxisIndex: axisIndexes,
-        height: 18,
+        height: 24,
+        handleSize: 14,
+        moveHandleSize: 10,
         bottom: 12,
         borderColor: '#30343b',
         backgroundColor: '#171a1f',
@@ -74,6 +117,7 @@ export function createSignalChartOption(
         textStyle: { color: LABEL_COLOR },
         showDataShadow: false,
         showDetail: false,
+        brushSelect: false,
         throttle: 80,
       },
     ],
@@ -82,121 +126,34 @@ export function createSignalChartOption(
   };
 }
 
-function createGrids(axisCount: number) {
-  return Array.from({ length: axisCount }, (_, index) => ({
-    top: 38 + Math.floor(index / 2) * PANEL_GAP + (index % 2) * 164,
-    left: 76,
-    right: 28,
-    height: 112,
-    containLabel: true,
-  }));
-}
-
-function createXAxis(axisCount: number, start: number, end: number) {
-  return Array.from({ length: axisCount }, (_, index) => ({
-    type: 'value' as const,
-    gridIndex: index,
-    min: start,
-    max: end,
-    name: index === axisCount - 1 ? 'Elapsed time (s)' : '',
-    nameLocation: 'middle' as const,
-    nameGap: 31,
-    axisLine: { lineStyle: { color: AXIS_COLOR } },
-    axisTick: { lineStyle: { color: AXIS_COLOR } },
-    axisLabel: { color: LABEL_COLOR, hideOverlap: true },
-    splitLine: { lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
-    nameTextStyle: { color: LABEL_COLOR, fontSize: 10 },
-  }));
-}
-
-function createYAxis(panels: readonly SignalChartPanel[]) {
-  return panels.flatMap((panel, index) => ([
-    createYAxisConfig(index * 2, panel.unit ?? 'Value'),
-    createYAxisConfig(index * 2 + 1, `Δ ${panel.unit ?? 'Value'}`),
-  ]));
-}
-
-function createYAxisConfig(gridIndex: number, name: string) {
-  return {
-    type: 'value' as const,
-    gridIndex,
-    name,
-    nameLocation: 'middle' as const,
-    nameGap: 52,
-    scale: true,
-    axisLine: { show: true, lineStyle: { color: AXIS_COLOR } },
-    axisTick: { lineStyle: { color: AXIS_COLOR } },
-    axisLabel: { color: LABEL_COLOR, hideOverlap: true },
-    splitLine: { lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
-    nameTextStyle: { color: LABEL_COLOR, fontSize: 10 },
-  };
-}
-
 function createPanelSeries(panel: SignalChartPanel, index: number) {
-  // The arrays are viewport-bounded and owned by the UI. ECharts receives them
-  // directly; copying them here would add three allocations per panel update.
+  // Viewport-bounded arrays are passed through without copying.
   return [
     {
       id: `${panel.id}-reference`,
       name: `${panel.label} · Reference`,
       type: 'line' as const,
-      xAxisIndex: index * 2,
-      yAxisIndex: index * 2,
+      xAxisIndex: index,
+      yAxisIndex: index,
       data: panel.reference,
       showSymbol: false,
       connectNulls: false,
       smooth: false,
-      lineStyle: { color: '#e5e7eb', width: 1.4 },
-      emphasis: { focus: 'series' as const, lineStyle: { width: 2 } },
+      lineStyle: { color: panel.color, width: 1.8 },
+      emphasis: { focus: 'series' as const, lineStyle: { width: 2.2 } },
     },
     {
       id: `${panel.id}-comparison`,
       name: `${panel.label} · Comparison`,
       type: 'line' as const,
-      xAxisIndex: index * 2,
-      yAxisIndex: index * 2,
+      xAxisIndex: index,
+      yAxisIndex: index,
       data: panel.comparison,
       showSymbol: false,
       connectNulls: false,
       smooth: false,
-      lineStyle: { color: '#929ba8', width: 1.4, type: 'dashed' as const },
-      emphasis: { focus: 'series' as const, lineStyle: { width: 2 } },
-    },
-    {
-      id: `${panel.id}-delta`,
-      name: `${panel.label} · Δ (Reference − Comparison)`,
-      type: 'line' as const,
-      xAxisIndex: index * 2 + 1,
-      yAxisIndex: index * 2 + 1,
-      data: panel.delta,
-      showSymbol: false,
-      connectNulls: false,
-      smooth: false,
-      lineStyle: { color: '#d6a85f', width: 1.35 },
-      emphasis: { focus: 'series' as const, lineStyle: { width: 2 } },
+      lineStyle: { color: panel.color, width: 1.5, type: 'dashed' as const, opacity: 0.62 },
+      emphasis: { focus: 'series' as const, lineStyle: { width: 2.2 } },
     },
   ];
-}
-
-function createTitles(panels: readonly SignalChartPanel[]) {
-  return panels.flatMap((panel, index) => ([
-    {
-      text: panel.label,
-      subtext: panel.unit ?? 'Unit unspecified',
-      left: 76,
-      top: 5 + index * PANEL_GAP,
-      itemGap: 2,
-      textStyle: { color: '#d2d5da', fontSize: 11, fontWeight: 500 },
-      subtextStyle: { color: LABEL_COLOR, fontSize: 9 },
-    },
-    {
-      text: 'Difference · Reference − Comparison',
-      subtext: 'Interpolated on reference timestamps',
-      left: 76,
-      top: 169 + index * PANEL_GAP,
-      itemGap: 2,
-      textStyle: { color: '#d6a85f', fontSize: 10, fontWeight: 500 },
-      subtextStyle: { color: LABEL_COLOR, fontSize: 9 },
-    },
-  ]));
 }
