@@ -2,7 +2,6 @@ import Papa from 'papaparse';
 import type { DatasetDescriptor } from '../measurements/model';
 import type { ChannelEnvelopeIndex } from '../measurements/windowing';
 import { buildChannelEnvelopeIndex } from '../measurements/windowing';
-import { medianSampleIntervalFromTimes } from '../measurements/difference';
 import { MeasurementError } from '../measurements/errors';
 import {
   createChannelId,
@@ -24,7 +23,6 @@ export interface StoredChannel {
 
 export interface StoredDataset {
   readonly timeSeconds: Float64Array;
-  readonly nominalSampleIntervalSeconds: number | null;
   readonly channels: Map<string, StoredChannel>;
 }
 
@@ -284,16 +282,12 @@ export function importCsv(
           storedChannels.set(channel.id, { values, envelopeIndex });
         }
         const timeAxis = timeValues.slice(0, sampleCount);
-        // Cadence is dataset-wide metadata. Computing it during ingestion avoids
-        // repeating a 4,096-sample sort for every channel on every viewport query.
-        const nominalSampleIntervalSeconds = medianSampleIntervalFromTimes(timeAxis);
         const timeAxisBytes = timeAxis.byteLength;
         const retainedStorageBytes = timeAxisBytes + channelValueBytes + envelopeIndexBytes;
 
         datasets.set(id, {
           // Keep the retained time axis compact after chunked ingestion.
           timeSeconds: timeAxis,
-          nominalSampleIntervalSeconds,
           channels: storedChannels,
         });
         const measuredDescriptor: DatasetDescriptor = {

@@ -71,6 +71,7 @@ export function EChartsSignalChart({
   const fpsLastInteraction = useRef(0);
   const fpsWindowStart = useRef(0);
   const fpsFrames = useRef(0);
+  const pointerActive = useRef(false);
   const [chartHeight, setChartHeight] = useState(0);
   const latestProps = useRef({ domainStartSeconds, domainEndSeconds, onViewportChange });
 
@@ -87,14 +88,20 @@ export function EChartsSignalChart({
       if (fpsWindowStart.current === 0) fpsWindowStart.current = now;
       fpsFrames.current += 1;
       const elapsed = now - fpsWindowStart.current;
-      if (elapsed >= 500) {
-        onFpsChange(Math.round((fpsFrames.current * 1000) / elapsed));
+      if (elapsed >= 250) {
+        onFpsChange(Math.round(((fpsFrames.current - 1) * 1000) / elapsed));
         fpsWindowStart.current = now;
-        fpsFrames.current = 0;
+        fpsFrames.current = 1;
       }
       if (now - fpsLastInteraction.current < 900) {
         fpsFrame.current = requestAnimationFrame(tick);
       } else {
+        // Publish short gestures too; otherwise a quick wheel/pinch zoom can
+        // finish before the first reporting window and leave the metric stale.
+        const finalElapsed = now - fpsWindowStart.current;
+        if (finalElapsed >= 100 && fpsFrames.current > 1) {
+          onFpsChange(Math.round(((fpsFrames.current - 1) * 1000) / finalElapsed));
+        }
         fpsFrame.current = null;
       }
     };
@@ -168,6 +175,10 @@ export function EChartsSignalChart({
   }, [dispatchViewport]);
 
   const handleDataZoom = useCallback((rawEvent: DataZoomEvent) => {
+    // ECharts emits datazoom for inside-wheel, drag-pan, pinch and slider
+    // interactions. Use this as the authoritative interaction signal rather
+    // than relying only on DOM pointer movement over the wrapper.
+    recordInteraction();
     const event = rawEvent.batch?.at(-1) ?? rawEvent;
     const domainStart = latestProps.current.domainStartSeconds;
     const domainEnd = latestProps.current.domainEndSeconds;
@@ -187,7 +198,7 @@ export function EChartsSignalChart({
       endSeconds: boundedEnd,
       pixelWidth: chartWidth.current,
     });
-  }, [dispatchViewport]);
+  }, [dispatchViewport, recordInteraction]);
 
   const option = useMemo(
     () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600),
@@ -200,7 +211,10 @@ export function EChartsSignalChart({
       className="echarts-signal-chart relative h-full min-h-0"
       data-testid="signal-chart"
       role="group"
-      onPointerMove={recordInteraction}
+      onPointerDown={() => { pointerActive.current = true; recordInteraction(); }}
+      onPointerMove={() => { if (pointerActive.current) recordInteraction(); }}
+      onPointerUp={() => { pointerActive.current = false; }}
+      onPointerCancel={() => { pointerActive.current = false; }}
       onWheel={recordInteraction}
       onTouchMove={recordInteraction}
       aria-label={`Synchronized comparison of ${panels.length} signals. Use the mouse wheel or pinch to zoom, drag to pan, and the shared range slider to navigate all timelines.`}

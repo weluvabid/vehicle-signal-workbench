@@ -39,21 +39,14 @@ export function queryChannelTimeStatistics(
   const suffixStart = hasFullBlocks ? endFullBlock * blockSize : endIndex;
 
   let aggregate: StatisticsAggregate = { count: 0, mean: 0, m2: 0 };
-  // Keep the boundary scan allocation-free. Merging a temporary aggregate
-  // object per sample creates avoidable GC pressure on every viewport query.
   const scan = (from: number, to: number): StatisticsAggregate => {
-    let count = 0;
-    let mean = 0;
-    let m2 = 0;
+    let result: StatisticsAggregate = { count: 0, mean: 0, m2: 0 };
     for (let sample = from; sample < to; sample += 1) {
       const value = buffers.values[sample];
       if (!Number.isFinite(value)) continue;
-      count += 1;
-      const delta = value - mean;
-      mean += delta / count;
-      m2 += delta * (value - mean);
+      result = mergeStatistics(result, { count: 1, mean: value, m2: 0 });
     }
-    return { count, mean, m2 };
+    return result;
   };
 
   aggregate = mergeStatistics(aggregate, scan(startIndex, prefixEnd));

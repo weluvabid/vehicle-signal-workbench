@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateSignalDifference, calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange, calculateSignalDifferenceEnvelopeInTimeRange, calculateSignalDifferencePlotEnvelopeInTimeRange, downsampleDifferenceEnvelope, medianSampleInterval, medianSampleIntervalFromTimes } from './difference.ts';
+import { calculateSignalDifference, calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange, calculateSignalDifferenceEnvelopeInTimeRange, calculateSignalDifferencePlotEnvelopeInTimeRange, downsampleDifferenceEnvelope, medianSampleInterval } from './difference.ts';
 
 const window = (time: number[], values: number[]) => ({
   datasetId: 'dataset', channelId: 'channel', startIndex: 0,
@@ -202,11 +202,4 @@ test('chart-only difference envelope allocates only timestamps and delta output'
   assert.deepEqual(plot.statistics, full.statistics);
   assert.equal('referenceValues' in plot, false);
   assert.equal('comparisonValues' in plot, false);
-});
-
-
-test('precomputed dataset cadence matches the channel-window cadence estimate', () => {
-  const times = new Float64Array([0, 0.1, 0.2, 0.3, 0.4, 0.5]);
-  assert.equal(medianSampleIntervalFromTimes(times), medianSampleInterval(window([0, 0.1, 0.2, 0.3, 0.4, 0.5], [1, 1, 1, 1, 1, 1])));
-  assert.equal(medianSampleIntervalFromTimes(new Float64Array([0])), null);
 });

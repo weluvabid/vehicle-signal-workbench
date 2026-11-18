@@ -183,10 +183,9 @@ export function calculateSignalDifferencePlotEnvelopeInTimeRange(
   endSeconds: number,
   comparisonOffsetSeconds: number,
   pixelWidth: number,
-  nominalSampleIntervalSeconds: number | null = medianSampleInterval(comparisonSource),
 ): DifferencePlotResult {
   return calculateDifferenceEnvelope(referenceSource, comparisonSource, startSeconds, endSeconds,
-    comparisonOffsetSeconds, pixelWidth, false, nominalSampleIntervalSeconds) as DifferencePlotResult;
+    comparisonOffsetSeconds, pixelWidth, false) as DifferencePlotResult;
 }
 
 function calculateDifferenceEnvelope(
@@ -197,7 +196,6 @@ function calculateDifferenceEnvelope(
   comparisonOffsetSeconds: number,
   pixelWidth: number,
   includeSourceValues: boolean,
-  nominalSampleIntervalSeconds: number | null = medianSampleInterval(comparisonSource),
 ): DifferenceResult | DifferencePlotResult {
   if (!Number.isInteger(pixelWidth) || pixelWidth < 1 || pixelWidth > 8_192) {
     throw new RangeError('Difference envelope pixel width must be between 1 and 8192.');
@@ -217,9 +215,8 @@ function calculateDifferenceEnvelope(
     timeSeconds: comparisonSource.timeSeconds.subarray(comparisonStart, comparisonEnd),
     values: comparisonSource.values.subarray(comparisonStart, comparisonEnd),
   };
-  const maxGap = nominalSampleIntervalSeconds === null
-    ? null
-    : nominalSampleIntervalSeconds * DIFFERENCE_POLICY.maxInterpolationGapFactor;
+  const cadence = medianSampleInterval(comparisonSource);
+  const maxGap = cadence === null ? null : cadence * DIFFERENCE_POLICY.maxInterpolationGapFactor;
   const delta = new Float64Array(sampleCount);
   delta.fill(Number.NaN);
   let matchedCount = 0;
@@ -333,16 +330,11 @@ export function medianSampleInterval(window: Pick<ChannelWindow, 'timeSeconds' |
   if (window.timeSeconds.length !== window.values.length) {
     throw new RangeError('Cadence input time and value arrays must have equal lengths.');
   }
-  return medianSampleIntervalFromTimes(window.timeSeconds);
-}
-
-/** Compute the same bounded-sample cadence estimate once per imported time axis. */
-export function medianSampleIntervalFromTimes(timeSeconds: Float64Array): number | null {
   const intervals: number[] = [];
-  const intervalCount = Math.max(0, timeSeconds.length - 1);
+  const intervalCount = Math.max(0, window.timeSeconds.length - 1);
   const stride = Math.max(1, Math.ceil(intervalCount / 4_096));
-  for (let index = 1; index < timeSeconds.length; index += stride) {
-    const interval = timeSeconds[index] - timeSeconds[index - 1];
+  for (let index = 1; index < window.timeSeconds.length; index += stride) {
+    const interval = window.timeSeconds[index] - window.timeSeconds[index - 1];
     if (!Number.isFinite(interval) || interval <= 0) {
       throw new RangeError('Sampled cadence timestamps must be finite and strictly increasing.');
     }

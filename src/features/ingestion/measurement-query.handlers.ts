@@ -51,7 +51,6 @@ export function handleMeasurementQuery(
         { datasetId: request.comparisonDatasetId, channelId: request.comparisonChannelId,
           timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values },
         request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds, request.pixelWidth,
-        comparisonDataset.nominalSampleIntervalSeconds,
       ),
     };
     context.postTransfer({ type: 'comparison-panel', requestId: request.requestId, result }, {
