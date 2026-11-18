@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "rejected",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Reference import rejects inconsistent row width.",
+    "Comparison import rejects malformed quoting/CSV syntax."
+  ],
+  "notes": []
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Empty numeric cells are imported as NaN/missing samples.",
+    "Missing values are not converted to zero."
+  ],
+  "notes": []
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "iso-8601"
+  },
+  "comparison": null,
+  "assertions": [
+    "Both runs import with explicit iso-8601 selection.",
+    "Elapsed time is normalized to seconds from each run origin."
+  ],
+  "notes": []
+}

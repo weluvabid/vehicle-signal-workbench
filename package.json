@@ -19,7 +19,15 @@
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
     "prepare": "sh ./scripts/install-hooks.sh",
     "test": "node --experimental-strip-types --test",
-    "benchmark:measurements": "node --experimental-strip-types scripts/benchmark-measurements.mjs"
+    "benchmark:measurements": "node --experimental-strip-types scripts/benchmark-measurements.mjs",
+    "fixtures:generate": "node scripts/generate-measurement-fixtures.mjs",
+    "test:e2e": "node scripts/generate-measurement-fixtures.mjs --force && playwright test",
+    "test:e2e:headed": "node scripts/generate-measurement-fixtures.mjs --force && playwright test --headed",
+    "test:e2e:ui": "node scripts/generate-measurement-fixtures.mjs --force && playwright test --ui",
+    "test:e2e:performance": "node scripts/generate-measurement-fixtures.mjs --performance-scenario 19 --force && VSW_RUN_PERFORMANCE=1 playwright test tests/e2e/performance.spec.ts",
+    "test:e2e:performance:10m": "node scripts/generate-measurement-fixtures.mjs --performance-scenario 20 --force && VSW_RUN_PERFORMANCE=1 VSW_RUN_10M=1 playwright test tests/e2e/performance.spec.ts",
+    "test:all": "pnpm test && pnpm test:e2e",
+    "test:e2e:cross-browser": "node scripts/generate-measurement-fixtures.mjs --force && VSW_CROSS_BROWSER=1 playwright test"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -35,17 +43,18 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
-    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^22.19.0",
-    "@types/papaparse": "^5.3.16",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "eslint": "^9.39.0",
     "eslint-config-next": "^16.3.0",
     "globals": "^16.5.0",
     "prettier": "^3.6.2",
-    "tailwindcss": "^4.3.5",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.0"
+    "typescript-eslint": "^8.46.0",
+    "@types/papaparse": "^5.3.16",
+    "@playwright/test": "1.65.1",
+    "@tailwindcss/postcss": "4.3.5",
+    "tailwindcss": "4.3.5"
   }
 }

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Numeric signal columns import normally.",
+    "Text-only metadata columns contain no valid numeric samples and are excluded from the valid channel set."
+  ],
+  "notes": [
+    "Current importer treats every non-timestamp column as a candidate measurement channel; text-only columns are not a separate metadata schema."
+  ]
+}

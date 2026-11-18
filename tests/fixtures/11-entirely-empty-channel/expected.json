@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "The run imports because at least one numeric channel has valid samples.",
+    "The entirely empty channel is excluded from the valid channel descriptor set."
+  ],
+  "notes": []
+}

@@ -23,7 +23,7 @@ export default function HomePage() {
       <ComparisonWorkspace />
 
       <footer className="page-footer">
-        <span>PHASE 5 · INTERACTIVE SIGNAL COMPARISON</span>
+        <span>PHASE 9 · SIGNAL COMPARISON</span>
         <span>Data remains in this browser session</span>
       </footer>
     </main>

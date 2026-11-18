@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": {
+    "referenceRateHz": 100,
+    "comparisonRateHz": 50,
+    "expectedOverlapSeconds": [
+      0,
+      10
+    ]
+  },
+  "assertions": [
+    "Both runs import successfully.",
+    "Comparison values are linearly interpolated only inside permitted sample gaps."
+  ],
+  "notes": []
+}

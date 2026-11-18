@@ -39,3 +39,13 @@ benchmarks/results/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# Generated functional CSV fixtures are small and versionable; performance data is local-only.
+!tests/
+!tests/fixtures/
+!tests/fixtures/**/
+!tests/fixtures/**/*.csv
+tests/fixtures/19-large-run-1m/
+tests/fixtures/20-high-density-run-10m/
+playwright-report/
+test-results/

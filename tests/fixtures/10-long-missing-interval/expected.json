@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": {
+    "missingIntervalSeconds": [
+      3,
+      5
+    ]
+  },
+  "assertions": [
+    "Long NaN intervals remain gaps.",
+    "Interpolation must not bridge a missing run or exceed the maximum permitted source-sample gap."
+  ],
+  "notes": []
+}

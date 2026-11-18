@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "variants": [
+    "iso-8601",
+    "unix-seconds",
+    "unix-milliseconds"
+  ],
+  "notes": [
+    "Each child directory is a separate pair and requires its own timestamp-encoding selection."
+  ]
+}

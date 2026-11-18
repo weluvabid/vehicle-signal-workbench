@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": {
+    "referenceIntervalSeconds": [
+      0,
+      12
+    ],
+    "comparisonIntervalSeconds": [
+      2,
+      9
+    ],
+    "comparisonOffsetSeconds": 2,
+    "expectedOverlapSeconds": [
+      2,
+      9
+    ]
+  },
+  "assertions": [
+    "Both runs import successfully.",
+    "Only the shared time interval is comparable.",
+    "No extrapolation occurs outside the comparison run."
+  ],
+  "notes": []
+}

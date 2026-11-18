@@ -93,11 +93,11 @@ export function ComparisonWorkspace() {
               </div>
               <label className="offset-control">
                 <span>Comparison offset (seconds)</span>
-                <input type="number" step="any" value={offsetInput} onChange={(event) => setOffsetInput(event.target.value)} />
+                <input aria-label="Comparison offset (seconds)" data-testid="comparison-offset" type="number" step="any" value={offsetInput} onChange={(event) => setOffsetInput(event.target.value)} />
               </label>
             </div>
             {overlap && (
-              <div className="overlap-summary" aria-live="polite">
+              <div className="overlap-summary" aria-live="polite" data-testid="overlap-summary">
                 <div><span>Shared interval</span><strong>{overlap.startSeconds.toFixed(3)}–{overlap.endSeconds.toFixed(3)} s</strong></div>
                 <div><span>Overlap duration</span><strong>{overlap.durationSeconds.toFixed(3)} s</strong></div>
                 <p>{overlap.durationSeconds > 0
@@ -118,7 +118,7 @@ export function ComparisonWorkspace() {
             {compatibleCount} of {suggestedMappings.length} channels have conservative exact-name and unit matches. Confirm mappings before comparison; conversion and resampling are not part of this phase.
           </p>
           {overlap && overlap.durationSeconds > 0 && compatibleMappings.length > 0 && (
-            <section className="plot-workspace" aria-labelledby="plot-workspace-title">
+            <section className="plot-workspace" aria-labelledby="plot-workspace-title" data-testid="plot-workspace">
               <div className="plot-toolbar">
                 <div><p className="eyebrow">COMPARISON VIEW</p><h2 id="plot-workspace-title">Inspect synchronized signals</h2><p className="plot-toolbar-copy">Select up to six channels. All panels share zoom, pan, timeline and crosshair.</p></div>
                 <span className="selection-count">{selectedSignals.length} / 6 selected</span>

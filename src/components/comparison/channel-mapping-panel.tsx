@@ -122,7 +122,7 @@ export function ChannelMappingPanel({
                       : 'Unmapped'}
                 </span>
                 {mapping && mapping.compatibility !== 'compatible' && (
-                  <small className="mapping-reason">{mapping.reason}</small>
+                  <small className="mapping-reason">{suggestion?.reason ?? mapping.reason}</small>
                 )}
               </div>
             </div>

@@ -226,8 +226,11 @@ function importCsv(request: Extract<IngestionRequest, { type: 'import' }>): void
           activeImports.delete(requestId);
         }
       } catch (error) {
-        papaParser.abort();
+        // Mark the request terminal and notify the client before aborting.
+        // Papa Parse may invoke `complete` as part of abort(); if abort runs
+        // first, that callback can incorrectly publish a partial dataset.
         fail(error);
+        papaParser.abort();
       }
     },
     complete() {

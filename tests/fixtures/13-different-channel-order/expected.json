@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Channels map by normalized label and compatible unit, not CSV column position."
+  ],
+  "notes": []
+}

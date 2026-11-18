@@ -76,3 +76,17 @@ test('manual mappings retain incompatible-unit status', () => {
   assert.equal(mapping.compatibility, 'unit-mismatch');
   assert.equal(mapping.confidence, 'manual');
 });
+
+test('does not map duplicate normalized labels from the reference side to one comparison channel', () => {
+  const duplicateLeft = {
+    ...left,
+    channels: [
+      { ...left.channels[1], id: 'speed-left-1' },
+      { ...left.channels[1], id: 'speed-left-2', sourceColumn: 'Speed  [km/h]' },
+    ],
+  };
+  const suggestions = suggestChannelMappings(duplicateLeft, { ...right, channels: [right.channels[1]] });
+  assert.equal(suggestions.length, 2);
+  assert.ok(suggestions.every((suggestion) => suggestion.right === null));
+  assert.ok(suggestions.every((suggestion) => /Multiple channels/.test(suggestion.reason)));
+});

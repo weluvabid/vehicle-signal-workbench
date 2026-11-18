@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": {
+    "expectedOverlapSeconds": [
+      0,
+      10
+    ],
+    "expectedMatchedReferenceSamples": 1001
+  },
+  "assertions": [
+    "Both runs import successfully.",
+    "Three channels map by identical label and unit.",
+    "Identical signals produce zero delta within floating-point tolerance."
+  ],
+  "notes": []
+}

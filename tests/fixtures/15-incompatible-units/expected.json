@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Channel labels match but units differ.",
+    "No automatic conversion or compatible mapping is assumed."
+  ],
+  "notes": [
+    "The values are intentionally numerically similar; unit metadata is the incompatibility under test."
+  ]
+}

@@ -103,7 +103,7 @@ export function CsvImportPanel({ title, role, client, dataset, onDataset }: CsvI
   }
 
   return (
-    <section className="import-panel" aria-labelledby={`${role}-import-title`}>
+    <section className="import-panel" aria-labelledby={`${role}-import-title`} data-testid={`${role}-import-panel`}>
       <div className="import-panel-heading">
         <div>
           <p className="eyebrow">{role === 'reference' ? 'RUN A · BASELINE' : 'RUN B · CANDIDATE'}</p>
@@ -114,6 +114,7 @@ export function CsvImportPanel({ title, role, client, dataset, onDataset }: CsvI
 
       <label className="file-picker">
         <input
+          data-testid={`${role}-file-input`}
           type="file" accept=".csv,text/csv"
           disabled={status === 'importing' || status === 'inspecting'}
           onChange={(event) => void handleFileChange(event.target.files?.[0] ?? null)}
@@ -147,7 +148,7 @@ export function CsvImportPanel({ title, role, client, dataset, onDataset }: CsvI
       </div>
       {error && <p className="import-error" role="alert">{error}</p>}
       {dataset && (
-        <div className="dataset-summary" aria-live="polite">
+        <div className="dataset-summary" aria-live="polite" data-testid={`${role}-dataset-summary`}>
           <p className="summary-title">{dataset.name}</p>
           <dl>
             <div><dt>Samples</dt><dd>{dataset.sampleCount.toLocaleString()}</dd></div>

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": {
+    "comparisonOffsetSeconds": 10,
+    "expectedOverlapSeconds": null,
+    "expectedMatchedReferenceSamples": 0
+  },
+  "assertions": [
+    "Both runs import successfully.",
+    "The workspace reports no overlap and produces no comparable delta samples."
+  ],
+  "notes": []
+}

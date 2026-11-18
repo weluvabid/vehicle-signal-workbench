@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-milliseconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Both runs import with explicit unix-milliseconds selection.",
+    "Elapsed time is normalized to seconds from each run origin."
+  ],
+  "notes": []
+}

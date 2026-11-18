@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": {
+    "sampling": "irregular",
+    "nominalRateHz": 100
+  },
+  "assertions": [
+    "Strictly increasing irregular timestamps import successfully.",
+    "Median interval and interpolation-gap policy are exercised."
+  ],
+  "notes": []
+}

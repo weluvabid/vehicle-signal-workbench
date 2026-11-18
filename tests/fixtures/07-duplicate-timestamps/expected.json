@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "rejected",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Reference import fails with NON_MONOTONIC_TIMESTAMP.",
+    "Duplicate timestamps are not silently sorted or deduplicated."
+  ],
+  "notes": []
+}

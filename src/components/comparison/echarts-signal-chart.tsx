@@ -103,6 +103,19 @@ export function EChartsSignalChart({
     });
   }, []);
 
+  // The chart can become ready before the workspace has selected its default
+  // channels. In that case the first viewport callback is intentionally ignored
+  // by the data owner (there are no selections yet). Re-dispatch when panels
+  // become available so the initial worker query is not lost.
+  useEffect(() => {
+    if (panels.length === 0) return;
+    dispatchViewport({
+      startSeconds: domainStartSeconds,
+      endSeconds: domainEndSeconds,
+      pixelWidth: chartWidth.current,
+    });
+  }, [panels.length, domainStartSeconds, domainEndSeconds, dispatchViewport]);
+
   useEffect(() => {
     const element = container.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
@@ -314,6 +327,7 @@ export function EChartsSignalChart({
     <div
       ref={container}
       className="echarts-signal-chart"
+      data-testid="signal-chart"
       role="group"
       aria-label={`Synchronized comparison of ${panels.length} signals. Use the mouse wheel or pinch to zoom, drag to pan, and the shared range slider to navigate all timelines.`}
     >

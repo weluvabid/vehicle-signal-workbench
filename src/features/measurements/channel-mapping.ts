@@ -43,6 +43,12 @@ export function suggestChannelMappings(
   rightDataset: DatasetDescriptor,
 ): readonly SuggestedChannelMapping[] {
   const rightByLabel = new Map<string, ChannelDescriptor[]>();
+  const leftLabelCounts = new Map<string, number>();
+
+  for (const channel of leftDataset.channels) {
+    const key = normalizeLabel(channel.label);
+    leftLabelCounts.set(key, (leftLabelCounts.get(key) ?? 0) + 1);
+  }
 
   for (const channel of rightDataset.channels) {
     const key = normalizeLabel(channel.label);
@@ -52,15 +58,17 @@ export function suggestChannelMappings(
   }
 
   return leftDataset.channels.map((left) => {
-    const candidates = rightByLabel.get(normalizeLabel(left.label)) ?? [];
-    const right = candidates.length === 1 ? candidates[0] : null;
+    const key = normalizeLabel(left.label);
+    const candidates = rightByLabel.get(key) ?? [];
+    const ambiguousLeft = (leftLabelCounts.get(key) ?? 0) > 1;
+    const right = !ambiguousLeft && candidates.length === 1 ? candidates[0] : null;
 
     if (!right) {
       return {
         left,
         right: null,
         compatibility: 'unmatched',
-        reason: candidates.length > 1
+        reason: ambiguousLeft || candidates.length > 1
           ? 'Multiple channels share this label; map manually.'
           : 'No exact channel-name match found.',
       };

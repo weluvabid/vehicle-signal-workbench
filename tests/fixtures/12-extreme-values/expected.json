@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "import": {
+    "status": "accepted",
+    "timestampColumn": "Timestamp",
+    "timestampEncoding": "unix-seconds"
+  },
+  "comparison": null,
+  "assertions": [
+    "Finite magnitudes from 1e-120 through 1e120 remain finite after parsing.",
+    "Statistics and difference calculations do not produce NaN from valid finite inputs."
+  ],
+  "notes": [
+    "This fixture targets numeric stability, not physical plausibility."
+  ]
+}
