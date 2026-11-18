@@ -183,9 +183,10 @@ export function calculateSignalDifferencePlotEnvelopeInTimeRange(
   endSeconds: number,
   comparisonOffsetSeconds: number,
   pixelWidth: number,
+  shouldAbort?: () => boolean,
 ): DifferencePlotResult {
   return calculateDifferenceEnvelope(referenceSource, comparisonSource, startSeconds, endSeconds,
-    comparisonOffsetSeconds, pixelWidth, false) as DifferencePlotResult;
+    comparisonOffsetSeconds, pixelWidth, false, shouldAbort) as DifferencePlotResult;
 }
 
 function calculateDifferenceEnvelope(
@@ -196,6 +197,7 @@ function calculateDifferenceEnvelope(
   comparisonOffsetSeconds: number,
   pixelWidth: number,
   includeSourceValues: boolean,
+  shouldAbort?: () => boolean,
 ): DifferenceResult | DifferencePlotResult {
   if (!Number.isInteger(pixelWidth) || pixelWidth < 1 || pixelWidth > 8_192) {
     throw new RangeError('Difference envelope pixel width must be between 1 and 8192.');
@@ -228,6 +230,9 @@ function calculateDifferenceEnvelope(
   let comparisonCursor = 0;
 
   for (let offset = 0; offset < sampleCount; offset++) {
+    if ((offset & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
     const index = referenceStart + offset;
     const referenceValue = referenceSource.values[index];
     if (!Number.isFinite(referenceValue)) continue;
@@ -275,7 +280,7 @@ function calculateDifferenceEnvelope(
   };
 
   const timeWindow = referenceSource.timeSeconds.subarray(referenceStart, referenceEnd);
-  const selection = selectDifferenceEnvelopeIndexes(timeWindow, delta, pixelWidth);
+  const selection = selectDifferenceEnvelopeIndexes(timeWindow, delta, pixelWidth, shouldAbort);
   const outputLength = selection.indexes.length;
   const timeSeconds = new Float64Array(outputLength);
   const referenceValues = includeSourceValues ? new Float64Array(outputLength) : null;

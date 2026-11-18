@@ -19,15 +19,18 @@ self.onmessage = (event: MessageEvent<IngestionRequest>): void => {
         active.parser?.abort();
         if (active.parser) context.activeImports.delete(request.requestId);
       }
+      context.activeQueries.delete(request.requestId);
       return;
     }
     case 'import':
       importCsv(request, context.activeImports, context.datasets, context.post);
       return;
     default:
-      if (!handleMeasurementQuery(request, context)) {
-        throw new Error(`Unhandled worker request: ${JSON.stringify(request)}`);
-      }
+      void handleMeasurementQuery(request, context).then((handled) => {
+        if (!handled) throw new Error(`Unhandled worker request: ${JSON.stringify(request)}`);
+      }).catch((error: unknown) => {
+        throw error;
+      });
       return;
   }
 };

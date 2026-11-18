@@ -10,6 +10,7 @@ export function selectDifferenceEnvelopeIndexes(
   timeSeconds: Float64Array,
   delta: Float64Array,
   pixelWidth: number,
+  shouldAbort?: () => boolean,
 ): DifferenceEnvelopeSelection {
   if (!Number.isInteger(pixelWidth) || pixelWidth < 1 ||
       timeSeconds.length !== delta.length) {
@@ -30,16 +31,32 @@ export function selectDifferenceEnvelopeIndexes(
   const forcedGapIndexes = new Set<number>();
   let cursor = 0;
   while (cursor < count) {
+    if ((cursor & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
     const bucket = Math.min(pixelWidth - 1, Math.floor(((timeSeconds[cursor] - firstTime) / duration) * pixelWidth));
     let end = cursor + 1;
-    while (end < count && Math.min(pixelWidth - 1, Math.floor(((timeSeconds[end] - firstTime) / duration) * pixelWidth)) === bucket) end++;
+    while (end < count && Math.min(pixelWidth - 1, Math.floor(((timeSeconds[end] - firstTime) / duration) * pixelWidth)) === bucket) {
+      if ((end & 4_095) === 0 && shouldAbort?.()) {
+        throw new DOMException('Viewport query superseded.', 'AbortError');
+      }
+      end++;
+    }
+    if ((end & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
     const candidates: number[] = [];
     let segmentStart = cursor;
     let gapRuns = 0;
     while (segmentStart < end) {
       const isMissing = !Number.isFinite(delta[segmentStart]);
       let segmentEnd = segmentStart + 1;
-      while (segmentEnd < end && (!Number.isFinite(delta[segmentEnd])) === isMissing) segmentEnd++;
+      while (segmentEnd < end && (!Number.isFinite(delta[segmentEnd])) === isMissing) {
+        if ((segmentEnd & 4_095) === 0 && shouldAbort?.()) {
+          throw new DOMException('Viewport query superseded.', 'AbortError');
+        }
+        segmentEnd++;
+      }
       if (isMissing) {
         gapRuns++;
         candidates.push(segmentStart);
@@ -48,6 +65,9 @@ export function selectDifferenceEnvelopeIndexes(
         let min = segmentStart;
         let max = segmentStart;
         for (let index = segmentStart + 1; index < segmentEnd; index++) {
+          if ((index & 4_095) === 0 && shouldAbort?.()) {
+            throw new DOMException('Viewport query superseded.', 'AbortError');
+          }
           if (delta[index] < delta[min]) min = index;
           if (delta[index] > delta[max]) max = index;
         }

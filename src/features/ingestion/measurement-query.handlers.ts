@@ -1,68 +1,105 @@
 import { calculateSignalDifferencePlotEnvelopeInTimeRange } from '../measurements/difference';
 import { queryChannelEnvelopeTimeWindow, queryChannelTimeStatistics } from '../measurements/windowing';
-import type { IngestionRequest } from './worker-protocol';
+import type { ComparisonPanelQueryResult, IngestionRequest } from './worker-protocol';
 import type { WorkerRuntimeContext } from './worker-runtime';
 
-/** Handles viewport-bounded comparison queries against worker-owned canonical buffers. */
-export function handleMeasurementQuery(
+const yieldToWorker = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/** Handles one logical viewport operation and all selected channels as one response. */
+export async function handleMeasurementQuery(
   request: IngestionRequest,
   context: WorkerRuntimeContext,
-): boolean {
-  if (request.type !== 'query-comparison-panel') return false;
+): Promise<boolean> {
+  if (request.type !== 'query-comparison-batch') return false;
 
-  const referenceDataset = context.datasets.get(request.referenceDatasetId);
-  const comparisonDataset = context.datasets.get(request.comparisonDatasetId);
-  const referenceChannel = referenceDataset?.channels.get(request.referenceChannelId);
-  const comparisonChannel = comparisonDataset?.channels.get(request.comparisonChannelId);
-  if (!referenceDataset || !comparisonDataset || !referenceChannel || !comparisonChannel) {
-    context.post({ type: 'error', requestId: request.requestId, code: 'DIFFERENCE_INPUT_NOT_FOUND',
-      message: 'One or both datasets or channels are unavailable in this worker session.' });
-    return true;
-  }
+  const { requestId } = request;
+  context.activeQueries.add(requestId);
+  const cancelFlag = request.cancelBuffer ? new Int32Array(request.cancelBuffer) : null;
+  const isCancelled = () => !context.activeQueries.has(requestId) || (cancelFlag !== null && Atomics.load(cancelFlag, 0) !== 0);
+  const cancelIfRequested = () => {
+    if (isCancelled()) throw new DOMException('Viewport query superseded.', 'AbortError');
+  };
 
   try {
-    if (!Number.isInteger(request.pixelWidth) || request.pixelWidth < 1 || request.pixelWidth > 8_192) {
-      throw new RangeError('Comparison panel pixel width must be between 1 and 8192.');
+    const referenceDataset = context.datasets.get(request.referenceDatasetId);
+    const comparisonDataset = context.datasets.get(request.comparisonDatasetId);
+    if (!referenceDataset || !comparisonDataset) {
+      throw new Error('One or both datasets are unavailable in this worker session.');
     }
-    const referenceBuffers = { timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values };
-    const comparisonBuffers = { timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values };
-    const comparisonStart = request.startSeconds - request.comparisonOffsetSeconds;
-    const comparisonEnd = request.endSeconds - request.comparisonOffsetSeconds;
-    const result = {
-      referenceWindow: queryChannelEnvelopeTimeWindow(
-        request.referenceDatasetId, request.referenceChannelId, referenceBuffers,
-        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, request.pixelWidth,
-      ),
-      comparisonWindow: queryChannelEnvelopeTimeWindow(
-        request.comparisonDatasetId, request.comparisonChannelId, comparisonBuffers,
-        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth,
-      ),
-      referenceStatistics: queryChannelTimeStatistics(
-        request.referenceDatasetId, request.referenceChannelId, referenceBuffers,
-        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds,
-      ),
-      comparisonStatistics: queryChannelTimeStatistics(
-        request.comparisonDatasetId, request.comparisonChannelId, comparisonBuffers,
-        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd,
-      ),
-      differenceSeries: calculateSignalDifferencePlotEnvelopeInTimeRange(
-        { datasetId: request.referenceDatasetId, channelId: request.referenceChannelId,
+    if (!Number.isInteger(request.pixelWidth) || request.pixelWidth < 1 || request.pixelWidth > 8_192 ||
+        !Number.isFinite(request.startSeconds) || !Number.isFinite(request.endSeconds) ||
+        request.endSeconds <= request.startSeconds || !Number.isFinite(request.comparisonOffsetSeconds) ||
+        request.panels.length === 0) {
+      throw new RangeError('Invalid batched comparison viewport query.');
+    }
+
+    const results: ComparisonPanelQueryResult[] = [];
+    for (const selection of request.panels) {
+      // Yield between panels so the worker can receive and process a cancel message.
+      await yieldToWorker();
+      cancelIfRequested();
+
+      const referenceChannel = referenceDataset.channels.get(selection.referenceChannelId);
+      const comparisonChannel = comparisonDataset.channels.get(selection.comparisonChannelId);
+      if (!referenceChannel || !comparisonChannel) {
+        throw new Error(`Comparison channel pair is unavailable: ${selection.referenceChannelId}/${selection.comparisonChannelId}.`);
+      }
+
+      const referenceBuffers = { timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values };
+      const comparisonBuffers = { timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values };
+      const comparisonStart = request.startSeconds - request.comparisonOffsetSeconds;
+      const comparisonEnd = request.endSeconds - request.comparisonOffsetSeconds;
+
+      const referenceWindow = queryChannelEnvelopeTimeWindow(
+        request.referenceDatasetId, selection.referenceChannelId, referenceBuffers,
+        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, request.pixelWidth, isCancelled,
+      );
+      const comparisonWindow = queryChannelEnvelopeTimeWindow(
+        request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
+        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth, isCancelled,
+      );
+      const referenceStatistics = queryChannelTimeStatistics(
+        request.referenceDatasetId, selection.referenceChannelId, referenceBuffers,
+        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, isCancelled,
+      );
+      const comparisonStatistics = queryChannelTimeStatistics(
+        request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
+        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, isCancelled,
+      );
+
+      // Give cancellation a checkpoint before the potentially largest operation (difference generation).
+      await yieldToWorker();
+      cancelIfRequested();
+      const differenceSeries = calculateSignalDifferencePlotEnvelopeInTimeRange(
+        { datasetId: request.referenceDatasetId, channelId: selection.referenceChannelId,
           timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values },
-        { datasetId: request.comparisonDatasetId, channelId: request.comparisonChannelId,
+        { datasetId: request.comparisonDatasetId, channelId: selection.comparisonChannelId,
           timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values },
-        request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds, request.pixelWidth,
-      ),
-    };
-    context.postTransfer({ type: 'comparison-panel', requestId: request.requestId, result }, {
-      transfer: [
-        result.referenceWindow.timeSeconds.buffer, result.referenceWindow.values.buffer,
-        result.comparisonWindow.timeSeconds.buffer, result.comparisonWindow.values.buffer,
-        result.differenceSeries.timeSeconds.buffer, result.differenceSeries.delta.buffer,
-      ],
-    });
+        request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds, request.pixelWidth, isCancelled,
+      );
+      results.push({ referenceWindow, comparisonWindow, referenceStatistics, comparisonStatistics, differenceSeries });
+    }
+
+    cancelIfRequested();
+    const result = { panels: results };
+    const transfer: Transferable[] = [];
+    for (const panel of results) {
+      transfer.push(
+        panel.referenceWindow.timeSeconds.buffer, panel.referenceWindow.values.buffer,
+        panel.comparisonWindow.timeSeconds.buffer, panel.comparisonWindow.values.buffer,
+        panel.differenceSeries.timeSeconds.buffer, panel.differenceSeries.delta.buffer,
+      );
+    }
+    context.postTransfer({ type: 'comparison-batch', requestId, result }, { transfer });
   } catch (error) {
-    context.post({ type: 'error', requestId: request.requestId, code: 'INVALID_QUERY',
-      message: error instanceof Error ? error.message : 'Unable to query comparison panel.' });
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      context.post({ type: 'cancelled', requestId });
+    } else {
+      context.post({ type: 'error', requestId, code: 'INVALID_QUERY',
+        message: error instanceof Error ? error.message : 'Unable to query comparison viewport.' });
+    }
+  } finally {
+    context.activeQueries.delete(requestId);
   }
   return true;
 }

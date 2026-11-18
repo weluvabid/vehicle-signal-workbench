@@ -10,6 +10,7 @@ export function queryChannelTimeStatistics(
   index: ChannelEnvelopeIndex,
   startSeconds: number,
   endSeconds: number,
+  shouldAbort?: () => boolean,
 ): ChannelStatistics {
   if (
     buffers.timeSeconds.length !== buffers.values.length ||
@@ -42,6 +43,9 @@ export function queryChannelTimeStatistics(
   const scan = (from: number, to: number): StatisticsAggregate => {
     let result: StatisticsAggregate = { count: 0, mean: 0, m2: 0 };
     for (let sample = from; sample < to; sample += 1) {
+      if (((sample - from) & 4_095) === 0 && shouldAbort?.()) {
+        throw new DOMException('Viewport query superseded.', 'AbortError');
+      }
       const value = buffers.values[sample];
       if (!Number.isFinite(value)) continue;
       result = mergeStatistics(result, { count: 1, mean: value, m2: 0 });
@@ -55,7 +59,7 @@ export function queryChannelTimeStatistics(
   }
   aggregate = mergeStatistics(aggregate, scan(suffixStart, endIndex));
 
-  const extrema = queryEnvelopeSummary(buffers.values, index, startIndex, endIndex);
+  const extrema = queryEnvelopeSummary(buffers.values, index, startIndex, endIndex, shouldAbort);
   const missingCount = sampleCount - aggregate.count;
   return {
     datasetId,
@@ -183,6 +187,7 @@ export function queryChannelEnvelopeTimeWindow(
   startSeconds: number,
   endSeconds: number,
   pixelWidth: number,
+  shouldAbort?: () => boolean,
 ): ChannelWindow {
   validateRange(buffers, 0, buffers.values.length);
   if (
@@ -215,14 +220,27 @@ export function queryChannelEnvelopeTimeWindow(
   let cursor = startIndex;
 
   for (let bucket = 0; bucket < bucketCount && cursor < endIndex; bucket += 1) {
+    if ((bucket & 255) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
     const bucketStart = startSeconds + duration * (bucket / bucketCount);
     const bucketEnd = bucket === bucketCount - 1
       ? endSeconds
       : startSeconds + duration * ((bucket + 1) / bucketCount);
 
-    while (cursor < endIndex && buffers.timeSeconds[cursor] < bucketStart) cursor += 1;
+    while (cursor < endIndex && buffers.timeSeconds[cursor] < bucketStart) {
+      if (((cursor - startIndex) & 4_095) === 0 && shouldAbort?.()) {
+        throw new DOMException('Viewport query superseded.', 'AbortError');
+      }
+      cursor += 1;
+    }
     const bucketSampleStart = cursor;
-    while (cursor < endIndex && buffers.timeSeconds[cursor] < bucketEnd) cursor += 1;
+    while (cursor < endIndex && buffers.timeSeconds[cursor] < bucketEnd) {
+      if (((cursor - bucketSampleStart) & 4_095) === 0 && shouldAbort?.()) {
+        throw new DOMException('Viewport query superseded.', 'AbortError');
+      }
+      cursor += 1;
+    }
     const bucketSampleEnd = cursor;
     if (bucketSampleStart >= bucketSampleEnd) continue;
 
@@ -231,6 +249,7 @@ export function queryChannelEnvelopeTimeWindow(
       index,
       bucketSampleStart,
       bucketSampleEnd,
+      shouldAbort,
     );
 
     if (summary.missingCount === 0) {
@@ -356,6 +375,7 @@ function queryEnvelopeSummary(
   index: ChannelEnvelopeIndex,
   start: number,
   end: number,
+  shouldAbort?: () => boolean,
 ): EnvelopeSummary {
   const blockSize = index.blockSize;
   const firstFullBlock = Math.ceil(start / blockSize);
@@ -369,6 +389,9 @@ function queryEnvelopeSummary(
   let missing = 0;
   const scan = (from: number, to: number): void => {
     for (let sample = from; sample < to; sample += 1) {
+      if (((sample - from) & 4_095) === 0 && shouldAbort?.()) {
+        throw new DOMException('Viewport query superseded.', 'AbortError');
+      }
       const value = values[sample];
       if (!Number.isFinite(value)) {
         missing += 1;

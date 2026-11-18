@@ -203,3 +203,15 @@ test('chart-only difference envelope allocates only timestamps and delta output'
   assert.equal('referenceValues' in plot, false);
   assert.equal('comparisonValues' in plot, false);
 });
+
+
+test('cancels a long chart-only difference scan cooperatively', () => {
+  const times = Float64Array.from({ length: 10_000 }, (_, index) => index / 10);
+  const reference = { datasetId: 'r', channelId: 'rpm', timeSeconds: times, values: new Float64Array(times.length).fill(10) };
+  const comparison = { datasetId: 'c', channelId: 'rpm', timeSeconds: times, values: new Float64Array(times.length).fill(8) };
+  let cancellationChecks = 0;
+  assert.throws(
+    () => calculateSignalDifferencePlotEnvelopeInTimeRange(reference, comparison, 0, 1_000, 0, 100, () => ++cancellationChecks >= 2),
+    (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
+  );
+});
