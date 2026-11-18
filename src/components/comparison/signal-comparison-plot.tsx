@@ -2,13 +2,14 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DatasetDescriptor, ChannelStatistics } from '@/features/measurements/model';
-import type { DifferenceResult, DifferenceStatistics } from '@/features/measurements/difference';
+import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { ComparisonPlotData } from '@/features/measurements/plot-data';
 import { formatChannelStatistics, formatMeasurementCount, formatMeasurementValue } from '@/features/measurements/formatting';
-import { formatDifferenceCsvRow } from '@/features/measurements/csv-format';
-import { buildComparisonPlotData, buildSignalPoints } from '@/features/measurements/plot-data';
+import { buildSignalPoints } from '@/features/measurements/plot-data';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
+import type { CsvExportChannel } from '@/features/ingestion/worker-protocol';
+import type { SignalSelection } from '@/features/comparison/types';
+import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,11 +22,6 @@ const EChartsSignalChart = dynamic(
   },
 );
 
-export interface SignalSelection {
-  readonly referenceChannelId: string;
-  readonly comparisonChannelId: string;
-}
-
 interface SignalComparisonPlotProps {
   readonly client: MeasurementWorkerClient;
   readonly reference: DatasetDescriptor;
@@ -36,157 +32,47 @@ interface SignalComparisonPlotProps {
   readonly endSeconds: number;
 }
 
-interface SignalPanelResult {
-  readonly id: string;
-  readonly label: string;
-  readonly unit: string | null;
-  readonly data: ComparisonPlotData;
-  readonly referenceStatistics: ChannelStatistics;
-  readonly comparisonStatistics: ChannelStatistics;
-  readonly differenceStatistics: DifferenceStatistics;
-  readonly differenceSeries: DifferenceResult;
-}
-
 const EMPTY_DATA: ComparisonPlotData = { reference: [], comparison: [] };
 
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<readonly SignalPanelResult[]>([]);
-  const [resultsRange, setResultsRange] = useState<{ readonly start: number; readonly end: number } | null>(null);
+  const { loading, error, results, resultsRange, requestViewport, selectionKey, setError } = useSignalViewport(props);
   const [exporting, setExporting] = useState(false);
-  const generation = useRef(0);
-  const lastRequestKey = useRef('');
-
-  const selectionKey = useMemo(
-    () => props.selections.map((selection) => `${selection.referenceChannelId}:${selection.comparisonChannelId}`).join('|'),
-    [props.selections],
-  );
-
-  useEffect(() => {
-    lastRequestKey.current = '';
-    return () => { generation.current += 1; };
-  }, [
-    props.reference.id,
-    props.comparison.id,
-    selectionKey,
-    props.offsetSeconds,
-    props.startSeconds,
-    props.endSeconds,
-  ]);
-
-  const requestViewport = useCallback((startSeconds: number, endSeconds: number, pixelWidth: number) => {
-    const start = Math.max(props.startSeconds, startSeconds);
-    const end = Math.min(props.endSeconds, endSeconds);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || props.selections.length === 0) return;
-
-    const width = Math.max(1, Math.min(8_192, Math.floor(pixelWidth)));
-    const requestKey = [start.toPrecision(13), end.toPrecision(13), width, selectionKey].join(':');
-    if (requestKey === lastRequestKey.current) return;
-    lastRequestKey.current = requestKey;
-
-    const current = ++generation.current;
-    setLoading(true);
-    setError(null);
-    setResults([]);
-    setResultsRange(null);
-
-    const requests = props.selections.map(async (selection): Promise<SignalPanelResult> => {
-      const referenceChannel = props.reference.channels.find((channel) => channel.id === selection.referenceChannelId);
-      if (!referenceChannel) throw new Error(`Reference channel ${selection.referenceChannelId} is unavailable.`);
-      const comparisonChannel = props.comparison.channels.find((channel) => channel.id === selection.comparisonChannelId);
-      if (!comparisonChannel) throw new Error(`Comparison channel ${selection.comparisonChannelId} is unavailable.`);
-
-      const panel = await props.client.queryComparisonPanel(
-        props.reference.id,
-        selection.referenceChannelId,
-        props.comparison.id,
-        selection.comparisonChannelId,
-        start,
-        end,
-        props.offsetSeconds,
-        width,
-      );
-      const {
-        referenceWindow, comparisonWindow, referenceStatistics,
-        comparisonStatistics, differenceSeries,
-      } = panel;
-
-      return {
-        id: selection.referenceChannelId,
-        label: referenceChannel.label,
-        unit: referenceChannel.unit,
-        data: buildComparisonPlotData(referenceWindow, comparisonWindow, props.offsetSeconds),
-        referenceStatistics,
-        comparisonStatistics,
-        differenceStatistics: differenceSeries.statistics,
-        differenceSeries,
-      };
-    });
-
-    Promise.all(requests).then((nextResults) => {
-      if (generation.current !== current) return;
-      setResults(nextResults);
-      setResultsRange({ start, end });
-    }).catch((cause: unknown) => {
-      if (generation.current !== current) return;
-      setError(cause instanceof Error ? cause.message : 'Unable to query signal data.');
-    }).finally(() => {
-      if (generation.current === current) setLoading(false);
-    });
-  }, [
-    props.client,
-    props.reference,
-    props.comparison,
-    props.selections,
-    props.offsetSeconds,
-    props.startSeconds,
-    props.endSeconds,
-    selectionKey,
-  ]);
-
-  // Initial data acquisition must not depend on ECharts emitting onChartReady.
-  // The chart is a viewport control; it is not the owner of the first data load.
-  // This also guarantees statistics are available when chart initialization is
-  // delayed by dynamic import, resize, or a renderer lifecycle transition.
-  useEffect(() => {
-    requestViewport(props.startSeconds, props.endSeconds, 1_024);
-  }, [requestViewport, props.startSeconds, props.endSeconds]);
+  const [exportProgress, setExportProgress] = useState(0);
+  const exportAbortController = useRef<AbortController | null>(null);
+  useEffect(() => () => exportAbortController.current?.abort(), []);
 
   const exportVisibleCsv = useCallback(async () => {
     if (!resultsRange || exporting) return;
+    const controller = new AbortController();
+    exportAbortController.current = controller;
     setExporting(true);
+    setExportProgress(0);
     setError(null);
     try {
-      const parts = ['channel,unit,reference_time_seconds,reference_value,comparison_interpolated_value,delta_reference_minus_comparison,matched\r\n'];
-      let chunk: string[] = [];
-      let exportedRows = 0;
-      for (const selection of props.selections) {
-        const referenceChannel = props.reference.channels.find((channel) => channel.id === selection.referenceChannelId);
-        if (!referenceChannel) throw new Error(`Reference channel ${selection.referenceChannelId} is unavailable.`);
-        const series = await props.client.queryDifferenceSeries(
-          props.reference.id, selection.referenceChannelId,
-          props.comparison.id, selection.comparisonChannelId,
-          resultsRange.start, resultsRange.end, props.offsetSeconds, 0,
-        );
-        for (let index = 0; index < series.timeSeconds.length; index++) {
-          const delta = series.delta[index];
-          chunk.push(formatDifferenceCsvRow(
-            referenceChannel.label,
-            referenceChannel.unit ?? '',
-            series.timeSeconds[index],
-            series.referenceValues[index],
-            series.comparisonValues[index],
-            delta,
-          ));
-          exportedRows++;
-          if (exportedRows > 5_000_000) throw new Error('The export exceeds 5 million rows. Zoom into a smaller interval and retry.');
-          if (chunk.length >= 20_000) { parts.push(`${chunk.join('\r\n')}\r\n`); chunk = []; }
-        }
-      }
-      if (chunk.length > 0) parts.push(`${chunk.join('\r\n')}\r\n`);
+      const channels: CsvExportChannel[] = props.selections.map((selection) => {
+        const channel = props.reference.channels.find((item) => item.id === selection.referenceChannelId);
+        if (!channel) throw new Error(`Reference channel ${selection.referenceChannelId} is unavailable.`);
+        return {
+          referenceChannelId: selection.referenceChannelId,
+          comparisonChannelId: selection.comparisonChannelId,
+          label: channel.label,
+          unit: channel.unit ?? '',
+        };
+      });
+      const chunks: Blob[] = [new Blob([new Uint8Array([0xef, 0xbb, 0xbf])])];
+      const exportedRows = await props.client.exportDifferenceCsv(
+        props.reference.id,
+        props.comparison.id,
+        channels,
+        resultsRange.start,
+        resultsRange.end,
+        props.offsetSeconds,
+        (chunk) => chunks.push(new Blob([chunk], { type: 'text/csv;charset=utf-8' })),
+        setExportProgress,
+        controller.signal,
+      );
       if (exportedRows === 0) throw new Error('The selected viewport contains no reference samples to export.');
-      const url = URL.createObjectURL(new Blob(['\uFEFF', ...parts], { type: 'text/csv;charset=utf-8' }));
+      const url = URL.createObjectURL(new Blob(chunks, { type: 'text/csv;charset=utf-8' }));
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `vsw-comparison-${new Date().toISOString().replaceAll(':', '-')}.csv`;
@@ -195,8 +81,11 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Unable to export comparison data.');
+      if (!(cause instanceof DOMException && cause.name === 'AbortError')) {
+        setError(cause instanceof Error ? cause.message : 'Unable to export comparison data.');
+      }
     } finally {
+      if (exportAbortController.current === controller) exportAbortController.current = null;
       setExporting(false);
     }
   }, [exporting, props.client, props.reference, props.comparison, props.selections, props.offsetSeconds, resultsRange]);
@@ -225,7 +114,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           <CardTitle>{props.selections.length} mapped signals</CardTitle>
           <p className="signal-unit">Native run overlays and a separate delta axis · linked crosshair · exact sampled values in tooltips</p>
         </div>
-        <div className="signal-actions"><Badge variant="outline">{loading ? 'Updating' : 'Viewport ready'}</Badge><Button variant="outline" size="sm" type="button" onClick={exportVisibleCsv} disabled={!resultsRange || exporting || loading}>{exporting ? 'Exporting…' : 'Export visible CSV'}</Button></div>
+        <div className="signal-actions"><Badge variant="outline">{loading ? 'Updating' : 'Viewport ready'}</Badge><Button variant="outline" size="sm" type="button" onClick={exportVisibleCsv} disabled={!resultsRange || exporting || loading}>{exporting ? `Exporting ${Math.round(exportProgress * 100)}%…` : 'Export visible CSV'}</Button></div>
       </CardHeader>
       <CardContent className="signal-card-content">
         {error && <p className="import-error" role="alert">{error}</p>}

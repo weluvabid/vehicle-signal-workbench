@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateSignalDifference, calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange, calculateSignalDifferenceEnvelopeInTimeRange, downsampleDifferenceEnvelope, medianSampleInterval } from './difference.ts';
+import { calculateSignalDifference, calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange, calculateSignalDifferenceEnvelopeInTimeRange, calculateSignalDifferencePlotEnvelopeInTimeRange, downsampleDifferenceEnvelope, medianSampleInterval } from './difference.ts';
 
 const window = (time: number[], values: number[]) => ({
   datasetId: 'dataset', channelId: 'channel', startIndex: 0,
@@ -186,4 +186,20 @@ test('builds pixel-bounded difference envelopes without full-resolution result a
   assertSameNumbers(actual.delta, expected.delta);
   assert.deepEqual(actual.statistics, full.statistics);
   assert.ok(actual.delta.length <= 80 * 4 * 33);
+});
+
+
+test('chart-only difference envelope allocates only timestamps and delta output', () => {
+  const times = Float64Array.from({ length: 2_000 }, (_, index) => index / 20);
+  const reference = { datasetId: 'r', channelId: 'rpm', timeSeconds: times,
+    values: Float64Array.from(times, (time) => Math.sin(time)) };
+  const comparison = { datasetId: 'c', channelId: 'rpm', timeSeconds: times,
+    values: Float64Array.from(times, (time) => Math.cos(time)) };
+  const full = calculateSignalDifferenceEnvelopeInTimeRange(reference, comparison, 0, 100, 0, 100);
+  const plot = calculateSignalDifferencePlotEnvelopeInTimeRange(reference, comparison, 0, 100, 0, 100);
+  assert.deepEqual([...plot.timeSeconds], [...full.timeSeconds]);
+  assert.deepEqual([...plot.delta], [...full.delta]);
+  assert.deepEqual(plot.statistics, full.statistics);
+  assert.equal('referenceValues' in plot, false);
+  assert.equal('comparisonValues' in plot, false);
 });

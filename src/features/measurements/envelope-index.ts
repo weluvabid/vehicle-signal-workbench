@@ -1,3 +1,4 @@
+import { lowerBoundFloat64 } from './sorted-search';
 import type { ChannelStatistics, ChannelWindow } from './model';
 import type { ChannelBuffers } from './windowing';
 import { Float64BufferBuilder } from './float64-buffer';
@@ -19,8 +20,8 @@ export function queryChannelTimeStatistics(
     throw new RangeError('Invalid channel statistics time window.');
   }
 
-  const startIndex = lowerBound(buffers.timeSeconds, startSeconds);
-  const endIndex = lowerBound(buffers.timeSeconds, endSeconds);
+  const startIndex = lowerBoundFloat64(buffers.timeSeconds, startSeconds);
+  const endIndex = lowerBoundFloat64(buffers.timeSeconds, endSeconds);
   const sampleCount = endIndex - startIndex;
   if (sampleCount === 0) {
     return {
@@ -195,8 +196,8 @@ export function queryChannelEnvelopeTimeWindow(
     throw new RangeError('Invalid channel envelope query.');
   }
 
-  const startIndex = lowerBound(buffers.timeSeconds, startSeconds);
-  const endIndex = lowerBound(buffers.timeSeconds, endSeconds);
+  const startIndex = lowerBoundFloat64(buffers.timeSeconds, startSeconds);
+  const endIndex = lowerBoundFloat64(buffers.timeSeconds, endSeconds);
   if (startIndex >= endIndex) {
     return {
       datasetId, channelId, startIndex,
@@ -483,16 +484,6 @@ function uniqueSorted(indices: number[]): number[] {
   return indices;
 }
 
-function lowerBound(values: Float64Array, target: number): number {
-  let low = 0;
-  let high = values.length;
-  while (low < high) {
-    const middle = low + Math.floor((high - low) / 2);
-    if (values[middle] < target) low = middle + 1;
-    else high = middle;
-  }
-  return low;
-}
 
 function validateRange(
   buffers: ChannelBuffers,

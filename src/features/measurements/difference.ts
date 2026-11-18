@@ -1,3 +1,4 @@
+import { lowerBoundFloat64 } from './sorted-search';
 import type { ChannelWindow } from './model';
 
 export { downsampleDifferenceEnvelope, selectDifferenceEnvelopeIndexes } from './difference-envelope';
@@ -38,6 +39,13 @@ export interface DifferenceResult {
   readonly statistics: DifferenceStatistics;
 }
 
+/** Minimal chart result: only the two arrays consumed by the delta plot. */
+export interface DifferencePlotResult {
+  readonly timeSeconds: Float64Array;
+  readonly delta: Float64Array;
+  readonly statistics: DifferenceStatistics;
+}
+
 export interface DifferenceSource {
   readonly datasetId: string;
   readonly channelId: string;
@@ -62,17 +70,17 @@ export function calculateSignalDifferenceInTimeRange(
     throw new RangeError('Invalid difference source or visible time range.');
   }
 
-  const referenceStart = lowerBound(referenceSource.timeSeconds, startSeconds);
-  const referenceEnd = lowerBound(referenceSource.timeSeconds, endSeconds);
+  const referenceStart = lowerBoundFloat64(referenceSource.timeSeconds, startSeconds);
+  const referenceEnd = lowerBoundFloat64(referenceSource.timeSeconds, endSeconds);
   const comparisonStartTime = startSeconds - comparisonOffsetSeconds;
   const comparisonEndTime = endSeconds - comparisonOffsetSeconds;
   if (!Number.isFinite(comparisonStartTime) || !Number.isFinite(comparisonEndTime)) {
     throw new RangeError('Aligned comparison time range must be finite.');
   }
-  const comparisonStart = Math.max(0, lowerBound(comparisonSource.timeSeconds, comparisonStartTime) - 1);
+  const comparisonStart = Math.max(0, lowerBoundFloat64(comparisonSource.timeSeconds, comparisonStartTime) - 1);
   const comparisonEnd = Math.min(
     comparisonSource.timeSeconds.length,
-    lowerBound(comparisonSource.timeSeconds, comparisonEndTime) + 1,
+    lowerBoundFloat64(comparisonSource.timeSeconds, comparisonEndTime) + 1,
   );
 
   const referenceWindow: ChannelWindow = {
@@ -106,6 +114,7 @@ export function calculateSignalDifferenceSeriesInTimeRange(
   startSeconds: number,
   endSeconds: number,
   comparisonOffsetSeconds: number,
+  nominalSampleIntervalSeconds?: number | null,
 ): DifferenceResult {
   if (
     !Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds < startSeconds ||
@@ -115,15 +124,15 @@ export function calculateSignalDifferenceSeriesInTimeRange(
   ) {
     throw new RangeError('Invalid difference source or visible time range.');
   }
-  const referenceStart = lowerBound(referenceSource.timeSeconds, startSeconds);
-  const referenceEnd = lowerBound(referenceSource.timeSeconds, endSeconds);
+  const referenceStart = lowerBoundFloat64(referenceSource.timeSeconds, startSeconds);
+  const referenceEnd = lowerBoundFloat64(referenceSource.timeSeconds, endSeconds);
   const comparisonStartTime = startSeconds - comparisonOffsetSeconds;
   const comparisonEndTime = endSeconds - comparisonOffsetSeconds;
   if (!Number.isFinite(comparisonStartTime) || !Number.isFinite(comparisonEndTime)) {
     throw new RangeError('Aligned comparison time range must be finite.');
   }
-  const comparisonStart = Math.max(0, lowerBound(comparisonSource.timeSeconds, comparisonStartTime) - 1);
-  const comparisonEnd = Math.min(comparisonSource.timeSeconds.length, lowerBound(comparisonSource.timeSeconds, comparisonEndTime) + 1);
+  const comparisonStart = Math.max(0, lowerBoundFloat64(comparisonSource.timeSeconds, comparisonStartTime) - 1);
+  const comparisonEnd = Math.min(comparisonSource.timeSeconds.length, lowerBoundFloat64(comparisonSource.timeSeconds, comparisonEndTime) + 1);
   const referenceWindow: ChannelWindow = {
     datasetId: referenceSource.datasetId, channelId: referenceSource.channelId,
     startIndex: referenceStart,
@@ -136,10 +145,12 @@ export function calculateSignalDifferenceSeriesInTimeRange(
     timeSeconds: comparisonSource.timeSeconds.subarray(comparisonStart, comparisonEnd),
     values: comparisonSource.values.subarray(comparisonStart, comparisonEnd),
   };
-  const fullRunCadence = medianSampleInterval({
-    timeSeconds: comparisonSource.timeSeconds,
-    values: comparisonSource.values,
-  });
+  const fullRunCadence = nominalSampleIntervalSeconds === undefined
+    ? medianSampleInterval({
+      timeSeconds: comparisonSource.timeSeconds,
+      values: comparisonSource.values,
+    })
+    : nominalSampleIntervalSeconds;
   return calculateSignalDifference(referenceWindow, comparisonWindow, comparisonOffsetSeconds, fullRunCadence);
 }
 
@@ -160,24 +171,44 @@ export function calculateSignalDifferenceEnvelopeInTimeRange(
   comparisonOffsetSeconds: number,
   pixelWidth: number,
 ): DifferenceResult {
+  return calculateDifferenceEnvelope(referenceSource, comparisonSource, startSeconds, endSeconds,
+    comparisonOffsetSeconds, pixelWidth, true) as DifferenceResult;
+}
+
+/** Build a chart-only envelope without allocating unused interpolated value arrays. */
+export function calculateSignalDifferencePlotEnvelopeInTimeRange(
+  referenceSource: DifferenceSource,
+  comparisonSource: DifferenceSource,
+  startSeconds: number,
+  endSeconds: number,
+  comparisonOffsetSeconds: number,
+  pixelWidth: number,
+): DifferencePlotResult {
+  return calculateDifferenceEnvelope(referenceSource, comparisonSource, startSeconds, endSeconds,
+    comparisonOffsetSeconds, pixelWidth, false) as DifferencePlotResult;
+}
+
+function calculateDifferenceEnvelope(
+  referenceSource: DifferenceSource,
+  comparisonSource: DifferenceSource,
+  startSeconds: number,
+  endSeconds: number,
+  comparisonOffsetSeconds: number,
+  pixelWidth: number,
+  includeSourceValues: boolean,
+): DifferenceResult | DifferencePlotResult {
   if (!Number.isInteger(pixelWidth) || pixelWidth < 1 || pixelWidth > 8_192) {
     throw new RangeError('Difference envelope pixel width must be between 1 and 8192.');
   }
   validateDifferenceSources(referenceSource, comparisonSource, startSeconds, endSeconds, comparisonOffsetSeconds);
 
-  const referenceStart = lowerBound(referenceSource.timeSeconds, startSeconds);
-  const referenceEnd = lowerBound(referenceSource.timeSeconds, endSeconds);
+  const referenceStart = lowerBoundFloat64(referenceSource.timeSeconds, startSeconds);
+  const referenceEnd = lowerBoundFloat64(referenceSource.timeSeconds, endSeconds);
   const sampleCount = referenceEnd - referenceStart;
-  if (sampleCount <= pixelWidth * 4) {
-    return calculateSignalDifferenceSeriesInTimeRange(
-      referenceSource, comparisonSource, startSeconds, endSeconds, comparisonOffsetSeconds,
-    );
-  }
-
-  const comparisonStart = Math.max(0, lowerBound(comparisonSource.timeSeconds,
+  const comparisonStart = Math.max(0, lowerBoundFloat64(comparisonSource.timeSeconds,
     startSeconds - comparisonOffsetSeconds) - 1);
   const comparisonEnd = Math.min(comparisonSource.timeSeconds.length,
-    lowerBound(comparisonSource.timeSeconds, endSeconds - comparisonOffsetSeconds) + 1);
+    lowerBoundFloat64(comparisonSource.timeSeconds, endSeconds - comparisonOffsetSeconds) + 1);
   const comparisonWindow: ChannelWindow = {
     datasetId: comparisonSource.datasetId, channelId: comparisonSource.channelId,
     startIndex: comparisonStart,
@@ -247,8 +278,8 @@ export function calculateSignalDifferenceEnvelopeInTimeRange(
   const selection = selectDifferenceEnvelopeIndexes(timeWindow, delta, pixelWidth);
   const outputLength = selection.indexes.length;
   const timeSeconds = new Float64Array(outputLength);
-  const referenceValues = new Float64Array(outputLength);
-  const comparisonValues = new Float64Array(outputLength);
+  const referenceValues = includeSourceValues ? new Float64Array(outputLength) : null;
+  const comparisonValues = includeSourceValues ? new Float64Array(outputLength) : null;
   const outputDelta = new Float64Array(outputLength);
   let outputComparisonCursor = 0;
   for (let outputIndex = 0; outputIndex < outputLength; outputIndex++) {
@@ -256,17 +287,20 @@ export function calculateSignalDifferenceEnvelopeInTimeRange(
     const sourceIndex = referenceStart + sourceOffset;
     timeSeconds[outputIndex] = referenceSource.timeSeconds[sourceIndex];
     if (selection.forcedGapIndexes.has(sourceOffset)) {
-      referenceValues[outputIndex] = Number.NaN;
-      comparisonValues[outputIndex] = Number.NaN;
+      if (referenceValues && comparisonValues) {
+        referenceValues[outputIndex] = Number.NaN;
+        comparisonValues[outputIndex] = Number.NaN;
+      }
       outputDelta[outputIndex] = Number.NaN;
       continue;
     }
-    referenceValues[outputIndex] = referenceSource.values[sourceIndex];
+    if (referenceValues) referenceValues[outputIndex] = referenceSource.values[sourceIndex];
     outputDelta[outputIndex] = delta[sourceOffset];
     if (!Number.isFinite(delta[sourceOffset])) {
-      comparisonValues[outputIndex] = Number.NaN;
+      if (comparisonValues) comparisonValues[outputIndex] = Number.NaN;
       continue;
     }
+    if (!comparisonValues) continue;
     const target = timeSeconds[outputIndex] - comparisonOffsetSeconds;
     while (outputComparisonCursor < comparisonWindow.timeSeconds.length &&
       comparisonWindow.timeSeconds[outputComparisonCursor] < target - DIFFERENCE_POLICY.exactMatchToleranceSeconds) {
@@ -276,7 +310,9 @@ export function calculateSignalDifferenceEnvelopeInTimeRange(
       comparisonWindow, target, maxGap, outputComparisonCursor,
     ) ?? Number.NaN;
   }
-  return { timeSeconds, referenceValues, comparisonValues, delta: outputDelta, statistics };
+  return referenceValues && comparisonValues
+    ? { timeSeconds, referenceValues, comparisonValues, delta: outputDelta, statistics }
+    : { timeSeconds, delta: outputDelta, statistics };
 }
 
 function fillDifferenceValues(
@@ -487,16 +523,6 @@ function interpolateWithoutCrossingGaps(
   return leftValue + (rightValue - leftValue) * ratio;
 }
 
-function lowerBound(values: Float64Array, target: number): number {
-  let low = 0;
-  let high = values.length;
-  while (low < high) {
-    const middle = low + Math.floor((high - low) / 2);
-    if (values[middle] < target) low = middle + 1;
-    else high = middle;
-  }
-  return low;
-}
 
 function validateWindow(window: ChannelWindow): void {
   if (window.timeSeconds.length !== window.values.length) {

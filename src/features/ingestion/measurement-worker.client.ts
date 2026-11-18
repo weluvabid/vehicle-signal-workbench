@@ -5,18 +5,20 @@ import type {
   DatasetDescriptor,
 } from '../measurements/model';
 import type { DifferenceResult, DifferenceStatistics } from '../measurements/difference';
-import type { ComparisonPanelQueryResult, IngestionRequest, IngestionResponse } from './worker-protocol';
+import type { ComparisonPanelQueryResult, CsvExportChannel, IngestionRequest, IngestionResponse } from './worker-protocol';
 
 type WorkerOperationRequest = Extract<IngestionRequest, { readonly requestId: number }>;
 type WithoutRequestId<T> = T extends { readonly requestId: number } ? Omit<T, 'requestId'> : never;
 
-type OperationKind = 'import' | 'window' | 'statistics' | 'difference' | 'difference-series' | 'comparison-panel';
+type OperationKind = 'import' | 'window' | 'statistics' | 'difference' | 'difference-series' | 'comparison-panel' | 'csv-export';
 
 interface PendingOperation {
   readonly kind: OperationKind;
   readonly resolve: (value: unknown) => void;
   readonly reject: (error: Error) => void;
   readonly onProgress?: (fraction: number) => void;
+  readonly onChunk?: (chunk: ArrayBuffer) => void;
+  readonly cleanup?: () => void;
 }
 
 export class MeasurementWorkerClient {
@@ -132,6 +134,70 @@ export class MeasurementWorkerClient {
     }, 'comparison-panel');
   }
 
+  exportDifferenceCsv(
+    referenceDatasetId: string,
+    comparisonDatasetId: string,
+    channels: readonly CsvExportChannel[],
+    startSeconds: number,
+    endSeconds: number,
+    comparisonOffsetSeconds: number,
+    onChunk: (chunk: ArrayBuffer) => void,
+    onProgress?: (fraction: number) => void,
+    signal?: AbortSignal,
+  ): Promise<number> {
+    if (signal?.aborted) return Promise.reject(new DOMException('CSV export was cancelled.', 'AbortError'));
+    const requestId = this.nextRequestId++;
+
+    return new Promise<number>((resolve, reject) => {
+      let worker: Worker;
+      try {
+        worker = this.getWorker();
+      } catch (cause) {
+        reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.'));
+        return;
+      }
+
+      const cleanup = () => signal?.removeEventListener('abort', abort);
+      const abort = () => {
+        this.pending.delete(requestId);
+        cleanup();
+        try {
+          worker.postMessage({ type: 'cancel-csv-export', requestId } satisfies IngestionRequest);
+        } catch {
+          // The worker may already have terminated; the export promise is still rejected.
+        }
+        reject(new DOMException('CSV export was cancelled.', 'AbortError'));
+      };
+
+      this.pending.set(requestId, {
+        kind: 'csv-export',
+        resolve: (value) => resolve(value as number),
+        reject,
+        onProgress,
+        onChunk,
+        cleanup,
+      });
+      signal?.addEventListener('abort', abort, { once: true });
+
+      try {
+        worker.postMessage({
+          type: 'export-difference-csv',
+          requestId,
+          referenceDatasetId,
+          comparisonDatasetId,
+          channels,
+          startSeconds,
+          endSeconds,
+          comparisonOffsetSeconds,
+        } satisfies IngestionRequest);
+      } catch (cause) {
+        this.pending.delete(requestId);
+        cleanup();
+        reject(cause instanceof Error ? cause : new Error('Unable to dispatch CSV export.'));
+      }
+    });
+  }
+
   queryDifferenceStatistics(
     referenceDatasetId: string,
     referenceChannelId: string,
@@ -165,6 +231,7 @@ export class MeasurementWorkerClient {
     this.worker = null;
 
     for (const operation of this.pending.values()) {
+      operation.cleanup?.();
       operation.reject(new Error('Measurement worker was disposed.'));
     }
 
@@ -220,8 +287,41 @@ export class MeasurementWorkerClient {
         if (operation.kind === 'import') operation.onProgress?.(message.fraction);
         return;
       }
+      if (message.type === 'csv-export-progress' && operation.kind === 'csv-export') {
+        operation.onProgress?.(message.fraction);
+        return;
+      }
+      if (message.type === 'csv-export-chunk' && operation.kind === 'csv-export') {
+        try {
+          operation.onChunk?.(message.chunk);
+          this.worker?.postMessage({
+            type: 'ack-csv-export-chunk',
+            requestId: message.requestId,
+          } satisfies IngestionRequest);
+        } catch (cause) {
+          this.pending.delete(message.requestId);
+          operation.cleanup?.();
+          try {
+            this.worker?.postMessage({
+              type: 'cancel-csv-export',
+              requestId: message.requestId,
+            } satisfies IngestionRequest);
+          } catch {
+            // The worker may have terminated.
+          }
+          operation.reject(cause instanceof Error ? cause : new Error('Unable to receive CSV export chunk.'));
+        }
+        return;
+      }
+      if (message.type === 'csv-export-complete' && operation.kind === 'csv-export') {
+        this.pending.delete(message.requestId);
+        operation.cleanup?.();
+        operation.resolve(message.rows);
+        return;
+      }
 
       this.pending.delete(message.requestId);
+      operation.cleanup?.();
 
       if (message.type === 'error') {
         operation.reject(new Error(`${message.code}: ${message.message}`));
@@ -247,7 +347,10 @@ export class MeasurementWorkerClient {
 
     this.worker.onerror = (event) => {
       const error = new Error(event.message || 'Measurement worker failed.');
-      for (const operation of this.pending.values()) operation.reject(error);
+      for (const operation of this.pending.values()) {
+        operation.cleanup?.();
+        operation.reject(error);
+      }
       this.pending.clear();
       this.worker?.terminate();
       this.worker = null;

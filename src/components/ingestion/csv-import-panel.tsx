@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { detectTimestampColumn } from '@/features/ingestion/csv-normalization';
+import { inspectCsvHeaders } from '@/features/ingestion/csv-preview';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import type { DatasetDescriptor, TimestampEncoding } from '@/features/measurements/model';
 import { Button } from '@/components/ui/button';
@@ -50,17 +51,7 @@ export function CsvImportPanel({ title, role, client, dataset, onDataset }: CsvI
 
     setStatus('inspecting');
     try {
-      const { default: Papa } = await import('papaparse');
-      const preview = await new Promise<string[]>((resolve, reject) => {
-        Papa.parse<string[]>(nextFile, {
-          preview: 1,
-          skipEmptyLines: 'greedy',
-          complete: (result) => result.errors.length || result.data.length === 0
-            ? reject(new Error('Could not read a CSV header row.'))
-            : resolve(result.data[0].map((value) => value.trim())),
-          error: reject,
-        });
-      });
+      const preview = await inspectCsvHeaders(nextFile);
       if (generation !== generationRef.current) return;
       setHeaders(preview);
       setTimestampColumn(detectTimestampColumn(preview) ?? '');
