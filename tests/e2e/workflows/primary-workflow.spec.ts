@@ -44,7 +44,8 @@ test('complete comparison workflow: import, map, inspect, navigate and export', 
   expect(download.suggestedFilename()).toMatch(/^vsw-comparison-.*\.csv$/);
   const downloadPath = await download.path();
   expect(downloadPath).not.toBeNull();
-  const csv = await readFile(downloadPath!, 'utf8');
+  if (downloadPath === null) throw new Error('Playwright did not provide a download path.');
+  const csv = await readFile(downloadPath, 'utf8');
   expect(csv).toContain('channel,unit,reference_time_seconds,reference_value,comparison_interpolated_value,delta_reference_minus_comparison,matched');
   expect(csv).toContain('Vehicle Speed');
   expect(csv.split(/\r?\n/).length).toBeGreaterThan(10);

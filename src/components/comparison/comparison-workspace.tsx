@@ -17,7 +17,7 @@ export function ComparisonWorkspace() {
   const [comparison, setComparison] = useState<DatasetDescriptor | null>(null);
   const [offsetInput, setOffsetInput] = useState('0');
   const [mappings, setMappings] = useState<readonly ChannelMapping[]>([]);
-  const [selectedChannelIds, setSelectedChannelIds] = useState<readonly string[]>([]);
+  const [selectedChannelIds, setSelectedChannelIds] = useState<readonly string[] | null>(null);
 
   useEffect(() => () => client.dispose(), [client]);
 
@@ -42,36 +42,33 @@ export function ComparisonWorkspace() {
     () => effectiveMappings.filter((mapping) => mapping.compatibility === MAPPING_COMPATIBILITY.COMPATIBLE && mapping.rightChannelId),
     [effectiveMappings],
   );
-  const selectedSignals = useMemo(() => selectedChannelIds.flatMap((channelId) => {
+  const effectiveSelectedChannelIds = useMemo(() => {
+    if (selectedChannelIds === null) {
+      return compatibleMappings.slice(0, 3).map((mapping) => mapping.leftChannelId);
+    }
+    const validIds = new Set(compatibleMappings.map((mapping) => mapping.leftChannelId));
+    return selectedChannelIds.filter((channelId) => validIds.has(channelId));
+  }, [compatibleMappings, selectedChannelIds]);
+
+  const selectedSignals = useMemo(() => effectiveSelectedChannelIds.flatMap((channelId) => {
     const mapping = compatibleMappings.find((item) => item.leftChannelId === channelId);
     return mapping?.rightChannelId ? [{ referenceChannelId: mapping.leftChannelId, comparisonChannelId: mapping.rightChannelId }] : [];
-  }), [selectedChannelIds, compatibleMappings]);
-
-  useEffect(() => {
-    setMappings([]);
-    setSelectedChannelIds([]);
-  }, [reference?.id, comparison?.id]);
-
-  useEffect(() => {
-    const validIds = new Set(compatibleMappings.map((mapping) => mapping.leftChannelId));
-    setSelectedChannelIds((current) => {
-      const retained = current.filter((channelId) => validIds.has(channelId));
-      if (retained.length > 0) return retained;
-      return compatibleMappings.slice(0, 3).map((mapping) => mapping.leftChannelId);
-    });
-  }, [reference?.id, comparison?.id, compatibleMappings]);
+  }), [effectiveSelectedChannelIds, compatibleMappings]);
 
   function toggleSelectedChannel(channelId: string, checked: boolean) {
     setSelectedChannelIds((current) => {
+      const active = current === null ? effectiveSelectedChannelIds : current;
       if (checked) {
-        if (current.includes(channelId) || current.length >= 6) return current;
-        return [...current, channelId];
+        if (active.includes(channelId) || active.length >= 6) return active;
+        return [...active, channelId];
       }
-      return current.filter((item) => item !== channelId);
+      return active.filter((item) => item !== channelId);
     });
   }
 
   function setRun(role: 'reference' | 'comparison', dataset: DatasetDescriptor | null) {
+    setMappings([]);
+    setSelectedChannelIds(null);
     if (role === 'reference') setReference(dataset);
     else setComparison(dataset);
   }
@@ -128,13 +125,13 @@ export function ComparisonWorkspace() {
                 <legend>Mapped signals</legend>
                 {compatibleMappings.map((mapping) => {
                   const channel = reference.channels.find((item) => item.id === mapping.leftChannelId);
-                  const checked = selectedChannelIds.includes(mapping.leftChannelId);
+                  const checked = effectiveSelectedChannelIds.includes(mapping.leftChannelId);
                   return (
                     <label className="signal-selection-option" key={mapping.leftChannelId}>
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={!checked && selectedChannelIds.length >= 6}
+                        disabled={!checked && effectiveSelectedChannelIds.length >= 6}
                         onChange={(event) => toggleSelectedChannel(mapping.leftChannelId, event.target.checked)}
                       />
                       <span>{channel?.label ?? mapping.leftChannelId}</span>

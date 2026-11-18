@@ -10,7 +10,8 @@ test('CSV export preserves missing measurements as empty cells, never zero', asy
   const download = await downloadPromise;
   const filePath = await download.path();
   expect(filePath).not.toBeNull();
-  const csv = await readFile(filePath!, 'utf8');
+  if (filePath === null) throw new Error('Playwright did not provide a download path.');
+  const csv = await readFile(filePath, 'utf8');
   const firstDataRow = csv.replace(/^\uFEFF/, '').split(/\r?\n/)[1];
   expect(firstDataRow).toMatch(/,"0","","","","false"$/);
 });

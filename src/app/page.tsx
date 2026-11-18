@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ComparisonWorkspace } from '@/components/comparison/comparison-workspace';
 import { Activity, HardDrive } from 'lucide-react';
 
@@ -5,10 +6,10 @@ export default function HomePage() {
   return (
     <main className="workspace">
       <header className="topbar">
-        <a className="wordmark" href="/" aria-label="Vehicle Signal Workbench home">
+        <Link className="wordmark" href="/" aria-label="Vehicle Signal Workbench home">
           <span className="wordmark-mark" aria-hidden="true"><Activity size={15} /></span>
           <span>Vehicle Signal Workbench</span>
-        </a>
+        </Link>
         <span className="topbar-meta"><HardDrive size={12} aria-hidden="true" /> LOCAL · IN-BROWSER</span>
       </header>
 

@@ -64,12 +64,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   );
 
   useEffect(() => {
-    generation.current += 1;
     lastRequestKey.current = '';
-    setLoading(true);
-    setError(null);
-    setResults([]);
-    setResultsRange(null);
     return () => { generation.current += 1; };
   }, [
     props.reference.id,
@@ -93,6 +88,8 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
     const current = ++generation.current;
     setLoading(true);
     setError(null);
+    setResults([]);
+    setResultsRange(null);
 
     const requests = props.selections.map(async (selection): Promise<SignalPanelResult> => {
       const referenceChannel = props.reference.channels.find((channel) => channel.id === selection.referenceChannelId);

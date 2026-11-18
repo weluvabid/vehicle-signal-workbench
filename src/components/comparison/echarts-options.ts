@@ -41,7 +41,7 @@ export function createSignalChartOption(
       backgroundColor: '#171a1f',
       borderColor: AXIS_COLOR,
       textStyle: { color: '#f1f2f3', fontSize: 10 },
-      valueFormatter: (value) => value == null ? 'Missing' : numberFormatter.format(Number(value)),
+      valueFormatter: (value) => value === null || value === undefined ? 'Missing' : numberFormatter.format(Number(value)),
     },
     xAxis: createXAxis(axisCount, domainStartSeconds, domainEndSeconds),
     yAxis: createYAxis(panels),

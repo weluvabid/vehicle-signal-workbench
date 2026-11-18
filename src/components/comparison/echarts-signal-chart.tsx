@@ -67,7 +67,10 @@ export function EChartsSignalChart({
   const animationFrame = useRef<number | null>(null);
   const chartWidth = useRef(1);
   const latestProps = useRef({ domainStartSeconds, domainEndSeconds, onViewportChange });
-  latestProps.current = { domainStartSeconds, domainEndSeconds, onViewportChange };
+
+  useEffect(() => {
+    latestProps.current = { domainStartSeconds, domainEndSeconds, onViewportChange };
+  }, [domainStartSeconds, domainEndSeconds, onViewportChange]);
 
   const dispatchViewport = useCallback((viewport: PendingViewport) => {
     lastViewport.current = viewport;
