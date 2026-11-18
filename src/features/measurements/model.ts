@@ -19,6 +19,11 @@ export interface DatasetDescriptor {
   readonly timeOriginEpochSeconds: number;
   readonly timestampEncoding: TimestampEncoding;
   readonly channels: readonly ChannelDescriptor[];
+  /** Canonical worker-owned typed-array storage, excluding transient import buffers. */
+  readonly retainedStorageBytes?: number;
+  readonly timeAxisBytes?: number;
+  readonly channelValueBytes?: number;
+  readonly envelopeIndexBytes?: number;
 }
 
 export interface MeasurementChannel {

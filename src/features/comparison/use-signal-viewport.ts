@@ -37,6 +37,8 @@ export function useSignalViewport(options: SignalViewportOptions) {
   const [initialPreparationMs, setInitialPreparationMs] = useState<number | null>(null);
   const [interactionQueryMs, setInteractionQueryMs] = useState<number | null>(null);
   const [interactionLoading, setInteractionLoading] = useState(false);
+  const [interactionStats, setInteractionStats] = useState<{ medianMs: number; p95Ms: number; count: number } | null>(null);
+  const interactionSamples = useRef<number[]>([]);
   const hasStartedInitialQuery = useRef(false);
   const generation = useRef(0);
   const lastRequestKey = useRef('');
@@ -95,7 +97,15 @@ export function useSignalViewport(options: SignalViewportOptions) {
       setResultsRange({ start, end });
       const elapsedMs = performance.now() - queryStartedAt;
       if (isInitialPreparation) setInitialPreparationMs(elapsedMs);
-      else setInteractionQueryMs(elapsedMs);
+      else {
+        setInteractionQueryMs(elapsedMs);
+        const samples = interactionSamples.current;
+        samples.push(elapsedMs);
+        if (samples.length > 100) samples.shift();
+        const sorted = [...samples].sort((a, b) => a - b);
+        const percentile = (p: number) => sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
+        setInteractionStats({ medianMs: percentile(0.5), p95Ms: percentile(0.95), count: samples.length });
+      }
     }).catch((cause: unknown) => {
       if (generation.current !== current) return;
       setError(cause instanceof Error ? cause.message : 'Unable to query signal data.');
@@ -113,6 +123,8 @@ export function useSignalViewport(options: SignalViewportOptions) {
     hasStartedInitialQuery.current = false;
     setInitialPreparationMs(null);
     setInteractionQueryMs(null);
+    interactionSamples.current = [];
+    setInteractionStats(null);
     setInteractionLoading(false);
     return () => { generation.current += 1; };
   }, [options.reference.id, options.comparison.id, selectionKey,
@@ -122,5 +134,5 @@ export function useSignalViewport(options: SignalViewportOptions) {
     requestViewport(options.startSeconds, options.endSeconds, 1_024);
   }, [requestViewport, options.startSeconds, options.endSeconds]);
 
-  return { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading };
+  return { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading, interactionStats };
 }

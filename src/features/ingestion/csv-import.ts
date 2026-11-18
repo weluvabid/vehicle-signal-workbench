@@ -268,22 +268,35 @@ export function importCsv(
         };
 
         const storedChannels = new Map<string, StoredChannel>();
+        let channelValueBytes = 0;
+        let envelopeIndexBytes = 0;
         for (const channel of validChannels) {
           // Compact the geometrically grown import buffer. The copy is deliberate:
           // retaining a subarray would pin up to 2x capacity for the dataset lifetime.
           const values = channel.values.slice(0, sampleCount);
-          storedChannels.set(channel.id, { values, envelopeIndex: buildChannelEnvelopeIndex(values) });
+          const envelopeIndex = buildChannelEnvelopeIndex(values);
+          channelValueBytes += values.byteLength;
+          envelopeIndexBytes += envelopeIndex.minIndex.byteLength + envelopeIndex.maxIndex.byteLength +
+            envelopeIndex.missingCount.byteLength + envelopeIndex.validCount.byteLength +
+            envelopeIndex.mean.byteLength + envelopeIndex.sumSquaredDeviation.byteLength;
+          storedChannels.set(channel.id, { values, envelopeIndex });
         }
+        const timeAxis = timeValues.slice(0, sampleCount);
+        const timeAxisBytes = timeAxis.byteLength;
+        const retainedStorageBytes = timeAxisBytes + channelValueBytes + envelopeIndexBytes;
 
         datasets.set(id, {
           // Keep the retained time axis compact after chunked ingestion.
-          timeSeconds: timeValues.slice(0, sampleCount),
+          timeSeconds: timeAxis,
           channels: storedChannels,
         });
+        const measuredDescriptor: DatasetDescriptor = {
+          ...descriptor, retainedStorageBytes, timeAxisBytes, channelValueBytes, envelopeIndexBytes,
+        };
 
         activeImports.delete(requestId);
         terminal = true;
-        post({ type: 'complete', requestId, dataset: descriptor });
+        post({ type: 'complete', requestId, dataset: measuredDescriptor });
       } catch (error) {
         fail(error);
       }

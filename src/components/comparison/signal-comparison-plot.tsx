@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { ComparisonPlotData, SignalPoint } from '@/features/measurements/plot-data';
 import { formatMeasurementValue } from '@/features/measurements/formatting';
+import { formatIngestionRates, summarizeIngestion } from '@/features/comparison/performance-metrics';
 import { buildSignalPoints } from '@/features/measurements/plot-data';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import type { SignalSelection } from '@/features/comparison/types';
@@ -61,7 +62,8 @@ function buildRows(panels: readonly {
 }
 
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
-  const { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading } = useSignalViewport(props);
+  const { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading, interactionStats } = useSignalViewport(props);
+  const ingestionSummary = props.ingestionMetrics ? summarizeIngestion(props.reference, props.comparison, props.ingestionMetrics) : null;
   const [page, setPage] = useState(0);
   const [interactionFps, setInteractionFps] = useState<number | null>(null);
   const resultById = useMemo(() => new Map(results.map((result) => [result.id, result])), [results]);
@@ -87,12 +89,14 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-4" data-testid="plot-workspace">
-      <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-5">
-        <Metric label="Samples / run" value={props.reference.sampleCount.toLocaleString()} />
-        <Metric label="CSV ingestion" value={props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs / 1000).toFixed(2)} s` : '—'} detail={props.ingestionMetrics ? `${(props.ingestionMetrics.totalBytes / 1_048_576).toFixed(1)} MiB · ${((props.reference.sampleCount + props.comparison.sampleCount) / Math.max(props.ingestionMetrics.durationMs / 1000, 0.001) / 1_000_000).toFixed(2)}M rows/s` : 'Parse + typed-array ingestion'} />
-        <Metric label="Initial viewport prep" value={initialPreparationMs === null ? (loading ? 'Preparing…' : '—') : `${initialPreparationMs.toFixed(2)} ms`} detail="First query + series preparation" />
-        <Metric label="Interaction query" value={interactionLoading ? 'Updating…' : interactionQueryMs === null ? 'Interact with chart' : `${interactionQueryMs.toFixed(2)} ms`} detail="Latest zoom / pan query" />
-        <Metric label="UI FPS" value={interactionFps === null ? 'Interact with chart' : String(interactionFps)} />
+      <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+        <Metric label="Timestamp rows / run" value={props.reference.sampleCount.toLocaleString()} detail={`Ref ${props.reference.sampleCount.toLocaleString()} · Cmp ${props.comparison.sampleCount.toLocaleString()} · ${((props.reference.sampleCount + props.comparison.sampleCount)).toLocaleString()} total`} />
+        <Metric label="Valid channel samples" value={(ingestionSummary?.totalValidChannelSamples ?? 0).toLocaleString()} detail="Across both recordings; missing cells excluded" />
+        <Metric label="CSV ingestion" value={props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs / 1000).toFixed(2)} s` : '—'} detail={ingestionSummary ? `${(ingestionSummary.totalBytes / 1_048_576).toFixed(1)} MiB input · ${formatIngestionRates(ingestionSummary)}` : 'Concurrent parse + canonical storage'} />
+        <Metric label="Retained typed-array memory" value={props.reference.retainedStorageBytes !== undefined && props.comparison.retainedStorageBytes !== undefined ? `${((props.reference.retainedStorageBytes + props.comparison.retainedStorageBytes) / 1_048_576).toFixed(1)} MiB` : 'Unavailable'} detail={`Values ${(((props.reference.channelValueBytes ?? 0) + (props.comparison.channelValueBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · indexes ${(((props.reference.envelopeIndexBytes ?? 0) + (props.comparison.envelopeIndexBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · axes ${(((props.reference.timeAxisBytes ?? 0) + (props.comparison.timeAxisBytes ?? 0)) / 1_048_576).toFixed(1)} MiB`} />
+        <Metric label="Initial viewport prep" value={initialPreparationMs === null ? (loading ? 'Preparing…' : '—') : `${initialPreparationMs.toFixed(2)} ms`} detail="Worker round-trip + plot-series preparation" />
+        <Metric label="Viewport interaction" value={interactionLoading ? 'Updating…' : interactionQueryMs === null ? '—' : `${interactionQueryMs.toFixed(2)} ms`} detail={interactionStats ? `Latest · median ${interactionStats.medianMs.toFixed(2)} ms · p95 ${interactionStats.p95Ms.toFixed(2)} ms · n=${interactionStats.count}` : 'Latest zoom / pan query; awaiting interaction'} />
+        <Metric label="UI FPS" value={interactionFps === null ? '—' : String(interactionFps)} detail="Observed requestAnimationFrame cadence" />
       </div>
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
