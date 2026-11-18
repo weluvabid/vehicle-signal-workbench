@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DatasetDescriptor, ChannelStatistics } from '@/features/measurements/model';
 import type { DifferenceResult, DifferenceStatistics } from '@/features/measurements/difference';
 import type { ComparisonPlotData } from '@/features/measurements/plot-data';
-import { buildComparisonPlotData } from '@/features/measurements/plot-data';
+import { formatChannelStatistics, formatMeasurementCount, formatMeasurementValue } from '@/features/measurements/formatting';
+import { formatDifferenceCsvRow } from '@/features/measurements/csv-format';
+import { buildComparisonPlotData, buildSignalPoints } from '@/features/measurements/plot-data';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -46,24 +48,6 @@ interface SignalPanelResult {
 }
 
 const EMPTY_DATA: ComparisonPlotData = { reference: [], comparison: [] };
-const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
-const integerFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
-
-function formatValue(value: number | null): string {
-  return value === null ? '—' : numberFormatter.format(value);
-}
-
-function formatStatistics(statistics: ChannelStatistics) {
-  return {
-    samples: integerFormatter.format(statistics.sampleCount),
-    valid: integerFormatter.format(statistics.validCount),
-    missing: integerFormatter.format(statistics.missingCount),
-    min: formatValue(statistics.min),
-    max: formatValue(statistics.max),
-    mean: formatValue(statistics.mean),
-    standardDeviation: formatValue(statistics.standardDeviation),
-  };
-}
 
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const [loading, setLoading] = useState(true);
@@ -203,7 +187,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
     setExporting(true);
     setError(null);
     try {
-      const escape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
       const parts = ['channel,unit,reference_time_seconds,reference_value,comparison_interpolated_value,delta_reference_minus_comparison,matched\r\n'];
       let chunk: string[] = [];
       let exportedRows = 0;
@@ -217,14 +200,14 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         );
         for (let index = 0; index < series.timeSeconds.length; index++) {
           const delta = series.delta[index];
-          const values = [
-            referenceChannel.label, referenceChannel.unit ?? '', series.timeSeconds[index],
-            Number.isFinite(series.referenceValues[index]) ? series.referenceValues[index] : '',
-            Number.isFinite(series.comparisonValues[index]) ? series.comparisonValues[index] : '',
-            Number.isFinite(delta) ? delta : '',
-            Number.isFinite(delta) ? 'true' : 'false',
-          ];
-          chunk.push(values.map(escape).join(','));
+          chunk.push(formatDifferenceCsvRow(
+            referenceChannel.label,
+            referenceChannel.unit ?? '',
+            series.timeSeconds[index],
+            series.referenceValues[index],
+            series.comparisonValues[index],
+            delta,
+          ));
           exportedRows++;
           if (exportedRows > 5_000_000) throw new Error('The export exceeds 5 million rows. Zoom into a smaller interval and retry.');
           if (chunk.length >= 20_000) { parts.push(`${chunk.join('\r\n')}\r\n`); chunk = []; }
@@ -257,7 +240,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       unit: channel?.unit ?? null,
       reference: result?.data.reference ?? EMPTY_DATA.reference,
       comparison: result?.data.comparison ?? EMPTY_DATA.comparison,
-      delta: result ? Array.from(result.differenceSeries.timeSeconds, (time, index) => [time, Number.isFinite(result.differenceSeries.delta[index]) ? result.differenceSeries.delta[index] : null] as [number, number | null]) : [],
+      delta: result ? buildSignalPoints(result.differenceSeries.timeSeconds, result.differenceSeries.delta) : [],
     };
   }), [props.selections, props.reference.channels, resultById]);
 
@@ -291,8 +274,8 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           <div className="signal-statistics-list" aria-live="polite">
             {resultsRange && <p className="signal-statistics-range">Statistics interval: {resultsRange.start.toFixed(3)}–{resultsRange.end.toFixed(3)} s · end exclusive</p>}
             {results.map((result) => {
-              const reference = formatStatistics(result.referenceStatistics);
-              const comparison = formatStatistics(result.comparisonStatistics);
+              const reference = formatChannelStatistics(result.referenceStatistics);
+              const comparison = formatChannelStatistics(result.comparisonStatistics);
               const difference = result.differenceStatistics;
               return (
                 <section className="signal-statistics" key={result.id} aria-label={`${result.label} visible interval statistics`}>
@@ -310,11 +293,11 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
                     </table>
                   </div>
                   <div className="signal-difference-summary" aria-label={`${result.label} difference analysis`}>
-                    <span><strong>Δ bias</strong> {formatValue(difference.bias)}</span>
-                    <span><strong>MAE</strong> {formatValue(difference.meanAbsoluteError)}</span>
-                    <span><strong>RMSE</strong> {formatValue(difference.rootMeanSquareError)}</span>
-                    <span><strong>Max |Δ|</strong> {formatValue(difference.maximumAbsoluteError)}</span>
-                    <span><strong>Matched</strong> {integerFormatter.format(difference.matchedCount)} / {integerFormatter.format(difference.matchedCount + difference.unavailableCount)}</span>
+                    <span><strong>Δ bias</strong> {formatMeasurementValue(difference.bias)}</span>
+                    <span><strong>MAE</strong> {formatMeasurementValue(difference.meanAbsoluteError)}</span>
+                    <span><strong>RMSE</strong> {formatMeasurementValue(difference.rootMeanSquareError)}</span>
+                    <span><strong>Max |Δ|</strong> {formatMeasurementValue(difference.maximumAbsoluteError)}</span>
+                    <span><strong>Matched</strong> {formatMeasurementCount(difference.matchedCount)} / {formatMeasurementCount(difference.matchedCount + difference.unavailableCount)}</span>
                   </div>
                 </section>
               );

@@ -1,13 +1,15 @@
 import type { ChannelDescriptor, DatasetDescriptor } from './model';
+import { MAPPING_COMPATIBILITY, MAPPING_CONFIDENCE } from './mapping-constants';
+import type { MappingCompatibility, MappingConfidence } from './mapping-constants';
 
-export type MappingCompatibility = 'compatible' | 'unit-mismatch' | 'unmatched';
+export type { MappingCompatibility, MappingConfidence } from './mapping-constants';
 
 export interface ChannelMapping {
   readonly leftChannelId: string;
   readonly rightChannelId: string | null;
   readonly compatibility: MappingCompatibility;
   readonly reason: string;
-  readonly confidence: 'exact-label' | 'manual' | 'none';
+  readonly confidence: MappingConfidence;
 }
 
 export interface SuggestedChannelMapping {
@@ -67,7 +69,7 @@ export function suggestChannelMappings(
       return {
         left,
         right: null,
-        compatibility: 'unmatched',
+        compatibility: MAPPING_COMPATIBILITY.UNMATCHED,
         reason: ambiguousLeft || candidates.length > 1
           ? 'Multiple channels share this label; map manually.'
           : 'No exact channel-name match found.',
@@ -78,7 +80,7 @@ export function suggestChannelMappings(
       return {
         left,
         right,
-        compatibility: 'unit-mismatch',
+        compatibility: MAPPING_COMPATIBILITY.UNIT_MISMATCH,
         reason: `Units differ (${left.unit ?? 'unspecified'} vs ${right.unit ?? 'unspecified'}).`,
       };
     }
@@ -86,7 +88,7 @@ export function suggestChannelMappings(
     return {
       left,
       right,
-      compatibility: 'compatible',
+      compatibility: MAPPING_COMPATIBILITY.COMPATIBLE,
       reason: 'Exact normalized label and unit match.',
     };
   });
@@ -100,9 +102,9 @@ export function createManualChannelMapping(
     return {
       leftChannelId: left.id,
       rightChannelId: null,
-      compatibility: 'unmatched',
+      compatibility: MAPPING_COMPATIBILITY.UNMATCHED,
       reason: 'No right-side channel selected.',
-      confidence: 'none',
+      confidence: MAPPING_CONFIDENCE.NONE,
     };
   }
 
@@ -111,10 +113,10 @@ export function createManualChannelMapping(
   return {
     leftChannelId: left.id,
     rightChannelId: right.id,
-    compatibility: compatible ? 'compatible' : 'unit-mismatch',
+    compatibility: compatible ? MAPPING_COMPATIBILITY.COMPATIBLE : MAPPING_COMPATIBILITY.UNIT_MISMATCH,
     reason: compatible
       ? 'Units match.'
       : `Units differ (${left.unit ?? 'unspecified'} vs ${right.unit ?? 'unspecified'}); conversion is not available.`,
-    confidence: 'manual',
+    confidence: MAPPING_CONFIDENCE.MANUAL,
   };
 }

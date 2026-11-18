@@ -8,6 +8,7 @@ import { calculateTimelineOverlap } from '@/features/measurements/alignment';
 import { suggestChannelMappings } from '@/features/measurements/channel-mapping';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { ChannelMapping } from '@/features/measurements/channel-mapping';
+import { MAPPING_COMPATIBILITY, MAPPING_CONFIDENCE } from '@/features/measurements/mapping-constants';
 import { SignalComparisonPlot } from '@/components/comparison/signal-comparison-plot';
 
 export function ComparisonWorkspace() {
@@ -31,14 +32,14 @@ export function ComparisonWorkspace() {
     () => reference && comparison ? suggestChannelMappings(reference, comparison) : [],
     [reference, comparison],
   );
-  const compatibleCount = suggestedMappings.filter((mapping) => mapping.compatibility === 'compatible').length;
+  const compatibleCount = suggestedMappings.filter((mapping) => mapping.compatibility === MAPPING_COMPATIBILITY.COMPATIBLE).length;
   const effectiveMappings = useMemo(() => mappings.length > 0 ? mappings : suggestedMappings.map((mapping) => ({
     leftChannelId: mapping.left.id, rightChannelId: mapping.right?.id ?? null,
     compatibility: mapping.compatibility, reason: mapping.reason,
-    confidence: mapping.right ? 'exact-label' as const : 'none' as const,
+    confidence: mapping.right ? MAPPING_CONFIDENCE.EXACT_LABEL : MAPPING_CONFIDENCE.NONE,
   })), [mappings, suggestedMappings]);
   const compatibleMappings = useMemo(
-    () => effectiveMappings.filter((mapping) => mapping.compatibility === 'compatible' && mapping.rightChannelId),
+    () => effectiveMappings.filter((mapping) => mapping.compatibility === MAPPING_COMPATIBILITY.COMPATIBLE && mapping.rightChannelId),
     [effectiveMappings],
   );
   const selectedSignals = useMemo(() => selectedChannelIds.flatMap((channelId) => {

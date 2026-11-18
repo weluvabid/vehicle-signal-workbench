@@ -266,4 +266,3 @@ test('indexed visible-window statistics match a direct Welford scan across block
     assert.ok(Math.abs((actual.standardDeviation ?? 0) - (expected.standardDeviation ?? 0)) < 1e-8);
   }
 });
-

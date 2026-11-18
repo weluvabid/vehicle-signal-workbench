@@ -159,10 +159,17 @@ export class MeasurementWorkerClient {
     kind: OperationKind,
     onProgress?: (fraction: number) => void,
   ): Promise<T> {
-    const worker = this.getWorker();
     const requestId = this.nextRequestId++;
 
     return new Promise<T>((resolve, reject) => {
+      let worker: Worker;
+      try {
+        worker = this.getWorker();
+      } catch (cause) {
+        reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.'));
+        return;
+      }
+
       this.pending.set(requestId, {
         kind,
         resolve: (value) => resolve(value as T),
@@ -170,7 +177,12 @@ export class MeasurementWorkerClient {
         onProgress,
       });
 
-      worker.postMessage({ ...request, requestId } as IngestionRequest);
+      try {
+        worker.postMessage({ ...request, requestId } as IngestionRequest);
+      } catch (cause) {
+        this.pending.delete(requestId);
+        reject(cause instanceof Error ? cause : new Error('Unable to dispatch measurement worker request.'));
+      }
     });
   }
 

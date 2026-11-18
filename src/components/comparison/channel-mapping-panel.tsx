@@ -7,6 +7,7 @@ import {
   type ChannelMapping,
 } from '@/features/measurements/channel-mapping';
 import type { DatasetDescriptor } from '@/features/measurements/model';
+import { MAPPING_COMPATIBILITY, MAPPING_PRESENTATION } from '@/features/measurements/mapping-constants';
 
 interface ChannelMappingPanelProps {
   readonly leftDataset: DatasetDescriptor;
@@ -49,7 +50,7 @@ export function ChannelMappingPanel({
   );
 
   const compatibleCount = mappings.filter(
-    (mapping) => mapping.compatibility === 'compatible',
+    (mapping) => mapping.compatibility === MAPPING_COMPATIBILITY.COMPATIBLE,
   ).length;
 
   function updateSelection(leftChannelId: string, rightChannelId: string) {
@@ -114,14 +115,10 @@ export function ChannelMappingPanel({
                 )}
               </div>
               <div role="cell">
-                <span className={`mapping-state mapping-${mapping?.compatibility ?? 'unmatched'}`}>
-                  {mapping?.compatibility === 'compatible'
-                    ? 'Compatible'
-                    : mapping?.compatibility === 'unit-mismatch'
-                      ? 'Unit mismatch'
-                      : 'Unmapped'}
+                <span className={`mapping-state mapping-${MAPPING_PRESENTATION[mapping?.compatibility ?? MAPPING_COMPATIBILITY.UNMATCHED].className}`}>
+                  {MAPPING_PRESENTATION[mapping?.compatibility ?? MAPPING_COMPATIBILITY.UNMATCHED].label}
                 </span>
-                {mapping && mapping.compatibility !== 'compatible' && (
+                {mapping && mapping.compatibility !== MAPPING_COMPATIBILITY.COMPATIBLE && (
                   <small className="mapping-reason">{suggestion?.reason ?? mapping.reason}</small>
                 )}
               </div>

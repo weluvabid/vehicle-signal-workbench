@@ -18,6 +18,21 @@ export type IngestionRequest =
   | { readonly type: 'query-difference-series'; readonly requestId: number; readonly referenceDatasetId: string; readonly referenceChannelId: string; readonly comparisonDatasetId: string; readonly comparisonChannelId: string; readonly startSeconds: number; readonly endSeconds: number; readonly comparisonOffsetSeconds: number; readonly pixelWidth: number }
   | { readonly type: 'query-difference-statistics'; readonly requestId: number; readonly referenceDatasetId: string; readonly referenceChannelId: string; readonly comparisonDatasetId: string; readonly comparisonChannelId: string; readonly startSeconds: number; readonly endSeconds: number; readonly comparisonOffsetSeconds: number };
 
+export type WorkerErrorCode =
+  | 'EMPTY_FILE'
+  | 'INVALID_CSV'
+  | 'MISSING_TIMESTAMP_COLUMN'
+  | 'INVALID_TIMESTAMP'
+  | 'NON_MONOTONIC_TIMESTAMP'
+  | 'NO_NUMERIC_CHANNELS'
+  | 'NO_VALID_SAMPLES'
+  | 'IMPORT_CANCELLED'
+  | 'DIFFERENCE_INPUT_NOT_FOUND'
+  | 'INVALID_DIFFERENCE_QUERY'
+  | 'DATASET_NOT_FOUND'
+  | 'CHANNEL_NOT_FOUND'
+  | 'INVALID_QUERY';
+
 export type IngestionResponse =
   | { readonly type: 'progress'; readonly requestId: number; readonly fraction: number }
   | { readonly type: 'complete'; readonly requestId: number; readonly dataset: DatasetDescriptor }
@@ -25,4 +40,4 @@ export type IngestionResponse =
   | { readonly type: 'statistics'; readonly requestId: number; readonly statistics: ChannelStatistics }
   | { readonly type: 'difference-series'; readonly requestId: number; readonly result: DifferenceResult }
   | { readonly type: 'difference-statistics'; readonly requestId: number; readonly statistics: DifferenceStatistics }
-  | { readonly type: 'error'; readonly requestId: number; readonly code: string; readonly message: string };
+  | { readonly type: 'error'; readonly requestId: number; readonly code: WorkerErrorCode; readonly message: string };
