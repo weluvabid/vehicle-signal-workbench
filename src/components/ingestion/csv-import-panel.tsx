@@ -1,14 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { detectTimestampColumn } from '@/features/ingestion/csv-normalization';
-import { inspectCsvHeaders } from '@/features/ingestion/csv-preview';
+import { useCsvImport } from '@/features/ingestion/use-csv-import';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import type { DatasetDescriptor, TimestampEncoding } from '@/features/measurements/model';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
-
-type ImportStatus = 'idle' | 'inspecting' | 'importing' | 'complete' | 'error';
 
 const timestampEncodings: readonly { value: TimestampEncoding; label: string }[] = [
   { value: 'iso-8601', label: 'ISO 8601 date/time' },
@@ -25,73 +21,19 @@ interface CsvImportPanelProps {
 }
 
 export function CsvImportPanel({ title, role, client, dataset, onDataset }: CsvImportPanelProps) {
-  const generationRef = useRef(0);
-  const [file, setFile] = useState<File | null>(null);
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [timestampColumn, setTimestampColumn] = useState('');
-  const [timestampEncoding, setTimestampEncoding] = useState<TimestampEncoding>('iso-8601');
-  const [status, setStatus] = useState<ImportStatus>('idle');
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleFileChange(nextFile: File | null) {
-    const generation = ++generationRef.current;
-    if (dataset) client.releaseDataset(dataset.id);
-    onDataset(null);
-    setFile(nextFile);
-    setHeaders([]);
-    setTimestampColumn('');
-    setProgress(0);
-    setError(null);
-
-    if (!nextFile) {
-      setStatus('idle');
-      return;
-    }
-
-    setStatus('inspecting');
-    try {
-      const preview = await inspectCsvHeaders(nextFile);
-      if (generation !== generationRef.current) return;
-      setHeaders(preview);
-      setTimestampColumn(detectTimestampColumn(preview) ?? '');
-      setStatus('idle');
-    } catch (cause) {
-      if (generation !== generationRef.current) return;
-      setError(cause instanceof Error ? cause.message : 'Unable to inspect CSV file.');
-      setStatus('error');
-    }
-  }
-
-  async function handleImport() {
-    if (!file || !timestampColumn || status === 'importing') return;
-    const generation = generationRef.current;
-    if (dataset) {
-      client.releaseDataset(dataset.id);
-      onDataset(null);
-    }
-    setStatus('importing');
-    setProgress(0);
-    setError(null);
-    try {
-      const imported = await client.import(
-        file,
-        { timestampColumn, timestampEncoding },
-        (fraction) => { if (generation === generationRef.current) setProgress(fraction); },
-      );
-      if (generation !== generationRef.current) {
-        client.releaseDataset(imported.id);
-        return;
-      }
-      onDataset(imported);
-      setProgress(1);
-      setStatus('complete');
-    } catch (cause) {
-      if (generation !== generationRef.current) return;
-      setError(cause instanceof Error ? cause.message : 'CSV import failed.');
-      setStatus('error');
-    }
-  }
+  const {
+    file,
+    headers,
+    timestampColumn,
+    setTimestampColumn,
+    timestampEncoding,
+    setTimestampEncoding,
+    status,
+    progress,
+    error,
+    handleFileChange,
+    handleImport,
+  } = useCsvImport({ client, dataset, onDataset });
 
   return (
     <section className="import-panel" aria-labelledby={`${role}-import-title`} data-testid={`${role}-import-panel`}>
