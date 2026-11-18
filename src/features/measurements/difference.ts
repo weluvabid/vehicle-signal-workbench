@@ -1,6 +1,7 @@
 import type { ChannelWindow } from './model';
 
-export { downsampleDifferenceEnvelope } from './difference-envelope';
+export { downsampleDifferenceEnvelope, selectDifferenceEnvelopeIndexes } from './difference-envelope';
+import { selectDifferenceEnvelopeIndexes } from './difference-envelope';
 
 /**
  * Engineering comparison contract, version 1:
@@ -140,6 +141,177 @@ export function calculateSignalDifferenceSeriesInTimeRange(
     values: comparisonSource.values,
   });
   return calculateSignalDifference(referenceWindow, comparisonWindow, comparisonOffsetSeconds, fullRunCadence);
+}
+
+/**
+ * Calculate a display-resolution difference envelope directly from worker-owned
+ * source buffers. Unlike calculateSignalDifferenceSeriesInTimeRange followed by
+ * downsampleDifferenceEnvelope, this never allocates full-resolution output
+ * series that would immediately be discarded.
+ *
+ * The candidate selection and fragmented-gap policy intentionally mirror
+ * downsampleDifferenceEnvelope so chart output remains equivalent.
+ */
+export function calculateSignalDifferenceEnvelopeInTimeRange(
+  referenceSource: DifferenceSource,
+  comparisonSource: DifferenceSource,
+  startSeconds: number,
+  endSeconds: number,
+  comparisonOffsetSeconds: number,
+  pixelWidth: number,
+): DifferenceResult {
+  if (!Number.isInteger(pixelWidth) || pixelWidth < 1 || pixelWidth > 8_192) {
+    throw new RangeError('Difference envelope pixel width must be between 1 and 8192.');
+  }
+  validateDifferenceSources(referenceSource, comparisonSource, startSeconds, endSeconds, comparisonOffsetSeconds);
+
+  const referenceStart = lowerBound(referenceSource.timeSeconds, startSeconds);
+  const referenceEnd = lowerBound(referenceSource.timeSeconds, endSeconds);
+  const sampleCount = referenceEnd - referenceStart;
+  if (sampleCount <= pixelWidth * 4) {
+    return calculateSignalDifferenceSeriesInTimeRange(
+      referenceSource, comparisonSource, startSeconds, endSeconds, comparisonOffsetSeconds,
+    );
+  }
+
+  const comparisonStart = Math.max(0, lowerBound(comparisonSource.timeSeconds,
+    startSeconds - comparisonOffsetSeconds) - 1);
+  const comparisonEnd = Math.min(comparisonSource.timeSeconds.length,
+    lowerBound(comparisonSource.timeSeconds, endSeconds - comparisonOffsetSeconds) + 1);
+  const comparisonWindow: ChannelWindow = {
+    datasetId: comparisonSource.datasetId, channelId: comparisonSource.channelId,
+    startIndex: comparisonStart,
+    timeSeconds: comparisonSource.timeSeconds.subarray(comparisonStart, comparisonEnd),
+    values: comparisonSource.values.subarray(comparisonStart, comparisonEnd),
+  };
+  const cadence = medianSampleInterval(comparisonSource);
+  const maxGap = cadence === null ? null : cadence * DIFFERENCE_POLICY.maxInterpolationGapFactor;
+  const delta = new Float64Array(sampleCount);
+  delta.fill(Number.NaN);
+  let matchedCount = 0;
+  let bias = 0;
+  let meanAbsoluteError = 0;
+  let squaredErrorScale = 0;
+  let scaledSquaredErrorSum = 1;
+  let maximumAbsoluteError = 0;
+  let comparisonCursor = 0;
+
+  for (let offset = 0; offset < sampleCount; offset++) {
+    const index = referenceStart + offset;
+    const referenceValue = referenceSource.values[index];
+    if (!Number.isFinite(referenceValue)) continue;
+    const target = referenceSource.timeSeconds[index] - comparisonOffsetSeconds;
+    while (comparisonCursor < comparisonWindow.timeSeconds.length &&
+      comparisonWindow.timeSeconds[comparisonCursor] < target - DIFFERENCE_POLICY.exactMatchToleranceSeconds) {
+      comparisonCursor++;
+    }
+    const comparisonValue = interpolateWithoutCrossingGaps(comparisonWindow, target, maxGap, comparisonCursor);
+    if (comparisonValue === null) continue;
+    const difference = referenceValue - comparisonValue;
+    if (!Number.isFinite(difference)) continue;
+    delta[offset] = difference;
+    matchedCount++;
+    bias += (difference - bias) / matchedCount;
+    const absoluteDifference = Math.abs(difference);
+    meanAbsoluteError += (absoluteDifference - meanAbsoluteError) / matchedCount;
+    if (absoluteDifference > 0) {
+      if (squaredErrorScale < absoluteDifference) {
+        const ratio = squaredErrorScale / absoluteDifference;
+        scaledSquaredErrorSum = 1 + scaledSquaredErrorSum * ratio * ratio;
+        squaredErrorScale = absoluteDifference;
+      } else {
+        const ratio = absoluteDifference / squaredErrorScale;
+        scaledSquaredErrorSum += ratio * ratio;
+      }
+    }
+    maximumAbsoluteError = Math.max(maximumAbsoluteError, absoluteDifference);
+  }
+
+  const statistics: DifferenceStatistics = {
+    policyVersion: 1,
+    direction: 'reference-minus-comparison',
+    matchedCount,
+    unavailableCount: sampleCount - matchedCount,
+    bias: matchedCount === 0 ? null : bias,
+    meanAbsoluteError: matchedCount === 0 ? null : meanAbsoluteError,
+    rootMeanSquareError: matchedCount === 0
+      ? null
+      : squaredErrorScale === 0
+        ? 0
+        : squaredErrorScale * Math.sqrt(scaledSquaredErrorSum / matchedCount),
+    maximumAbsoluteError: matchedCount === 0 ? null : maximumAbsoluteError,
+    maxInterpolationGapSeconds: maxGap,
+  };
+
+  const timeWindow = referenceSource.timeSeconds.subarray(referenceStart, referenceEnd);
+  const selection = selectDifferenceEnvelopeIndexes(timeWindow, delta, pixelWidth);
+  const outputLength = selection.indexes.length;
+  const timeSeconds = new Float64Array(outputLength);
+  const referenceValues = new Float64Array(outputLength);
+  const comparisonValues = new Float64Array(outputLength);
+  const outputDelta = new Float64Array(outputLength);
+  let outputComparisonCursor = 0;
+  for (let outputIndex = 0; outputIndex < outputLength; outputIndex++) {
+    const sourceOffset = selection.indexes[outputIndex];
+    const sourceIndex = referenceStart + sourceOffset;
+    timeSeconds[outputIndex] = referenceSource.timeSeconds[sourceIndex];
+    if (selection.forcedGapIndexes.has(sourceOffset)) {
+      referenceValues[outputIndex] = Number.NaN;
+      comparisonValues[outputIndex] = Number.NaN;
+      outputDelta[outputIndex] = Number.NaN;
+      continue;
+    }
+    referenceValues[outputIndex] = referenceSource.values[sourceIndex];
+    outputDelta[outputIndex] = delta[sourceOffset];
+    if (!Number.isFinite(delta[sourceOffset])) {
+      comparisonValues[outputIndex] = Number.NaN;
+      continue;
+    }
+    const target = timeSeconds[outputIndex] - comparisonOffsetSeconds;
+    while (outputComparisonCursor < comparisonWindow.timeSeconds.length &&
+      comparisonWindow.timeSeconds[outputComparisonCursor] < target - DIFFERENCE_POLICY.exactMatchToleranceSeconds) {
+      outputComparisonCursor++;
+    }
+    comparisonValues[outputIndex] = interpolateWithoutCrossingGaps(
+      comparisonWindow, target, maxGap, outputComparisonCursor,
+    ) ?? Number.NaN;
+  }
+  return { timeSeconds, referenceValues, comparisonValues, delta: outputDelta, statistics };
+}
+
+function fillDifferenceValues(
+  reference: DifferenceSource, comparison: DifferenceSource, start: number, end: number,
+  offset: number, comparisonValues: Float64Array, delta: Float64Array,
+): void {
+  const comparisonWindow: ChannelWindow = {
+    datasetId: comparison.datasetId, channelId: comparison.channelId, startIndex: 0,
+    timeSeconds: comparison.timeSeconds, values: comparison.values,
+  };
+  const cadence = medianSampleInterval(comparison);
+  const maxGap = cadence === null ? null : cadence * DIFFERENCE_POLICY.maxInterpolationGapFactor;
+  let cursor = 0;
+  for (let index = start; index < end; index++) {
+    if (!Number.isFinite(reference.values[index])) continue;
+    const target = reference.timeSeconds[index] - offset;
+    while (cursor < comparison.timeSeconds.length &&
+      comparison.timeSeconds[cursor] < target - DIFFERENCE_POLICY.exactMatchToleranceSeconds) cursor++;
+    const value = interpolateWithoutCrossingGaps(comparisonWindow, target, maxGap, cursor);
+    if (value === null) continue;
+    const difference = reference.values[index] - value;
+    if (!Number.isFinite(difference)) continue;
+    comparisonValues[index - start] = value;
+    delta[index - start] = difference;
+  }
+}
+
+function validateDifferenceSources(
+  reference: DifferenceSource, comparison: DifferenceSource, start: number, end: number, offset: number,
+): void {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || !Number.isFinite(offset) ||
+      reference.timeSeconds.length !== reference.values.length ||
+      comparison.timeSeconds.length !== comparison.values.length) {
+    throw new RangeError('Invalid difference source or visible time range.');
+  }
 }
 
 /** Returns a bounded-sample median of positive adjacent timestamp intervals. */

@@ -5,12 +5,12 @@ import type {
   DatasetDescriptor,
 } from '../measurements/model';
 import type { DifferenceResult, DifferenceStatistics } from '../measurements/difference';
-import type { IngestionRequest, IngestionResponse } from './worker-protocol';
+import type { ComparisonPanelQueryResult, IngestionRequest, IngestionResponse } from './worker-protocol';
 
 type WorkerOperationRequest = Extract<IngestionRequest, { readonly requestId: number }>;
 type WithoutRequestId<T> = T extends { readonly requestId: number } ? Omit<T, 'requestId'> : never;
 
-type OperationKind = 'import' | 'window' | 'statistics' | 'difference' | 'difference-series';
+type OperationKind = 'import' | 'window' | 'statistics' | 'difference' | 'difference-series' | 'comparison-panel';
 
 interface PendingOperation {
   readonly kind: OperationKind;
@@ -113,6 +113,23 @@ export class MeasurementWorkerClient {
       comparisonDatasetId, comparisonChannelId, startSeconds, endSeconds,
       comparisonOffsetSeconds, pixelWidth,
     }, 'difference-series');
+  }
+
+  queryComparisonPanel(
+    referenceDatasetId: string,
+    referenceChannelId: string,
+    comparisonDatasetId: string,
+    comparisonChannelId: string,
+    startSeconds: number,
+    endSeconds: number,
+    comparisonOffsetSeconds: number,
+    pixelWidth: number,
+  ): Promise<ComparisonPanelQueryResult> {
+    return this.dispatch<ComparisonPanelQueryResult>({
+      type: 'query-comparison-panel', referenceDatasetId, referenceChannelId,
+      comparisonDatasetId, comparisonChannelId, startSeconds, endSeconds,
+      comparisonOffsetSeconds, pixelWidth,
+    }, 'comparison-panel');
   }
 
   queryDifferenceStatistics(
@@ -220,6 +237,8 @@ export class MeasurementWorkerClient {
       } else if (message.type === 'difference-statistics' && operation.kind === 'difference') {
         operation.resolve(message.statistics);
       } else if (message.type === 'difference-series' && operation.kind === 'difference-series') {
+        operation.resolve(message.result);
+      } else if (message.type === 'comparison-panel' && operation.kind === 'comparison-panel') {
         operation.resolve(message.result);
       } else {
         operation.reject(new Error('Measurement worker returned an unexpected response type.'));

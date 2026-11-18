@@ -1,4 +1,4 @@
-import { calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange, downsampleDifferenceEnvelope } from '../measurements/difference';
+import { calculateSignalDifferenceEnvelopeInTimeRange, calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange } from '../measurements/difference';
 import {
   calculateChannelStatistics,
   queryChannelEnvelopeTimeWindow,
@@ -56,23 +56,94 @@ self.onmessage = (event: MessageEvent<IngestionRequest>): void => {
           throw new RangeError('The visible interval exceeds the 2,000,000-sample export limit. Zoom into a smaller interval and retry.');
         }
       }
-      const result = calculateSignalDifferenceSeriesInTimeRange(
-        { datasetId: request.referenceDatasetId, channelId: request.referenceChannelId,
-          timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values },
-        { datasetId: request.comparisonDatasetId, channelId: request.comparisonChannelId,
-          timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values },
-        request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds,
-      );
-      const bounded = request.pixelWidth > 0
-        ? downsampleDifferenceEnvelope(result, Math.min(8_192, request.pixelWidth))
-        : result;
-      self.postMessage({ type: 'difference-series', requestId: request.requestId, result: bounded }, {
-        transfer: [bounded.timeSeconds.buffer, bounded.referenceValues.buffer,
-          bounded.comparisonValues.buffer, bounded.delta.buffer],
+      const referenceSource = {
+        datasetId: request.referenceDatasetId,
+        channelId: request.referenceChannelId,
+        timeSeconds: referenceDataset.timeSeconds,
+        values: referenceChannel.values,
+      };
+      const comparisonSource = {
+        datasetId: request.comparisonDatasetId,
+        channelId: request.comparisonChannelId,
+        timeSeconds: comparisonDataset.timeSeconds,
+        values: comparisonChannel.values,
+      };
+      // Display queries construct only the pixel-bounded envelope. Full-resolution
+      // arrays are allocated exclusively for explicit CSV export (pixelWidth = 0).
+      const result = request.pixelWidth > 0
+        ? calculateSignalDifferenceEnvelopeInTimeRange(
+          referenceSource, comparisonSource, request.startSeconds, request.endSeconds,
+          request.comparisonOffsetSeconds, Math.min(8_192, request.pixelWidth),
+        )
+        : calculateSignalDifferenceSeriesInTimeRange(
+          referenceSource, comparisonSource, request.startSeconds, request.endSeconds,
+          request.comparisonOffsetSeconds,
+        );
+      self.postMessage({ type: 'difference-series', requestId: request.requestId, result }, {
+        transfer: [result.timeSeconds.buffer, result.referenceValues.buffer,
+          result.comparisonValues.buffer, result.delta.buffer],
       });
     } catch (error) {
       post({ type: 'error', requestId: request.requestId, code: 'INVALID_DIFFERENCE_QUERY',
         message: error instanceof Error ? error.message : 'Unable to calculate difference series.' });
+    }
+    return;
+  }
+
+  if (request.type === 'query-comparison-panel') {
+    const referenceDataset = datasets.get(request.referenceDatasetId);
+    const comparisonDataset = datasets.get(request.comparisonDatasetId);
+    const referenceChannel = referenceDataset?.channels.get(request.referenceChannelId);
+    const comparisonChannel = comparisonDataset?.channels.get(request.comparisonChannelId);
+    if (!referenceDataset || !comparisonDataset || !referenceChannel || !comparisonChannel) {
+      post({ type: 'error', requestId: request.requestId, code: 'DIFFERENCE_INPUT_NOT_FOUND',
+        message: 'One or both datasets or channels are unavailable in this worker session.' });
+      return;
+    }
+    try {
+      if (!Number.isInteger(request.pixelWidth) || request.pixelWidth < 1 || request.pixelWidth > 8_192) {
+        throw new RangeError('Comparison panel pixel width must be between 1 and 8192.');
+      }
+      const referenceBuffers = { timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values };
+      const comparisonBuffers = { timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values };
+      const comparisonStart = request.startSeconds - request.comparisonOffsetSeconds;
+      const comparisonEnd = request.endSeconds - request.comparisonOffsetSeconds;
+      const result = {
+        referenceWindow: queryChannelEnvelopeTimeWindow(
+          request.referenceDatasetId, request.referenceChannelId, referenceBuffers,
+          referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, request.pixelWidth,
+        ),
+        comparisonWindow: queryChannelEnvelopeTimeWindow(
+          request.comparisonDatasetId, request.comparisonChannelId, comparisonBuffers,
+          comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth,
+        ),
+        referenceStatistics: queryChannelTimeStatistics(
+          request.referenceDatasetId, request.referenceChannelId, referenceBuffers,
+          referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds,
+        ),
+        comparisonStatistics: queryChannelTimeStatistics(
+          request.comparisonDatasetId, request.comparisonChannelId, comparisonBuffers,
+          comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd,
+        ),
+        differenceSeries: calculateSignalDifferenceEnvelopeInTimeRange(
+          { datasetId: request.referenceDatasetId, channelId: request.referenceChannelId,
+            timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values },
+          { datasetId: request.comparisonDatasetId, channelId: request.comparisonChannelId,
+            timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values },
+          request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds, request.pixelWidth,
+        ),
+      };
+      self.postMessage({ type: 'comparison-panel', requestId: request.requestId, result }, {
+        transfer: [
+          result.referenceWindow.timeSeconds.buffer, result.referenceWindow.values.buffer,
+          result.comparisonWindow.timeSeconds.buffer, result.comparisonWindow.values.buffer,
+          result.differenceSeries.timeSeconds.buffer, result.differenceSeries.referenceValues.buffer,
+          result.differenceSeries.comparisonValues.buffer, result.differenceSeries.delta.buffer,
+        ],
+      });
+    } catch (error) {
+      post({ type: 'error', requestId: request.requestId, code: 'INVALID_QUERY',
+        message: error instanceof Error ? error.message : 'Unable to query comparison panel.' });
     }
     return;
   }

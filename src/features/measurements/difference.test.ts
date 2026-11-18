@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateSignalDifference, calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange, downsampleDifferenceEnvelope, medianSampleInterval } from './difference.ts';
+import { calculateSignalDifference, calculateSignalDifferenceInTimeRange, calculateSignalDifferenceSeriesInTimeRange, calculateSignalDifferenceEnvelopeInTimeRange, downsampleDifferenceEnvelope, medianSampleInterval } from './difference.ts';
 
 const window = (time: number[], values: number[]) => ({
   datasetId: 'dataset', channelId: 'channel', startIndex: 0,
@@ -156,4 +156,34 @@ test('difference series uses full-run cadence rather than a locally sparse viewp
   );
   assert.equal(result.statistics.matchedCount, 0);
   assert.ok(Number.isNaN(result.delta[0]));
+});
+
+test('builds pixel-bounded difference envelopes without full-resolution result arrays', async () => {
+  const times = Float64Array.from({ length: 10_000 }, (_, index) => index / 100);
+  const referenceValues = Float64Array.from({ length: times.length }, (_, index) => Math.sin(index / 17));
+  const comparisonValues = Float64Array.from({ length: times.length }, (_, index) => Math.cos(index / 23));
+  for (let index = 1_000; index < 1_100; index++) comparisonValues[index] = Number.NaN;
+  for (let index = 4_000; index < 4_050; index++) referenceValues[index] = Number.NaN;
+  const reference = {
+    datasetId: 'r', channelId: 'rpm', timeSeconds: times, values: referenceValues,
+  };
+  const comparison = {
+    datasetId: 'c', channelId: 'rpm', timeSeconds: times, values: comparisonValues,
+  };
+  const full = calculateSignalDifferenceSeriesInTimeRange(reference, comparison, 0, 100, 0);
+  const expected = downsampleDifferenceEnvelope(full, 80);
+  const actual = calculateSignalDifferenceEnvelopeInTimeRange(reference, comparison, 0, 100, 0, 80);
+  const assertSameNumbers = (left: Float64Array, right: Float64Array) => {
+    assert.equal(left.length, right.length);
+    for (let index = 0; index < left.length; index++) {
+      if (Number.isNaN(left[index])) assert.ok(Number.isNaN(right[index]), `expected NaN at ${index}`);
+      else assert.equal(right[index], left[index], `mismatch at ${index}`);
+    }
+  };
+  assertSameNumbers(actual.timeSeconds, expected.timeSeconds);
+  assertSameNumbers(actual.referenceValues, expected.referenceValues);
+  assertSameNumbers(actual.comparisonValues, expected.comparisonValues);
+  assertSameNumbers(actual.delta, expected.delta);
+  assert.deepEqual(actual.statistics, full.statistics);
+  assert.ok(actual.delta.length <= 80 * 4 * 33);
 });

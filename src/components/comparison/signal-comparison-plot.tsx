@@ -97,46 +97,20 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       const comparisonChannel = props.comparison.channels.find((channel) => channel.id === selection.comparisonChannelId);
       if (!comparisonChannel) throw new Error(`Comparison channel ${selection.comparisonChannelId} is unavailable.`);
 
-      const comparisonStart = start - props.offsetSeconds;
-      const comparisonEnd = end - props.offsetSeconds;
-      const [referenceWindow, comparisonWindow, referenceStatistics, comparisonStatistics, differenceSeries] = await Promise.all([
-        props.client.queryEnvelopeTimeWindow(
-          props.reference.id,
-          selection.referenceChannelId,
-          start,
-          end,
-          width,
-        ),
-        props.client.queryEnvelopeTimeWindow(
-          props.comparison.id,
-          selection.comparisonChannelId,
-          comparisonStart,
-          comparisonEnd,
-          width,
-        ),
-        props.client.queryTimeStatistics(
-          props.reference.id,
-          selection.referenceChannelId,
-          start,
-          end,
-        ),
-        props.client.queryTimeStatistics(
-          props.comparison.id,
-          selection.comparisonChannelId,
-          comparisonStart,
-          comparisonEnd,
-        ),
-        props.client.queryDifferenceSeries(
-          props.reference.id,
-          selection.referenceChannelId,
-          props.comparison.id,
-          selection.comparisonChannelId,
-          start,
-          end,
-          props.offsetSeconds,
-          width,
-        ),
-      ]);
+      const panel = await props.client.queryComparisonPanel(
+        props.reference.id,
+        selection.referenceChannelId,
+        props.comparison.id,
+        selection.comparisonChannelId,
+        start,
+        end,
+        props.offsetSeconds,
+        width,
+      );
+      const {
+        referenceWindow, comparisonWindow, referenceStatistics,
+        comparisonStatistics, differenceSeries,
+      } = panel;
 
       return {
         id: selection.referenceChannelId,
