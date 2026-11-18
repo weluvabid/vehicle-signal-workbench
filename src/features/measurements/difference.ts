@@ -315,31 +315,6 @@ function calculateDifferenceEnvelope(
     : { timeSeconds, delta: outputDelta, statistics };
 }
 
-function fillDifferenceValues(
-  reference: DifferenceSource, comparison: DifferenceSource, start: number, end: number,
-  offset: number, comparisonValues: Float64Array, delta: Float64Array,
-): void {
-  const comparisonWindow: ChannelWindow = {
-    datasetId: comparison.datasetId, channelId: comparison.channelId, startIndex: 0,
-    timeSeconds: comparison.timeSeconds, values: comparison.values,
-  };
-  const cadence = medianSampleInterval(comparison);
-  const maxGap = cadence === null ? null : cadence * DIFFERENCE_POLICY.maxInterpolationGapFactor;
-  let cursor = 0;
-  for (let index = start; index < end; index++) {
-    if (!Number.isFinite(reference.values[index])) continue;
-    const target = reference.timeSeconds[index] - offset;
-    while (cursor < comparison.timeSeconds.length &&
-      comparison.timeSeconds[cursor] < target - DIFFERENCE_POLICY.exactMatchToleranceSeconds) cursor++;
-    const value = interpolateWithoutCrossingGaps(comparisonWindow, target, maxGap, cursor);
-    if (value === null) continue;
-    const difference = reference.values[index] - value;
-    if (!Number.isFinite(difference)) continue;
-    comparisonValues[index - start] = value;
-    delta[index - start] = difference;
-  }
-}
-
 function validateDifferenceSources(
   reference: DifferenceSource, comparison: DifferenceSource, start: number, end: number, offset: number,
 ): void {

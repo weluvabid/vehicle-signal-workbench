@@ -88,7 +88,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       if (exportAbortController.current === controller) exportAbortController.current = null;
       setExporting(false);
     }
-  }, [exporting, props.client, props.reference, props.comparison, props.selections, props.offsetSeconds, resultsRange]);
+  }, [exporting, props.client, props.reference, props.comparison, props.selections, props.offsetSeconds, resultsRange, setError]);
 
   const resultById = useMemo(() => new Map(results.map((result) => [result.id, result])), [results]);
   const chartPanels = useMemo(() => props.selections.map((selection) => {
