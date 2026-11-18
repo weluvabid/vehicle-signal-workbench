@@ -1,17 +1,14 @@
 #!/bin/sh
 set -eu
 
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "Not inside a Git worktree; skipping hook installation."
+repo_root=$(git rev-parse --show-toplevel)
+configured_path=$(git -C "$repo_root" config --local --get core.hooksPath || true)
+
+if [ -n "$configured_path" ] && [ "$configured_path" != ".githooks" ]; then
+  echo "A custom core.hooksPath is already configured: $configured_path" >&2
+  echo "Leaving the existing hook configuration untouched." >&2
   exit 0
 fi
 
-existing_hooks_path="$(git config --get core.hooksPath 2>/dev/null || true)"
-
-if [ -n "$existing_hooks_path" ]; then
-  echo "Existing core.hooksPath is set to '$existing_hooks_path'; leaving it unchanged."
-  exit 0
-fi
-
-git config core.hooksPath .githooks
-echo "Git hooks configured: .githooks/"
+git -C "$repo_root" config core.hooksPath .githooks
+echo "Git hooks configured: .githooks"

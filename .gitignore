@@ -3,21 +3,32 @@ node_modules/
 .pnpm-store/
 vendor/
 
-# Build output
+# Next.js / build output
+.next/
+out/
 dist/
 build/
 target/
 coverage/
-out/
+*.tsbuildinfo
 
 # Environment and secrets
 .env
 .env.*
 !.env.example
 
+# Local measurement data and generated benchmarks
+data/
+datasets/
+benchmarks/results/
+*.csv
+*.parquet
+*.bin
+
 # Logs and caches
 *.log
 .cache/
+.turbo/
 .tmp/
 .temp/
 
