@@ -28,8 +28,10 @@ test('worker startup failure is surfaced and a subsequent worker can recover', a
   await openWorkspace(page);
   const panel = page.getByTestId('reference-import-panel');
   await panel.getByTestId('reference-file-input').setInputFiles(fixturePath('01-basic-comparison', 'reference.csv'));
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption('unix-seconds');
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   await panel.getByRole('button', { name: 'Import run' }).click();
   await expect(panel.getByRole('alert')).toContainText('E2E forced worker crash');
 
@@ -41,14 +43,18 @@ test('a failed import can be corrected and retried in the same slot', async ({ p
   await openWorkspace(page);
   const panel = page.getByTestId('reference-import-panel');
   await panel.getByTestId('reference-file-input').setInputFiles(fixturePath('07-duplicate-timestamps', 'reference.csv'));
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption('unix-seconds');
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   await panel.getByRole('button', { name: 'Import run' }).click();
   await expect(panel.getByRole('alert')).toContainText('NON_MONOTONIC_TIMESTAMP');
 
   await panel.getByTestId('reference-file-input').setInputFiles(fixturePath('01-basic-comparison', 'reference.csv'));
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption('unix-seconds');
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   await panel.getByRole('button', { name: 'Import run' }).click();
   await expect(page.getByTestId('reference-dataset-summary')).toBeVisible({ timeout: 60_000 });
   await expect(panel.getByRole('alert')).toHaveCount(0);
@@ -59,6 +65,7 @@ test('an offset that removes overlap removes comparison visualizations', async (
   await importRun(page, 'reference', fixturePath('01-basic-comparison', 'reference.csv'));
   await importRun(page, 'comparison', fixturePath('01-basic-comparison', 'comparison.csv'));
   await expect(page.getByTestId('signal-chart')).toBeVisible();
+  await page.getByRole('button', { name: /Workspace controls/ }).click();
   await page.getByTestId('comparison-offset').fill('100');
   await expect(page.getByTestId('overlap-summary')).toContainText('These runs do not share a time interval');
   await expect(page.getByTestId('plot-workspace')).toHaveCount(0);
@@ -72,8 +79,10 @@ test('rejects a dataset whose non-timestamp columns contain no numeric measureme
     mimeType: 'text/csv',
     buffer: Buffer.from('Timestamp,Operating Mode,ECU Label\n1700000000,IDLE,ECU-A\n1700000001,LOAD,ECU-A\n'),
   });
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption('unix-seconds');
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   await panel.getByRole('button', { name: 'Import run' }).click();
   await expect(panel.getByRole('alert')).toContainText('NO_NUMERIC_CHANNELS');
 });
@@ -86,8 +95,10 @@ test('rejects duplicate CSV headers after trimming whitespace', async ({ page })
     mimeType: 'text/csv',
     buffer: Buffer.from('Timestamp,Speed [km/h], Speed [km/h]\n1700000000,1,2\n1700000001,2,3\n'),
   });
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption('unix-seconds');
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   await panel.getByRole('button', { name: 'Import run' }).click();
   await expect(panel.getByRole('alert')).toContainText('INVALID_CSV');
   await expect(panel.getByRole('alert')).toContainText('headers must be unique');

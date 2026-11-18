@@ -18,7 +18,9 @@ test.describe('large-file browser stress tests', () => {
     const importDurationMs = performance.now() - startedAt;
     await expect(page.getByTestId('reference-dataset-summary')).toContainText('1,000,000');
     await expect(page.getByTestId('comparison-dataset-summary')).toContainText('1,000,000');
-    await page.locator('fieldset[aria-label="Signals to display"] input[type="checkbox"]').nth(3).check();
+    await page.getByRole('tab', { name: 'Channels' }).click();
+    await page.getByRole('checkbox').nth(3).click();
+    await page.getByRole('button', { name: /Workspace controls/ }).click();
     await expect(page.getByTestId('signal-chart')).toBeVisible();
     await expect(page.locator('.signal-statistics')).toHaveCount(4);
     const browserMetrics = await page.evaluate(() => {
@@ -44,6 +46,8 @@ test.describe('large-file browser stress tests', () => {
     await importRun(page, 'comparison', fixturePath('20-high-density-run-10m', 'comparison.csv'), 'unix-seconds', 20 * 60_000);
     await expect(page.getByTestId('reference-dataset-summary')).toContainText('10,000,000');
     await expect(page.getByTestId('comparison-dataset-summary')).toContainText('10,000,000');
+    await page.getByRole('tab', { name: 'Channels' }).click();
+    await page.getByRole('button', { name: /Workspace controls/ }).click();
     await expect(page.getByTestId('signal-chart')).toBeVisible();
     await expect(page.locator('.signal-statistics')).toHaveCount(3);
     const browserMetrics = await page.evaluate(() => {

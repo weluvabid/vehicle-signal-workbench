@@ -51,9 +51,12 @@ test('complete comparison workflow: import, map, inspect, navigate and export', 
   expect(csv.split(/\r?\n/).length).toBeGreaterThan(10);
 
   // Removing a selected signal must remove its reference, comparison and delta panels together.
-  const signals = page.locator('fieldset[aria-label="Signals to display"] input[type="checkbox"]');
+  await page.getByRole('button', { name: /Workspace controls/ }).click();
+  await page.getByRole('tab', { name: 'Channels' }).click();
+  const signals = page.getByRole('checkbox');
   await expect(signals).toHaveCount(3);
-  await signals.nth(0).uncheck();
+  await signals.nth(0).click();
+  await page.getByRole('button', { name: /Workspace controls/ }).click();
   await expect(page.getByRole('group', { name: /Synchronized comparison of 2 signals/ })).toBeVisible();
   await expect(page.locator('.signal-statistics')).toHaveCount(2);
 
@@ -73,14 +76,14 @@ test('imports both runs concurrently without cross-contaminating their descripto
     expect(referencePanel.getByLabel('Timestamp column')).toBeVisible(),
     expect(comparisonPanel.getByLabel('Timestamp column')).toBeVisible(),
   ]);
-  await Promise.all([
-    referencePanel.getByLabel('Timestamp column').selectOption('Timestamp'),
-    comparisonPanel.getByLabel('Timestamp column').selectOption('Timestamp'),
-  ]);
-  await Promise.all([
-    referencePanel.getByLabel('Timestamp format').selectOption('unix-seconds'),
-    comparisonPanel.getByLabel('Timestamp format').selectOption('unix-seconds'),
-  ]);
+  await referencePanel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await comparisonPanel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await referencePanel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
+  await comparisonPanel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   // Start both operations without awaiting either import. UI actions on the
   // same Playwright page are deliberately sequential; Promise.all(click, click)
   // races the browser input dispatch and can drop one of the clicks.
@@ -98,6 +101,7 @@ test('replacing a run releases the old descriptor and renders the replacement', 
   await importPair(page, '01-basic-comparison');
   await expect(page.getByTestId('reference-dataset-summary')).toBeVisible();
 
+  await page.getByRole('button', { name: /Workspace controls/ }).click();
   const panel = page.getByTestId('reference-import-panel');
   await panel.getByTestId('reference-file-input').setInputFiles({
     name: 'replacement-run.csv',
@@ -105,8 +109,10 @@ test('replacing a run releases the old descriptor and renders the replacement', 
     buffer: await readFile(fixturePath('02-different-sampling-rates', 'reference.csv')),
   });
   await expect(page.getByTestId('reference-dataset-summary')).toHaveCount(0);
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption('unix-seconds');
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   await panel.getByRole('button', { name: 'Import run' }).click();
   await expect(page.getByTestId('reference-dataset-summary')).toContainText('replacement-run');
   await expect(page.getByTestId('signal-chart')).toBeVisible();
@@ -118,6 +124,7 @@ test('replacing the comparison run updates the workspace without retaining stale
   await importPair(page, '01-basic-comparison');
   await expect(page.getByText('3/3 compatible')).toBeVisible();
 
+  await page.getByRole('button', { name: /Workspace controls/ }).click();
   const panel = page.getByTestId('comparison-import-panel');
   await panel.getByTestId('comparison-file-input').setInputFiles({
     name: 'replacement-candidate.csv',
@@ -125,8 +132,10 @@ test('replacing the comparison run updates the workspace without retaining stale
     buffer: await readFile(fixturePath('02-different-sampling-rates', 'comparison.csv')),
   });
   await expect(page.getByTestId('comparison-dataset-summary')).toHaveCount(0);
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption('unix-seconds');
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: 'Unix timestamp (seconds)' }).click();
   await panel.getByRole('button', { name: 'Import run' }).click();
   await expect(page.getByTestId('comparison-dataset-summary')).toContainText('replacement-candidate');
   await expect(page.getByText('3/3 compatible')).toBeVisible();

@@ -30,8 +30,10 @@
     "test:e2e:cross-browser": "node scripts/generate-measurement-fixtures.mjs --force && VSW_CROSS_BROWSER=1 playwright test"
   },
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cn": "^0.5.2",
     "echarts": "6.0.0",
     "echarts-for-react": "3.0.6",
     "lucide-react": "^0.468.0",

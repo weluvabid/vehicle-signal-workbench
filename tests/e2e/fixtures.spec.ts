@@ -72,10 +72,14 @@ for (const [scenario, description] of acceptedPairs) {
     if (scenario === '11-entirely-empty-channel') {
       await expect(page.getByTestId('reference-dataset-summary').locator('dd').nth(1)).toHaveText('1');
     }
+    if (['13-different-channel-order', '14-ambiguous-channel-names', '15-incompatible-units'].includes(scenario)) {
+      await page.getByRole('button', { name: /Workspace controls/ }).click();
+      await page.getByRole('tab', { name: 'Channels' }).click();
+    }
     if (scenario === '13-different-channel-order') {
       await expect(page.getByText('3/3 compatible')).toBeVisible();
       const speedMapping = page.getByLabel('Map Vehicle Speed to comparison channel');
-      await expect(speedMapping.locator('option:checked')).toContainText('Vehicle Speed');
+      await expect(speedMapping).toContainText('Vehicle Speed');
     }
     if (scenario === '14-ambiguous-channel-names') {
       await expect(page.getByText('0/2 compatible')).toBeVisible();

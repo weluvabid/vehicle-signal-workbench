@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { ArrowLeftRight } from 'lucide-react';
 import {
   createManualChannelMapping,
   suggestChannelMappings,
@@ -8,6 +9,9 @@ import {
 } from '@/features/measurements/channel-mapping';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { MAPPING_COMPATIBILITY, MAPPING_PRESENTATION } from '@/features/measurements/mapping-constants';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface ChannelMappingPanelProps {
   readonly leftDataset: DatasetDescriptor;
@@ -15,121 +19,69 @@ interface ChannelMappingPanelProps {
   readonly onChange?: (mappings: readonly ChannelMapping[]) => void;
 }
 
-export function ChannelMappingPanel({
-  leftDataset,
-  rightDataset,
-  onChange,
-}: ChannelMappingPanelProps) {
-  const suggestions = useMemo(
-    () => suggestChannelMappings(leftDataset, rightDataset),
-    [leftDataset, rightDataset],
-  );
-
+export function ChannelMappingPanel({ leftDataset, rightDataset, onChange }: ChannelMappingPanelProps) {
+  const suggestions = useMemo(() => suggestChannelMappings(leftDataset, rightDataset), [leftDataset, rightDataset]);
   const [selected, setSelected] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      suggestions.map(({ left, right }) => [left.id, right?.id ?? '']),
-    ),
+    Object.fromEntries(suggestions.map(({ left, right }) => [left.id, right?.id ?? 'unmapped'])),
   );
+  const mappings = useMemo(() => leftDataset.channels.map((left) => {
+    const rightId = selected[left.id] ?? 'unmapped';
+    const right = rightId === 'unmapped' ? null : rightDataset.channels.find((channel) => channel.id === rightId) ?? null;
+    return createManualChannelMapping(left, right);
+  }), [leftDataset.channels, rightDataset.channels, selected]);
+  const mappingByLeftId = useMemo(() => new Map(mappings.map((mapping) => [mapping.leftChannelId, mapping])), [mappings]);
+  const suggestionByLeftId = useMemo(() => new Map(suggestions.map((suggestion) => [suggestion.left.id, suggestion])), [suggestions]);
 
-  const mappings = useMemo(
-    () =>
-      leftDataset.channels.map((left) => {
-        const rightId = selected[left.id] ?? '';
-        const right = rightDataset.channels.find((channel) => channel.id === rightId) ?? null;
-        return createManualChannelMapping(left, right);
-      }),
-    [leftDataset.channels, rightDataset.channels, selected],
-  );
-  const mappingByLeftId = useMemo(
-    () => new Map(mappings.map((mapping) => [mapping.leftChannelId, mapping])),
-    [mappings],
-  );
-  const suggestionByLeftId = useMemo(
-    () => new Map(suggestions.map((suggestion) => [suggestion.left.id, suggestion])),
-    [suggestions],
-  );
-
-  const compatibleCount = mappings.filter(
-    (mapping) => mapping.compatibility === MAPPING_COMPATIBILITY.COMPATIBLE,
-  ).length;
-
-  function updateSelection(leftChannelId: string, rightChannelId: string) {
-    const next = { ...selected, [leftChannelId]: rightChannelId };
+  function updateSelection(leftChannelId: string, rightChannelId: string | null) {
+    const next = { ...selected, [leftChannelId]: rightChannelId ?? 'unmapped' };
     setSelected(next);
-
-    const nextMappings = leftDataset.channels.map((left) => {
-      const selectedId = next[left.id] ?? '';
-      const right = rightDataset.channels.find((channel) => channel.id === selectedId) ?? null;
+    onChange?.(leftDataset.channels.map((left) => {
+      const selectedId = next[left.id] ?? 'unmapped';
+      const right = selectedId === 'unmapped' ? null : rightDataset.channels.find((channel) => channel.id === selectedId) ?? null;
       return createManualChannelMapping(left, right);
-    });
-
-    onChange?.(nextMappings);
+    }));
   }
 
   return (
-    <section className="mapping-panel" aria-labelledby="mapping-title">
-      <header className="mapping-heading">
-        <div>
-          <p className="eyebrow">CHANNEL MAPPING</p>
-          <h2 id="mapping-title">Match equivalent signals</h2>
-          <p>
-            {leftDataset.name} <span aria-hidden="true">↔</span> {rightDataset.name}
-          </p>
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div className="space-y-1">
+          <CardDescription className="font-medium uppercase tracking-wider">Channel mapping</CardDescription>
+          <CardTitle className="text-base">Match equivalent signals</CardTitle>
+          <CardDescription className="flex items-center gap-2"><span className="max-w-48 truncate">{leftDataset.name}</span><ArrowLeftRight className="size-3.5 shrink-0" /><span className="max-w-48 truncate">{rightDataset.name}</span></CardDescription>
         </div>
-        <span className="mapping-count">
-          {compatibleCount}/{mappings.length} compatible
-        </span>
-      </header>
-
-      <div className="mapping-table" role="table" aria-label="Channel mappings">
-        <div className="mapping-row mapping-header" role="row">
-          <span role="columnheader">Reference run</span>
-          <span role="columnheader">Comparison run</span>
-          <span role="columnheader">Compatibility</span>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader><TableRow><TableHead>Reference channel</TableHead><TableHead>Comparison channel</TableHead><TableHead className="w-36">Compatibility</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {leftDataset.channels.map((left) => {
+                const mapping = mappingByLeftId.get(left.id);
+                const suggestion = suggestionByLeftId.get(left.id);
+                const presentation = MAPPING_PRESENTATION[mapping?.compatibility ?? MAPPING_COMPATIBILITY.UNMATCHED];
+                return (
+                  <TableRow key={left.id}>
+                    <TableCell className="min-w-40"><div className="font-medium">{left.label}</div><div className="text-xs text-muted-foreground">{left.unit ?? 'Unit unspecified'}</div></TableCell>
+                    <TableCell className="min-w-56">
+                      <Select value={selected[left.id] ?? 'unmapped'} onValueChange={(value) => updateSelection(left.id, value === 'unmapped' ? null : value)}>
+                        <SelectTrigger aria-label={`Map ${left.label} to comparison channel`}><SelectValue placeholder="Not mapped" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unmapped">Not mapped</SelectItem>
+                          {rightDataset.channels.map((right) => <SelectItem key={right.id} value={right.id}>{right.label} · {right.unit ?? 'unit unspecified'}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      {suggestion?.right && <p className="mt-1 text-xs text-muted-foreground">Suggested: {suggestion.reason}</p>}
+                    </TableCell>
+                    <TableCell><Badge variant={mapping?.compatibility === MAPPING_COMPATIBILITY.COMPATIBLE ? 'default' : mapping?.compatibility === MAPPING_COMPATIBILITY.UNIT_MISMATCH ? 'outline' : 'secondary'}>{presentation.label}</Badge>{mapping && mapping.compatibility !== MAPPING_COMPATIBILITY.COMPATIBLE && <p className="mt-1 text-xs text-muted-foreground">{suggestion?.reason ?? mapping.reason}</p>}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
-        {leftDataset.channels.map((left) => {
-          const mapping = mappingByLeftId.get(left.id);
-          const suggestion = suggestionByLeftId.get(left.id);
-
-          return (
-            <div className="mapping-row" role="row" key={left.id}>
-              <div role="cell">
-                <strong>{left.label}</strong>
-                <small>{left.unit ?? 'unit unspecified'}</small>
-              </div>
-              <div role="cell">
-                <select
-                  aria-label={`Map ${left.label} to comparison channel`}
-                  value={selected[left.id] ?? ''}
-                  onChange={(event) => updateSelection(left.id, event.target.value)}
-                >
-                  <option value="">Not mapped</option>
-                  {rightDataset.channels.map((right) => (
-                    <option key={right.id} value={right.id}>
-                      {right.label} · {right.unit ?? 'unit unspecified'}
-                    </option>
-                  ))}
-                </select>
-                {suggestion?.right && (
-                  <small className="mapping-reason">Suggested: {suggestion.reason}</small>
-                )}
-              </div>
-              <div role="cell">
-                <span className={`mapping-state mapping-${MAPPING_PRESENTATION[mapping?.compatibility ?? MAPPING_COMPATIBILITY.UNMATCHED].className}`}>
-                  {MAPPING_PRESENTATION[mapping?.compatibility ?? MAPPING_COMPATIBILITY.UNMATCHED].label}
-                </span>
-                {mapping && mapping.compatibility !== MAPPING_COMPATIBILITY.COMPATIBLE && (
-                  <small className="mapping-reason">{suggestion?.reason ?? mapping.reason}</small>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <p className="mapping-footnote">
-        Automatic suggestions require exact normalized names and matching units. No unit conversion
-        or fuzzy matching is performed.
-      </p>
-    </section>
+        <p className="text-xs leading-5 text-muted-foreground">Automatic suggestions require exact normalized names and matching units. No unit conversion or fuzzy matching is performed.</p>
+      </CardContent>
+    </Card>
   );
 }

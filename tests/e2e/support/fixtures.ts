@@ -17,7 +17,8 @@ export function readExpected<T = Record<string, unknown>>(scenario: string): T {
 
 export async function openWorkspace(page: Page): Promise<void> {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Compare vehicle runs.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Compare vehicle runs' })).toBeVisible();
+  await page.getByRole('button', { name: /Configure measurement runs/ }).click();
 }
 
 export async function selectCsv(
@@ -29,8 +30,10 @@ export async function selectCsv(
   const panel = page.getByTestId(`${role}-import-panel`);
   await panel.getByTestId(`${role}-file-input`).setInputFiles(file);
   await expect(panel.getByLabel('Timestamp column')).toBeVisible();
-  await panel.getByLabel('Timestamp column').selectOption('Timestamp');
-  await panel.getByLabel('Timestamp format').selectOption(encoding);
+  await panel.getByLabel('Timestamp column').click();
+  await page.getByRole('option', { name: 'Timestamp', exact: true }).click();
+  await panel.getByLabel('Timestamp format').click();
+  await page.getByRole('option', { name: encoding === 'unix-seconds' ? 'Unix timestamp (seconds)' : encoding === 'unix-milliseconds' ? 'Unix timestamp (milliseconds)' : 'ISO 8601 date/time' }).click();
 }
 
 export async function importSelectedCsv(page: Page, role: RunRole): Promise<void> {
@@ -71,4 +74,5 @@ export async function importPair(
 ): Promise<void> {
   await importRun(page, 'reference', fixturePath(scenario, 'reference.csv'), encoding);
   await importRun(page, 'comparison', fixturePath(scenario, 'comparison.csv'), encoding);
+  await page.getByRole('button', { name: /Workspace controls/ }).click();
 }
