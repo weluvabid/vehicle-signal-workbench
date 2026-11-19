@@ -24,11 +24,11 @@ export function ComparisonWorkspace() {
   const canPlot = Boolean(reference && comparison && overlap && overlap.durationSeconds > 0 && compatibleMappings.length > 0);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden py-3">
+    <div className="flex flex-1 flex-col gap-3 py-3">
       <SiteHeader onNewWorkload={() => setWizardOpen(true)} />
 
       {canPlot && reference && comparison && overlap ? (
-        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="comparison-results">
+        <div className="pb-36 sm:pb-32" data-testid="comparison-results">
           {selectedSignals.length > 0 ? (
             <SignalComparisonPlot
               key={`${reference.id}:${comparison.id}:${selectedSignals.map((item) => item.referenceChannelId).join(',')}`}
@@ -44,7 +44,7 @@ export function ComparisonWorkspace() {
           ) : <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No compatible channels were found between these runs.</CardContent></Card>}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 items-center justify-center px-4">
+        <div className="flex min-h-[calc(100dvh-6rem)] flex-1 items-center justify-center px-4">
           <div className="w-full max-w-2xl space-y-6">
             <div className="space-y-2 text-center">
               <BadgeLine />

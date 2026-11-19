@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { formatChannelStatistics, formatMeasurementValue } from '@/features/measurements/formatting';
-import { formatIngestionRates, summarizeIngestion } from '@/features/comparison/performance-metrics';
 import { buildSignalChartPanels } from '@/features/comparison/chart/signal-panels';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import type { SignalSelection } from '@/features/comparison/types';
@@ -74,7 +73,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
     setActiveChannelIndex((current) => Math.min(current, Math.max(0, props.selections.length - 1)));
   }, [props.selections.length]);
   const fps = useAnimationFrameRate();
-  const ingestionSummary = props.ingestionMetrics ? summarizeIngestion(props.reference, props.comparison, props.ingestionMetrics) : null;
   const metrics = useMetricsViewport({
     client: props.client,
     reference: props.reference,
@@ -90,15 +88,11 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const initialVisibleFraction = getInitialVisibleFraction(Math.max(props.reference.sampleCount, props.comparison.sampleCount));
 
 
+  const retainedBytes = (props.reference.retainedStorageBytes ?? 0) + (props.comparison.retainedStorageBytes ?? 0);
+  const totalRows = props.reference.sampleCount + props.comparison.sampleCount;
+
   return (
-    <div className="flex min-h-0 min-w-0 flex-col gap-4" data-testid="plot-workspace">
-      <section className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Ingestion performance">
-        <Metric label="Timestamp rows / run" value={props.reference.sampleCount.toLocaleString()} detail={`Ref ${props.reference.sampleCount.toLocaleString()} · Cmp ${props.comparison.sampleCount.toLocaleString()}`} />
-        <Metric label="Valid channel samples" value={(ingestionSummary?.totalValidChannelSamples ?? 0).toLocaleString()} detail="Across both recordings" />
-        <Metric label="CSV ingestion" value={props.ingestionMetrics ? `${(props.ingestionMetrics.ingestionDurationMs / 1000).toFixed(2)} s` : '—'} detail={ingestionSummary ? `${(ingestionSummary.totalBytes / 1_048_576).toFixed(1)} MiB · ${formatIngestionRates(ingestionSummary)}` : 'Parser + typed-array import'} />
-        <Metric label="Typed-array footprint" value={props.reference.retainedStorageBytes !== undefined && props.comparison.retainedStorageBytes !== undefined ? `${((props.reference.retainedStorageBytes + props.comparison.retainedStorageBytes) / 1_048_576).toFixed(1)} MiB` : 'Unavailable'} detail={`Values ${(((props.reference.channelValueBytes ?? 0) + (props.comparison.channelValueBytes ?? 0)) / 1_048_576).toFixed(1)} · indexes ${(((props.reference.envelopeIndexBytes ?? 0) + (props.comparison.envelopeIndexBytes ?? 0)) / 1_048_576).toFixed(1)} · axes ${(((props.reference.timeAxisBytes ?? 0) + (props.comparison.timeAxisBytes ?? 0)) / 1_048_576).toFixed(1)} MiB`} />
-        <Metric label="FPS" value={fps === null ? '—' : `${fps}`} detail="Live requestAnimationFrame rate" />
-      </section>
+    <div className="flex min-h-0 min-w-0 flex-col gap-4 pb-2" data-testid="plot-workspace">
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       {!error && !loading && results.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected time interval.</p>}
 
@@ -230,7 +224,44 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           })}
         </div>
       </section>
+      <LivePerformanceDock
+        fps={fps}
+        ingestion={props.ingestionMetrics ? `${(props.ingestionMetrics.ingestionDurationMs / 1000).toFixed(2)} s` : '—'}
+        memory={retainedBytes > 0 ? `${(retainedBytes / 1_048_576).toFixed(1)} MiB` : '—'}
+        rows={totalRows.toLocaleString()}
+      />
     </div>
+  );
+}
+
+function LivePerformanceDock({ fps, ingestion, memory, rows }: { readonly fps: number | null; readonly ingestion: string; readonly memory: string; readonly rows: string }) {
+  const items = [
+    { label: 'Frame rate', value: fps === null ? '—' : String(fps), unit: 'FPS' },
+    { label: 'CSV ingestion', value: ingestion, unit: '' },
+    { label: 'Typed-array memory', value: memory, unit: '' },
+    { label: 'Timestamp rows', value: rows, unit: '' },
+  ];
+
+  return (
+    <section
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_rgb(0_0_0/0.18)] backdrop-blur-xl"
+      aria-label="Live performance"
+      data-testid="live-performance-dock"
+    >
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 sm:py-4">
+        <h2 className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Live performance</h2>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 sm:gap-6">
+          {items.map((item) => (
+            <div key={item.label} className="min-w-0">
+              <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{item.label}</p>
+              <p className="mt-0.5 truncate font-mono text-base font-medium tabular-nums sm:text-xl">
+                {item.value}{item.unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{item.unit}</span>}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -240,17 +271,5 @@ function ReceiptRow({ label, value }: { readonly label: string; readonly value: 
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-right font-mono text-sm font-medium tabular-nums">{value}</span>
     </div>
-  );
-}
-
-function Metric({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail?: string }) {
-  return (
-    <Card size="sm" className="min-w-0 bg-card/45">
-      <CardContent className="space-y-1">
-        <p className="truncate text-[10px] text-muted-foreground">{label}</p>
-        <p className="font-mono text-sm font-semibold tabular-nums">{value}</p>
-        {detail && <p className="line-clamp-2 text-[10px] leading-4 text-muted-foreground">{detail}</p>}
-      </CardContent>
-    </Card>
   );
 }
