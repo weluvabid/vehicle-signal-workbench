@@ -24,67 +24,96 @@ export function createSignalChartOption(
   domainStartSeconds: number,
   domainEndSeconds: number,
   chartHeight: number,
+  chartWidth: number,
 ): EChartsOption {
   const axisIndexes = panels.map((_, index) => index);
+  const lastVisibleIndex = panels.reduce((last, panel, index) => panel.visible ? index : last, -1);
   const series = panels.flatMap((panel, index) => panel.visible ? createPanelSeries(panel, index) : []);
-  // Reserve space for the shared range slider and distribute plot height evenly.
   const sliderReserve = 42;
-  const panelSlot = Math.max(120, (chartHeight - sliderReserve - 12) / Math.max(1, panels.length));
-  const plotTop = 30;
-  const plotBottomReserve = 42;
-  const plotHeight = Math.max(64, panelSlot - plotTop - plotBottomReserve);
+  const outerInset = 8;
+  const cardGap = 14;
+  const panelSlot = (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, panels.length);
+  const cardTop = (index: number) => outerInset + index * panelSlot;
+  const isNarrow = chartWidth < 640;
+  const plotTop = 42;
+  const leftGutter = 10;
+  const rightGutter = 10;
+  const axisLabelFontSize = 10;
+  const xAxisSplitNumber = 10;
+  const cardHeight = panelSlot - cardGap;
+  const plotHeight = Math.max(58, cardHeight - 64);
+  const yAxisSplitNumber = Math.max(2, Math.min(isNarrow ? 4 : 5, Math.floor(plotHeight / 34)));
 
   return {
     animation: false,
     backgroundColor: 'transparent',
     textStyle: {
-      color: '#aeb4be',
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-      fontSize: 10,
+      color: '#c4c9d2',
+      fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontSize: 11,
     },
-    grid: panels.map((_, index) => ({
-      top: 8 + index * panelSlot + plotTop,
-      left: 76,
-      right: 28,
-      height: plotHeight,
-      containLabel: true,
-    })),
+    grid: panels.map((_, index) => {
+      return {
+        top: cardTop(index) + plotTop,
+        left: leftGutter,
+        right: rightGutter,
+        height: plotHeight,
+        containLabel: true,
+      };
+    }),
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross', snap: false },
       backgroundColor: '#171a1f',
       borderColor: AXIS_COLOR,
-      textStyle: { color: '#f1f2f3', fontSize: 10 },
+      textStyle: { color: '#f1f2f3', fontSize: 11 },
       valueFormatter: (value) => value === null || value === undefined ? 'Missing' : formatChartValue(Number(value)),
     },
-    xAxis: panels.map((_, index) => ({
-      type: 'value' as const,
-      gridIndex: index,
-      show: panels[index].visible,
-      min: domainStartSeconds,
-      max: domainEndSeconds,
-      name: index === panels.length - 1 ? 'Elapsed time (s)' : '',
-      nameLocation: 'middle' as const,
-      nameGap: 29,
-      axisLine: { lineStyle: { color: AXIS_COLOR } },
-      axisTick: { lineStyle: { color: AXIS_COLOR } },
-      axisLabel: { show: panels[index].visible, color: LABEL_COLOR, hideOverlap: true, width: 72, overflow: 'truncate' as const, formatter: (value: number) => formatChartValue(value) },
-      splitLine: { show: panels[index].visible, lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
-      nameTextStyle: { color: LABEL_COLOR, fontSize: 10 },
-    })),
+    xAxis: panels.map((panel, index) => {
+      const isLastVisible = index === lastVisibleIndex;
+      return {
+        type: 'value' as const,
+        gridIndex: index,
+        show: panel.visible,
+        min: domainStartSeconds,
+        max: domainEndSeconds,
+        name: isLastVisible ? 'Elapsed time (s)' : '',
+        nameLocation: 'middle' as const,
+        nameGap: isNarrow ? 24 : 27,
+        axisLine: { show: isLastVisible, lineStyle: { color: AXIS_COLOR } },
+        axisTick: { show: isLastVisible, lineStyle: { color: AXIS_COLOR } },
+        axisLabel: {
+          show: panel.visible && isLastVisible,
+          color: LABEL_COLOR,
+          hideOverlap: true,
+          margin: isNarrow ? 10 : 8,
+          fontSize: axisLabelFontSize,
+          formatter: (value: number) => formatChartValue(value),
+        },
+        splitNumber: xAxisSplitNumber,
+        splitLine: { show: panel.visible, lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
+        nameTextStyle: { color: LABEL_COLOR, fontSize: isNarrow ? 9 : 10 },
+      };
+    }),
     yAxis: panels.map((panel, index) => ({
       type: 'value' as const,
       gridIndex: index,
       show: panel.visible,
-      name: panel.unit ?? 'Value',
-      nameLocation: 'middle' as const,
-      nameGap: 52,
       scale: true,
       axisLine: { show: true, lineStyle: { color: AXIS_COLOR } },
       axisTick: { lineStyle: { color: AXIS_COLOR } },
-      axisLabel: { show: panel.visible, color: LABEL_COLOR, hideOverlap: true, width: 76, overflow: 'truncate' as const, formatter: (value: number) => formatChartValue(value) },
+      axisLabel: {
+        show: panel.visible,
+        color: LABEL_COLOR,
+        hideOverlap: true,
+        width: isNarrow ? 38 : 48,
+        margin: isNarrow ? 6 : 8,
+        fontSize: axisLabelFontSize,
+        overflow: 'truncate' as const,
+        formatter: (value: number) => formatChartValue(value),
+      },
+      splitNumber: yAxisSplitNumber,
       splitLine: { show: panel.visible, lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
-      nameTextStyle: { color: LABEL_COLOR, fontSize: 10 },
     })),
     axisPointer: {
       link: [{ xAxisIndex: 'all' }],
@@ -112,8 +141,8 @@ export function createSignalChartOption(
         bottom: 12,
         borderColor: '#30343b',
         backgroundColor: '#171a1f',
-        fillerColor: 'rgba(174, 180, 190, 0.16)',
-        handleStyle: { color: '#aeb4be', borderColor: '#d7dbe1' },
+        fillerColor: 'rgba(174, 180, 190, 0.2)',
+        handleStyle: { color: '#c4c9d2', borderColor: '#f1f2f3' },
         textStyle: { color: LABEL_COLOR },
         showDataShadow: false,
         showDetail: false,
@@ -139,7 +168,7 @@ function createPanelSeries(panel: SignalChartPanel, index: number) {
       showSymbol: false,
       connectNulls: false,
       smooth: false,
-      lineStyle: { color: panel.color, width: 1.8 },
+      lineStyle: { color: '#c4c9d2', width: 1.5, type: 'dashed' as const, opacity: 0.9 },
       emphasis: { focus: 'series' as const, lineStyle: { width: 2.2 } },
     },
     {
@@ -152,7 +181,7 @@ function createPanelSeries(panel: SignalChartPanel, index: number) {
       showSymbol: false,
       connectNulls: false,
       smooth: false,
-      lineStyle: { color: panel.color, width: 1.5, type: 'dashed' as const, opacity: 0.62 },
+      lineStyle: { color: panel.color, width: 2.2, opacity: 1 },
       emphasis: { focus: 'series' as const, lineStyle: { width: 2.2 } },
     },
   ];

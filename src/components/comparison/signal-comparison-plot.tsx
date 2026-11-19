@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { ComparisonPlotData, SignalPoint } from '@/features/measurements/plot-data';
 import { formatMeasurementValue } from '@/features/measurements/formatting';
@@ -62,7 +63,7 @@ function buildRows(panels: readonly {
 }
 
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
-  const { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading, interactionStats } = useSignalViewport(props);
+  const { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs } = useSignalViewport(props);
   const ingestionSummary = props.ingestionMetrics ? summarizeIngestion(props.reference, props.comparison, props.ingestionMetrics) : null;
   const [page, setPage] = useState(0);
   const [interactionFps, setInteractionFps] = useState<number | null>(null);
@@ -89,20 +90,23 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-4" data-testid="plot-workspace">
-      <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+      <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         <Metric label="Timestamp rows / run" value={props.reference.sampleCount.toLocaleString()} detail={`Ref ${props.reference.sampleCount.toLocaleString()} · Cmp ${props.comparison.sampleCount.toLocaleString()} · ${((props.reference.sampleCount + props.comparison.sampleCount)).toLocaleString()} total`} />
         <Metric label="Valid channel samples" value={(ingestionSummary?.totalValidChannelSamples ?? 0).toLocaleString()} detail="Across both recordings; missing cells excluded" />
         <Metric label="CSV ingestion" value={props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs / 1000).toFixed(2)} s` : '—'} detail={ingestionSummary ? `${(ingestionSummary.totalBytes / 1_048_576).toFixed(1)} MiB input · ${formatIngestionRates(ingestionSummary)}` : 'Concurrent parse + canonical storage'} />
         <Metric label="Retained typed-array memory" value={props.reference.retainedStorageBytes !== undefined && props.comparison.retainedStorageBytes !== undefined ? `${((props.reference.retainedStorageBytes + props.comparison.retainedStorageBytes) / 1_048_576).toFixed(1)} MiB` : 'Unavailable'} detail={`Values ${(((props.reference.channelValueBytes ?? 0) + (props.comparison.channelValueBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · indexes ${(((props.reference.envelopeIndexBytes ?? 0) + (props.comparison.envelopeIndexBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · axes ${(((props.reference.timeAxisBytes ?? 0) + (props.comparison.timeAxisBytes ?? 0)) / 1_048_576).toFixed(1)} MiB`} />
         <Metric label="Initial viewport prep" value={initialPreparationMs === null ? (loading ? 'Preparing…' : '—') : `${initialPreparationMs.toFixed(2)} ms`} detail="Worker round-trip + plot-series preparation" />
-        <Metric label="Viewport interaction" value={interactionLoading ? 'Updating…' : interactionQueryMs === null ? '—' : `${interactionQueryMs.toFixed(2)} ms`} detail={interactionStats ? `Latest · median ${interactionStats.medianMs.toFixed(2)} ms · p95 ${interactionStats.p95Ms.toFixed(2)} ms · n=${interactionStats.count}` : 'Latest zoom / pan query; awaiting interaction'} />
         <Metric label="UI FPS" value={interactionFps === null ? '—' : String(interactionFps)} detail="Observed requestAnimationFrame cadence" />
       </div>
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       {!error && !loading && rows.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected time interval.</p>}
 
-      <section className="h-[58dvh] min-h-[420px] max-h-[760px] shrink-0" aria-label="Synchronized signal charts">
+      <section
+        className="h-[calc(var(--signal-panel-count)*200px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*220px+58px)]"
+        style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
+        aria-label="Synchronized signal charts"
+      >
         <EChartsSignalChart
           key={`${selectionKey}:${props.offsetSeconds}:${props.startSeconds}:${props.endSeconds}`}
           panels={panels}

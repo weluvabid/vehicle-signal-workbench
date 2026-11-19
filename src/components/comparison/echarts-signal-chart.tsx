@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { parseFiniteChartNumber } from './chart-viewport';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 
 echarts.use([
   LineChart,
@@ -73,6 +74,7 @@ export function EChartsSignalChart({
   const fpsFrames = useRef(0);
   const pointerActive = useRef(false);
   const [chartHeight, setChartHeight] = useState(0);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
   const latestProps = useRef({ domainStartSeconds, domainEndSeconds, onViewportChange });
 
   useEffect(() => {
@@ -147,8 +149,9 @@ export function EChartsSignalChart({
       const entry = entries[0];
       const width = Math.floor(entry?.contentRect.width ?? 0);
       const height = Math.floor(entry?.contentRect.height ?? 0);
-      if (width > 0 && Math.abs(width - previousWidth) >= 24) {
+      if (width > 0 && Math.abs(width - previousWidth) >= 1) {
         previousWidth = width;
+        setMeasuredWidth((current) => current === width ? current : width);
         chartWidth.current = width;
         const viewport = lastViewport.current;
         if (viewport) dispatchViewport({ ...viewport, pixelWidth: width });
@@ -201,8 +204,8 @@ export function EChartsSignalChart({
   }, [dispatchViewport, recordInteraction]);
 
   const option = useMemo(
-    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600),
-    [chartHeight, domainEndSeconds, domainStartSeconds, panels],
+    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024),
+    [chartHeight, domainEndSeconds, domainStartSeconds, measuredWidth, panels],
   );
 
   return (
@@ -221,32 +224,59 @@ export function EChartsSignalChart({
     >
       {chartHeight > 0 && panels.map((panel, index) => {
         const sliderReserve = 42;
-        const panelSlot = Math.max(120, (chartHeight - sliderReserve - 12) / Math.max(1, panels.length));
+        const outerInset = 8;
+        const cardGap = 14;
+        const panelSlot = (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, panels.length);
         return (
-          <div
+          <Card
             key={panel.id}
-            className="absolute left-[76px] z-20 flex h-7 max-w-[calc(100%-110px)] items-center gap-2 rounded-sm bg-background/90 pr-2"
-            style={{ top: `${8 + index * panelSlot}px` }}
-          >
-            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: panel.color }} aria-hidden="true" />
-            <span className="truncate font-mono text-xs font-semibold">{panel.label}</span>
-            <span className="shrink-0 text-[10px] text-muted-foreground">{panel.unit ?? 'Unit unspecified'}</span>
-          </div>
+            className="pointer-events-none absolute left-0 right-0 z-0 rounded-xl border border-border/70 bg-card/55 shadow-sm"
+            style={{ top: `${outerInset + index * panelSlot}px`, height: `${panelSlot - cardGap}px` }}
+            aria-label={`${panel.label} signal chart`}
+          />
         );
       })}
-      <ReactEChartsCore
-        echarts={echarts}
-        option={option}
-        notMerge={false}
-        replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
-        lazyUpdate
-        opts={{ renderer: 'canvas' }}
-        onChartReady={(chart) => {
-          requestInitialViewport(chart);
-        }}
-        onEvents={{ datazoom: handleDataZoom }}
-        style={{ width: '100%', height: '100%' }}
-      />
+      {chartHeight > 0 && panels.map((panel, index) => {
+        const sliderReserve = 42;
+        const outerInset = 8;
+        const panelSlot = (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, panels.length);
+        return (
+          <CardHeader
+            key={`${panel.id}-header`}
+            className="pointer-events-none absolute inset-x-0 z-20 flex h-[38px] flex-row items-center justify-between gap-2 px-3 py-0 sm:h-[42px] sm:gap-3 sm:px-4"
+            style={{ top: `${outerInset + index * panelSlot}px` }}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="size-2.5 shrink-0 rounded-full ring-2 ring-background" style={{ backgroundColor: panel.color }} aria-hidden="true" />
+              <CardTitle className="truncate text-sm font-semibold tracking-tight">{panel.label}</CardTitle>
+              <span className="shrink-0 rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {panel.unit ?? 'Unit unspecified'}
+              </span>
+            </div>
+            {index === 0 && (
+              <div className="hidden shrink-0 items-center gap-3 text-[10px] text-muted-foreground sm:flex" aria-label="Series legend">
+                <span className="flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-foreground/70" />Reference</span>
+                <span className="flex items-center gap-1.5"><span className="w-4 border-t-2" style={{ borderColor: panel.color }} />Comparison</span>
+              </div>
+            )}
+          </CardHeader>
+        );
+      })}
+      <div className="absolute inset-0 z-10">
+        <ReactEChartsCore
+          echarts={echarts}
+          option={option}
+          notMerge={false}
+          replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
+          lazyUpdate
+          opts={{ renderer: 'canvas' }}
+          onChartReady={(chart) => {
+            requestInitialViewport(chart);
+          }}
+          onEvents={{ datazoom: handleDataZoom }}
+          style={{ width: '100%', height: '100%' }}
+        />
+      </div>
     </div>
   );
 }
