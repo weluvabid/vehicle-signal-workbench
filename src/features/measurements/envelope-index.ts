@@ -204,7 +204,29 @@ export function queryChannelEnvelopeTimeWindow(
   endSeconds: number,
   pixelWidth: number,
   shouldAbort?: () => boolean,
-): ChannelWindow {
+): ChannelWindow;
+export function queryChannelEnvelopeTimeWindow(
+  datasetId: string,
+  channelId: string,
+  buffers: ChannelBuffers,
+  index: ChannelEnvelopeIndex,
+  startSeconds: number,
+  endSeconds: number,
+  pixelWidth: number,
+  shouldAbort: (() => boolean) | undefined,
+  output: { readonly timeSeconds: Float64BufferBuilder; readonly values: Float64BufferBuilder },
+): null;
+export function queryChannelEnvelopeTimeWindow(
+  datasetId: string,
+  channelId: string,
+  buffers: ChannelBuffers,
+  index: ChannelEnvelopeIndex,
+  startSeconds: number,
+  endSeconds: number,
+  pixelWidth: number,
+  shouldAbort?: () => boolean,
+  output?: { readonly timeSeconds: Float64BufferBuilder; readonly values: Float64BufferBuilder },
+): ChannelWindow | null {
   validateRange(buffers, 0, buffers.values.length);
   if (
     !Number.isFinite(startSeconds) ||
@@ -220,10 +242,9 @@ export function queryChannelEnvelopeTimeWindow(
   const startIndex = lowerBoundFloat64(buffers.timeSeconds, startSeconds);
   const endIndex = lowerBoundFloat64(buffers.timeSeconds, endSeconds);
   if (startIndex >= endIndex) {
-    return {
-      datasetId, channelId, startIndex,
-      timeSeconds: new Float64Array(0), values: new Float64Array(0),
-    };
+    return output
+      ? null
+      : { datasetId, channelId, startIndex, timeSeconds: new Float64Array(0), values: new Float64Array(0) };
   }
 
   const bucketCount = Math.max(1, Math.min(pixelWidth, MAX_BUCKETS));
@@ -231,8 +252,8 @@ export function queryChannelEnvelopeTimeWindow(
   // At most MAX_BUCKET_POINTS are retained per bucket. Numeric output stays
   // in typed buffers instead of boxing every sample in JS number arrays.
   const outputCapacity = Math.min(endIndex - startIndex, bucketCount * MAX_BUCKET_POINTS);
-  const outputTimes = new Float64BufferBuilder(outputCapacity);
-  const outputValues = new Float64BufferBuilder(outputCapacity);
+  const outputTimes = output?.timeSeconds ?? new Float64BufferBuilder(outputCapacity);
+  const outputValues = output?.values ?? new Float64BufferBuilder(outputCapacity);
   let cursor = startIndex;
 
   for (let bucket = 0; bucket < bucketCount && cursor < endIndex; bucket += 1) {
@@ -269,16 +290,10 @@ export function queryChannelEnvelopeTimeWindow(
     );
 
     if (summary.missingCount === 0) {
-      const candidates = uniqueSorted([
-        bucketSampleStart,
-        bucketSampleEnd - 1,
-        summary.minIndex,
-        summary.maxIndex,
-      ]);
-      for (const sampleIndex of candidates) {
-        outputTimes.push(buffers.timeSeconds[sampleIndex]);
-        outputValues.push(buffers.values[sampleIndex]);
-      }
+      appendUniqueSortedFour(
+        outputTimes, outputValues, buffers.timeSeconds, buffers.values,
+        bucketSampleStart, bucketSampleEnd - 1, summary.minIndex, summary.maxIndex,
+      );
       continue;
     }
 
@@ -305,6 +320,7 @@ export function queryChannelEnvelopeTimeWindow(
     }
   }
 
+  if (output) return null;
   return {
     datasetId,
     channelId,
@@ -312,6 +328,49 @@ export function queryChannelEnvelopeTimeWindow(
     timeSeconds: outputTimes.finish(),
     values: outputValues.finish(),
   };
+}
+
+/** Append up to four indexes in ascending order without allocating a candidate array. */
+function appendUniqueSortedFour(
+  outputTimes: Float64BufferBuilder,
+  outputValues: Float64BufferBuilder,
+  timeSeconds: Float64Array,
+  values: Float64Array,
+  first: number,
+  second: number,
+  third: number,
+  fourth: number,
+): void {
+  let a = first;
+  let b = second;
+  let c = third;
+  let d = fourth;
+  if (b < a) { const swap = a; a = b; b = swap; }
+  if (d < c) { const swap = c; c = d; d = swap; }
+  if (c < a) { const swap = a; a = c; c = swap; }
+  if (d < b) { const swap = b; b = d; d = swap; }
+  if (c < b) { const swap = b; b = c; c = swap; }
+
+  let previous = -1;
+  if (a >= 0) {
+    outputTimes.push(timeSeconds[a]);
+    outputValues.push(values[a]);
+    previous = a;
+  }
+  if (b >= 0 && b !== previous) {
+    outputTimes.push(timeSeconds[b]);
+    outputValues.push(values[b]);
+    previous = b;
+  }
+  if (c >= 0 && c !== previous) {
+    outputTimes.push(timeSeconds[c]);
+    outputValues.push(values[c]);
+    previous = c;
+  }
+  if (d >= 0 && d !== previous) {
+    outputTimes.push(timeSeconds[d]);
+    outputValues.push(values[d]);
+  }
 }
 
 

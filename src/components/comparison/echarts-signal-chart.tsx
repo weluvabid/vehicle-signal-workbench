@@ -14,7 +14,7 @@ import {
   TitleComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { useEChartsSignalChart } from '@/features/comparison/chart/use-echarts-signal-chart';
@@ -22,6 +22,9 @@ import { useChartInteractions } from '@/features/comparison/chart/use-chart-inte
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
+
+const ECHARTS_OPTIONS = { renderer: 'canvas' as const };
+const CHART_STYLE = { width: '100%', height: '100%' };
 
 echarts.use([
   LineChart,
@@ -47,7 +50,7 @@ interface EChartsSignalChartProps {
 }
 
 
-export function EChartsSignalChart({
+function EChartsSignalChartComponent({
   panels,
   domainStartSeconds,
   domainEndSeconds,
@@ -89,6 +92,16 @@ export function EChartsSignalChart({
     onMetricsViewportChange,
       hasPanels: panels.length > 0,
   });
+
+  const chartEvents = useMemo(
+    () => ({ datazoom: handleDataZoom, updateAxisPointer: handleAxisPointer, globalout: clearPointerTime }),
+    [handleDataZoom, handleAxisPointer, clearPointerTime],
+  );
+
+  const handleChartReady = useCallback((chart: echarts.EChartsType) => {
+    attachChart(chart);
+    requestInitialViewport(chart);
+  }, [attachChart, requestInitialViewport]);
 
   const option = useMemo(
     () => createSignalChartOption(visiblePanels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction, getPointerTime),
@@ -164,15 +177,14 @@ export function EChartsSignalChart({
           notMerge={false}
           replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
           lazyUpdate
-          opts={{ renderer: 'canvas' }}
-          onChartReady={(chart) => {
-            attachChart(chart);
-            requestInitialViewport(chart);
-          }}
-          onEvents={{ datazoom: handleDataZoom, updateAxisPointer: handleAxisPointer, globalout: clearPointerTime }}
-          style={{ width: '100%', height: '100%' }}
+          opts={ECHARTS_OPTIONS}
+          onChartReady={handleChartReady}
+          onEvents={chartEvents}
+          style={CHART_STYLE}
         />
       </div>
     </div>
   );
 }
+
+export const EChartsSignalChart = memo(EChartsSignalChartComponent);

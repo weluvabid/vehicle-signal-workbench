@@ -12,7 +12,8 @@ export async function handleMetricsQuery(
 ): Promise<void> {
   const { requestId } = request;
   context.activeQueries.add(requestId);
-  const cancelled = () => !context.activeQueries.has(requestId);
+  const cancelFlag = request.cancelBuffer ? new Int32Array(request.cancelBuffer) : null;
+  const cancelled = () => !context.activeQueries.has(requestId) || (cancelFlag !== null && Atomics.load(cancelFlag, 0) !== 0);
   const checkpoint = async () => {
     await yieldToWorker();
     if (cancelled()) throw new DOMException('Metrics query superseded.', 'AbortError');
@@ -52,7 +53,7 @@ export async function handleMetricsQuery(
       const differenceStatistics = calculateSignalDifferenceInTimeRange(
         { datasetId: request.referenceDatasetId, channelId: panel.referenceChannelId, ...referenceBuffers },
         { datasetId: request.comparisonDatasetId, channelId: panel.comparisonChannelId, ...comparisonBuffers },
-        request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds,
+        request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds, cancelled,
       );
       workerComputeMs += Math.max(0, performance.now() - computeStartedAt - (indexBuildMs - indexBuildBeforePanel));
       results.push({ referenceStatistics, comparisonStatistics, differenceStatistics });

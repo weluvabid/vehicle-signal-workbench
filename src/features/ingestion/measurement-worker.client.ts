@@ -90,6 +90,9 @@ export class MeasurementWorkerClient {
     startSeconds: number, endSeconds: number, comparisonOffsetSeconds: number,
   ): MetricsQueryHandle {
     const requestId = this.nextRequestId++;
+    const cancelBuffer = typeof SharedArrayBuffer !== 'undefined' && globalThis.crossOriginIsolated
+      ? new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT) : undefined;
+    const cancelFlag = cancelBuffer ? new Int32Array(cancelBuffer) : null;
     let worker: Worker;
     try { worker = this.getWorker(); }
     catch (cause) {
@@ -99,13 +102,14 @@ export class MeasurementWorkerClient {
       this.pending.set(requestId, { kind: 'metrics', resolve: (value) => resolve(value as MetricsQueryResult), reject });
       try {
         worker.postMessage({ type: 'query-metrics', requestId, referenceDatasetId, comparisonDatasetId, panels,
-          startSeconds, endSeconds, comparisonOffsetSeconds } satisfies IngestionRequest);
+          cancelBuffer, startSeconds, endSeconds, comparisonOffsetSeconds } satisfies IngestionRequest);
       } catch (cause) { this.pending.delete(requestId); reject(cause instanceof Error ? cause : new Error('Unable to dispatch metrics query.')); }
     });
     let cancelled = false;
     return { requestId, promise, cancel: () => {
       if (cancelled || !this.pending.has(requestId)) return;
       cancelled = true;
+      if (cancelFlag) Atomics.store(cancelFlag, 0, 1);
       this.worker?.postMessage({ type: 'cancel', requestId } satisfies IngestionRequest);
     } };
   }

@@ -46,6 +46,9 @@ export interface DifferencePlotResult {
   readonly statistics: DifferenceStatistics;
 }
 
+// Dataset time axes are immutable after import, so cadence is reusable across all channels.
+const cadenceCache = new WeakMap<Float64Array, number | null>();
+
 export interface DifferenceSource {
   readonly datasetId: string;
   readonly channelId: string;
@@ -60,6 +63,7 @@ export function calculateSignalDifferenceInTimeRange(
   startSeconds: number,
   endSeconds: number,
   comparisonOffsetSeconds: number,
+  shouldAbort?: () => boolean,
 ): DifferenceStatistics {
   if (
     !Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds < startSeconds ||
@@ -104,6 +108,7 @@ export function calculateSignalDifferenceInTimeRange(
     comparisonOffsetSeconds,
     nominalCadence,
     false,
+    shouldAbort,
   ).statistics;
 }
 
@@ -335,6 +340,7 @@ export function medianSampleInterval(window: Pick<ChannelWindow, 'timeSeconds' |
   if (window.timeSeconds.length !== window.values.length) {
     throw new RangeError('Cadence input time and value arrays must have equal lengths.');
   }
+  if (cadenceCache.has(window.timeSeconds)) return cadenceCache.get(window.timeSeconds) ?? null;
   const intervals: number[] = [];
   const intervalCount = Math.max(0, window.timeSeconds.length - 1);
   const stride = Math.max(1, Math.ceil(intervalCount / 4_096));
@@ -345,12 +351,17 @@ export function medianSampleInterval(window: Pick<ChannelWindow, 'timeSeconds' |
     }
     intervals.push(interval);
   }
-  if (intervals.length === 0) return null;
+  if (intervals.length === 0) {
+    cadenceCache.set(window.timeSeconds, null);
+    return null;
+  }
   intervals.sort((a, b) => a - b);
   const middle = Math.floor(intervals.length / 2);
-  return intervals.length % 2 === 0
+  const cadence = intervals.length % 2 === 0
     ? (intervals[middle - 1] + intervals[middle]) / 2
     : intervals[middle];
+  cadenceCache.set(window.timeSeconds, cadence);
+  return cadence;
 }
 
 export function calculateSignalDifference(
@@ -389,6 +400,7 @@ function calculateDifference(
   comparisonOffsetSeconds: number,
   nominalSampleIntervalSeconds: number | null,
   includeSeries: boolean,
+  shouldAbort?: () => boolean,
 ): InternalDifferenceResult {
   validateWindow(reference);
   validateWindow(comparison);
@@ -419,6 +431,9 @@ function calculateDifference(
   let comparisonCursor = 0;
 
   for (let index = 0; index < reference.values.length; index += 1) {
+    if ((index & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Metrics query superseded.', 'AbortError');
+    }
     const referenceValue = reference.values[index];
     if (!Number.isFinite(referenceValue)) continue;
 

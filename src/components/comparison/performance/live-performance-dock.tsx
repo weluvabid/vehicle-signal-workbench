@@ -1,4 +1,5 @@
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
+import { useAnimationFrameRate } from '@/features/comparison/performance/use-animation-frame-rate';
 
 interface LivePerformanceDockProps {
   readonly fps: number | null;
@@ -34,4 +35,10 @@ export function LivePerformanceDock({ fps, ingestion, throughput, memory, rows }
       </div>
     </section>
   );
+}
+
+/** Keeps animation-frame state local to the dock instead of the chart workspace. */
+export function LivePerformanceMonitor(props: Omit<LivePerformanceDockProps, 'fps'>) {
+  const fps = useAnimationFrameRate();
+  return <LivePerformanceDock {...props} fps={fps} />;
 }

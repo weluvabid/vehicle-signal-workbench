@@ -215,3 +215,13 @@ test('cancels a long chart-only difference scan cooperatively', () => {
     (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
   );
 });
+
+test('cancels long-running visible-window difference statistics cooperatively', () => {
+  const times = Array.from({ length: 10_000 }, (_, index) => index);
+  const reference = window(times, times.map(() => 12));
+  const comparison = window(times, times.map(() => 10));
+  assert.throws(
+    () => calculateSignalDifferenceInTimeRange(reference, comparison, 0, 10_000, 0, () => true),
+    (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
+  );
+});

@@ -53,7 +53,7 @@ export type IngestionRequest =
   | { readonly type: 'import'; readonly requestId: number; readonly file: File; readonly options: CsvImportOptions }
   | { readonly type: 'cancel'; readonly requestId: number }
   | { readonly type: 'release'; readonly datasetId: string }
-  | { readonly type: 'query-metrics'; readonly requestId: number; readonly referenceDatasetId: string; readonly comparisonDatasetId: string; readonly panels: readonly MetricsPanelQuery[]; readonly startSeconds: number; readonly endSeconds: number; readonly comparisonOffsetSeconds: number }
+  | { readonly type: 'query-metrics'; readonly requestId: number; readonly cancelBuffer?: SharedArrayBuffer; readonly referenceDatasetId: string; readonly comparisonDatasetId: string; readonly panels: readonly MetricsPanelQuery[]; readonly startSeconds: number; readonly endSeconds: number; readonly comparisonOffsetSeconds: number }
   | { readonly type: 'query-comparison-batch'; readonly requestId: number; readonly referenceDatasetId: string; readonly comparisonDatasetId: string; readonly panels: readonly ComparisonPanelQuery[]; readonly cancelBuffer?: SharedArrayBuffer; readonly startSeconds: number; readonly endSeconds: number; readonly comparisonOffsetSeconds: number; readonly pixelWidth: number };
 
 export type WorkerErrorCode =

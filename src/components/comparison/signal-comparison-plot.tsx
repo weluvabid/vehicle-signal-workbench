@@ -12,12 +12,11 @@ import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
 import { useMetricsViewport } from '@/features/comparison/analysis/use-metrics-viewport';
 import { getInitialVisibleFraction } from '@/features/comparison/initial-viewport';
 import { calculateComparisonPerformanceMetrics, type IngestionMetrics } from '@/features/comparison/performance/metrics';
-import { useAnimationFrameRate } from '@/features/comparison/performance/use-animation-frame-rate';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChannelAnalysisCard } from '@/components/comparison/analysis/channel-analysis-card';
-import { LivePerformanceDock } from '@/components/comparison/performance/live-performance-dock';
+import { LivePerformanceMonitor } from '@/components/comparison/performance/live-performance-dock';
 
 const EChartsSignalChart = dynamic(
   () => import('./echarts-signal-chart').then((module) => module.EChartsSignalChart),
@@ -41,7 +40,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const { loading, error, results, requestViewport, selectionKey } = useSignalViewport(props);
   const [activeChannelIndex, setActiveChannelIndex] = useState(0);
   const activeChannelIndexSafe = Math.min(activeChannelIndex, Math.max(0, props.selections.length - 1));
-  const fps = useAnimationFrameRate();
   const metrics = useMetricsViewport({
     client: props.client,
     reference: props.reference,
@@ -128,7 +126,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         </div>
       </section>
 
-      <LivePerformanceDock fps={fps} ingestion={performance.ingestion} throughput={performance.throughput} memory={performance.memory} rows={performance.rows} />
+      <LivePerformanceMonitor ingestion={performance.ingestion} throughput={performance.throughput} memory={performance.memory} rows={performance.rows} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Float64BufferBuilder } from './float64-buffer';
 import { lowerBoundFloat64 } from './sorted-search';
 import {
   buildChannelEnvelopeIndex,
@@ -75,31 +76,29 @@ export function queryTieredChannelEnvelope(
     return { datasetId, channelId, startIndex: range.first, timeSeconds: new Float64Array(0), values: new Float64Array(0) };
   }
 
-  const windows: ChannelWindow[] = [];
   const tierCount = range.lastTier - range.firstTier + 1;
+  const outputCapacity = Math.min(range.afterLast - range.first, Math.max(1, pixelWidth) * 8);
+  const outputTimes = new Float64BufferBuilder(outputCapacity);
+  const outputValues = new Float64BufferBuilder(outputCapacity);
+  const output = { timeSeconds: outputTimes, values: outputValues };
   for (let tier = range.firstTier; tier <= range.lastTier; tier += 1) {
     if (shouldAbort?.()) throw new DOMException('Viewport query superseded.', 'AbortError');
     const startIndex = tier * state.tierSize;
     const endIndex = Math.min(state.sampleCount, startIndex + state.tierSize);
     const index = ensureTier(state, buffers.values, tier, onIndexBuild);
-    const window = queryChannelEnvelopeTimeWindow(
+    queryChannelEnvelopeTimeWindow(
       datasetId, channelId,
-      { timeSeconds: buffers.timeSeconds.subarray(startIndex, endIndex), values: buffers.values.subarray(startIndex, endIndex) },
-      index, startSeconds, endSeconds, Math.max(1, Math.ceil(pixelWidth / tierCount)), shouldAbort,
+      {
+        timeSeconds: buffers.timeSeconds.subarray(startIndex, endIndex),
+        values: buffers.values.subarray(startIndex, endIndex),
+      },
+      index, startSeconds, endSeconds, Math.max(1, Math.ceil(pixelWidth / tierCount)), shouldAbort, output,
     );
-    windows.push({ ...window, startIndex: window.startIndex + startIndex });
   }
-
-  const total = windows.reduce((count, window) => count + window.values.length, 0);
-  const times = new Float64Array(total);
-  const values = new Float64Array(total);
-  let offset = 0;
-  for (const window of windows) {
-    times.set(window.timeSeconds, offset);
-    values.set(window.values, offset);
-    offset += window.values.length;
-  }
-  return { datasetId, channelId, startIndex: range.first, timeSeconds: times, values };
+  return {
+    datasetId, channelId, startIndex: range.first,
+    timeSeconds: outputTimes.finish(), values: outputValues.finish(),
+  };
 }
 
 export function queryTieredChannelStatistics(
@@ -130,7 +129,10 @@ export function queryTieredChannelStatistics(
     const index = ensureTier(state, buffers.values, tier, onIndexBuild);
     const stats = queryChannelTimeStatistics(
       datasetId, channelId,
-      { timeSeconds: buffers.timeSeconds.subarray(startIndex, endIndex), values: buffers.values.subarray(startIndex, endIndex) },
+      {
+        timeSeconds: buffers.timeSeconds.subarray(startIndex, endIndex),
+        values: buffers.values.subarray(startIndex, endIndex),
+      },
       index, startSeconds, endSeconds, shouldAbort,
     );
     if (stats.validCount === 0) continue;
