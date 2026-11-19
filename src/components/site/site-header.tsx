@@ -1,3 +1,4 @@
+import { CHART_INTENTS } from '@/intents/chart-intents';
 import Image from 'next/image';
 import Link from 'next/link';
 import { CircleHelp, Plus, RotateCcw } from 'lucide-react';
@@ -44,7 +45,7 @@ export function SiteHeader({ onNewWorkload }: SiteHeaderProps) {
           size="icon"
           variant="ghost"
           className="size-9 rounded-full"
-          onClick={() => window.dispatchEvent(new Event('vsw:reset-chart-zoom'))}
+          onClick={() => window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM))}
           aria-label="Reset chart zoom"
           title="Reset chart zoom"
         >

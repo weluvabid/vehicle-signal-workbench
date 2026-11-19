@@ -1,7 +1,8 @@
 'use client';
 
+import { CHART_DATA_ZOOM_IDS } from '@/intents/chart-intents';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { resolveDataZoomViewport, type DataZoomRangeEvent } from '@/components/comparison/chart-viewport';
+import { resolveDataZoomViewport, type DataZoomRangeEvent } from './viewport';
 import { getInitialViewport } from '@/features/comparison/initial-viewport';
 
 interface PendingViewport {
@@ -89,9 +90,9 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
   }, [dispatchViewport]);
 
-  const handleDataZoom = useCallback((event: DataZoomRangeEvent & { readonly dataZoomId?: string; readonly batch?: readonly (DataZoomRangeEvent & { readonly dataZoomId?: string })[] }) => {
+  const handleDataZoom = useCallback((event: DataZoomRangeEvent) => {
     const zoomEvents = event.batch?.length ? event.batch : [event];
-    if (zoomEvents.every((item) => item.dataZoomId?.startsWith('signal-y-inside-'))) return;
+    if (zoomEvents.every((item) => item.dataZoomId?.startsWith(CHART_DATA_ZOOM_IDS.verticalInsidePrefix))) return;
     const viewport = resolveDataZoomViewport(
       event,
       latestProps.current.domainStartSeconds,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Activity, ArrowRight } from 'lucide-react';
 import { ComparisonWizard } from '@/components/ingestion/comparison-wizard';
 import { SignalComparisonPlot } from '@/components/comparison/signal-comparison-plot';
@@ -8,6 +8,8 @@ import { useComparisonWorkspace } from '@/features/comparison/use-comparison-wor
 import { Button } from '@/components/ui/button';
 import { SiteHeader } from '@/components/site/site-header';
 import { Card, CardContent } from '@/components/ui/card';
+import type { DatasetDescriptor } from '@/features/measurements/model';
+import { WORKSPACE_LABELS as LABELS } from '@/constants/comparison-labels';
 
 interface ImportMetrics {
   readonly ingestionDurationMs: number;
@@ -22,6 +24,12 @@ export function ComparisonWorkspace() {
     compatibleMappings, selectedSignals, setRun,
   } = useComparisonWorkspace();
   const canPlot = Boolean(reference && comparison && overlap && overlap.durationSeconds > 0 && compatibleMappings.length > 0);
+  const handleComplete = useCallback((referenceDataset: DatasetDescriptor, comparisonDataset: DatasetDescriptor, metrics: ImportMetrics) => {
+    if (!referenceDataset || !comparisonDataset) return;
+    setRun('reference', referenceDataset);
+    setRun('comparison', comparisonDataset);
+    setImportMetrics(metrics);
+  }, [setRun]);
 
   return (
     <div className="flex flex-1 flex-col gap-3 py-3">
@@ -41,22 +49,22 @@ export function ComparisonWorkspace() {
               endSeconds={overlap.endSeconds}
               ingestionMetrics={importMetrics}
             />
-          ) : <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No compatible channels were found between these runs.</CardContent></Card>}
+          ) : <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">{LABELS.noCompatibleChannels}</CardContent></Card>}
         </div>
       ) : (
         <div className="flex min-h-[calc(100dvh-6rem)] flex-1 items-center justify-center px-4">
           <div className="w-full max-w-2xl space-y-6">
             <div className="space-y-2 text-center">
               <BadgeLine />
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Explore vehicle measurements at scale.</h1>
-              <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">Generate a realistic pair of vehicle recordings and compare millions of timestamped samples entirely in your browser.</p>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{LABELS.title}</h1>
+              <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">{LABELS.description}</p>
             </div>
             <Card className="border-border/80 bg-card/60">
               <CardContent className="flex flex-col items-center gap-4 p-6 text-center sm:p-8">
                 <div className="grid size-12 place-items-center rounded-xl border bg-muted/30"><Activity className="size-5" /></div>
-                <div className="space-y-1"><p className="font-medium">Start with a generated drive cycle</p><p className="text-xs text-muted-foreground">Choose a workload from 1 MB to 400 MB per recording. No files to find or upload.</p></div>
-                <Button onClick={() => setWizardOpen(true)}>Choose workload <ArrowRight className="size-4" /></Button>
-                <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-[11px] text-muted-foreground"><span>Browser-generated data</span><span>Worker-based ingestion</span><span>Up to 10M rows per run</span></div>
+                <div className="space-y-1"><p className="font-medium">{LABELS.startTitle}</p><p className="text-xs text-muted-foreground">{LABELS.startDescription}</p></div>
+                <Button onClick={() => setWizardOpen(true)}>{LABELS.chooseWorkload} <ArrowRight className="size-4" /></Button>
+                <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-[11px] text-muted-foreground"><span>{LABELS.browserGenerated}</span><span>{LABELS.workerIngestion}</span><span>{LABELS.maximumRows}</span></div>
               </CardContent>
             </Card>
           </div>
@@ -67,16 +75,12 @@ export function ComparisonWorkspace() {
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         client={client}
-        onComplete={(referenceDataset, comparisonDataset, metrics) => {
-          setRun('reference', referenceDataset);
-          setRun('comparison', comparisonDataset);
-          setImportMetrics(metrics);
-        }}
+        onComplete={handleComplete}
       />
     </div>
   );
 }
 
 function BadgeLine() {
-  return <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">VSW · Vehicle measurement analysis</p>;
+  return <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">{LABELS.eyebrow}</p>;
 }

@@ -14,12 +14,14 @@ import {
   TitleComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
-import { getWheelZoomRange } from './chart-wheel-zoom';
 import { useEChartsSignalChart } from '@/features/comparison/chart/use-echarts-signal-chart';
+import { useChartInteractions } from '@/features/comparison/chart/use-chart-interactions';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 
 echarts.use([
   LineChart,
@@ -54,9 +56,6 @@ export function EChartsSignalChart({
   onMetricsViewportChange,
 }: EChartsSignalChartProps) {
   const pointerTime = useRef<number | null>(null);
-  const chartRef = useRef<echarts.EChartsType | null>(null);
-  const wheelTargetRef = useRef<HTMLElement | null>(null);
-  const wheelHandlerRef = useRef<((event: WheelEvent) => void) | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState<Record<string, { reference: boolean; comparison: boolean }>>({});
   const visiblePanels = useMemo(() => panels.map((panel) => ({
     ...panel,
@@ -73,81 +72,11 @@ export function EChartsSignalChart({
   }, []);
   const clearPointerTime = useCallback(() => { pointerTime.current = null; }, []);
 
-  const handleCommandWheel = useCallback((event: WheelEvent) => {
-    const chart = chartRef.current;
-    if (!chart || chart.isDisposed()) return;
-    const modifierCount = Number(event.metaKey) + Number(event.ctrlKey) + Number(event.shiftKey) + Number(event.altKey);
-    if (modifierCount === 0) {
-      // Prevent ECharts' internal wheel handler from consuming ordinary page scroll.
-      event.stopImmediatePropagation();
-      return;
-    }
-    if (modifierCount !== 1) return;
-    const zoomOption = chart.getOption().dataZoom;
-    const zooms = Array.isArray(zoomOption) ? zoomOption as Array<{ id?: string; start?: number; end?: number }> : [];
-    const horizontal = zooms.find((item) => item.id === 'viewport-inside');
-    if (!horizontal || typeof horizontal.start !== 'number' || typeof horizontal.end !== 'number') return;
-    const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
-    if (!Number.isFinite(delta) || delta === 0) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-
-    if (event.metaKey || event.ctrlKey) {
-      const bounds = chart.getDom().getBoundingClientRect();
-      const plotLeft = 56;
-      const plotRight = 20;
-      const anchor = Math.min(1, Math.max(0, (event.clientX - bounds.left - plotLeft) / Math.max(1, bounds.width - plotLeft - plotRight)));
-      const minimumSpan = 0.1 / Math.max(0.1, domainEndSeconds - domainStartSeconds) * 100;
-      const next = getWheelZoomRange({ start: horizontal.start, end: horizontal.end }, delta, anchor, minimumSpan);
-      if (next) chart.dispatchAction({ type: 'dataZoom', dataZoomId: 'viewport-inside', start: next.start, end: next.end });
-      return;
-    }
-
-    if (event.shiftKey) {
-      const span = horizontal.end - horizontal.start;
-      const shift = delta * 0.04;
-      const start = Math.min(100 - span, Math.max(0, horizontal.start + shift));
-      chart.dispatchAction({ type: 'dataZoom', dataZoomId: 'viewport-inside', start, end: start + span });
-      return;
-    }
-
-    if (event.altKey) {
-      const bounds = chart.getDom().getBoundingClientRect();
-      const sliderReserve = 50;
-      const panelSlot = (bounds.height - sliderReserve - 16) / Math.max(1, panels.length);
-      const index = Math.max(0, Math.min(panels.length - 1, Math.floor((event.clientY - bounds.top - 8) / panelSlot)));
-      const id = `signal-y-inside-${index}`;
-      const current = zooms.find((item) => item.id === id);
-      const start = current?.start ?? 0;
-      const end = current?.end ?? 100;
-      const span = end - start;
-      const nextSpan = Math.max(2, Math.min(100, span * Math.exp(delta * 0.002)));
-      const center = (start + end) / 2;
-      const nextStart = Math.max(0, Math.min(100 - nextSpan, center - nextSpan / 2));
-      chart.dispatchAction({ type: 'dataZoom', dataZoomId: id, start: nextStart, end: nextStart + nextSpan });
-    }
-  }, [domainEndSeconds, domainStartSeconds, panels.length]);
-
-  const resetAllZoom = useCallback(() => {
-    const chart = chartRef.current;
-    if (!chart || chart.isDisposed()) return;
-    chart.dispatchAction({ type: 'dataZoom', dataZoomId: 'viewport-inside', start: 0, end: 100 });
-    panels.forEach((_, index) => chart.dispatchAction({
-      type: 'dataZoom', dataZoomId: `signal-y-inside-${index}`, start: 0, end: 100,
-    }));
-  }, [panels]);
-
-  useEffect(() => {
-    window.addEventListener('vsw:reset-chart-zoom', resetAllZoom);
-    return () => window.removeEventListener('vsw:reset-chart-zoom', resetAllZoom);
-  }, [resetAllZoom]);
-
-  useEffect(() => () => {
-    if (wheelTargetRef.current && wheelHandlerRef.current) {
-      wheelTargetRef.current.removeEventListener('wheel', wheelHandlerRef.current, true);
-    }
-    chartRef.current = null;
-  }, []);
+  const { attachChart } = useChartInteractions({
+    domainStartSeconds,
+    domainEndSeconds,
+    panelCount: panels.length,
+  });
 
   const {
     container, chartHeight, measuredWidth,
@@ -169,10 +98,10 @@ export function EChartsSignalChart({
   return (
     <div
       ref={container}
-      className="echarts-signal-chart relative h-full min-h-0"
+      className="relative h-full min-h-0 w-full min-w-0 overflow-hidden"
       data-testid="signal-chart"
       role="group"
-      aria-label={`Synchronized comparison of ${panels.length} signals. Command/Ctrl plus wheel zooms time, Shift plus wheel pans time, drag pans time, and Alt plus wheel zooms the individual signal scale.`}
+      aria-label={`${LABELS.chartGroupLabel}: ${panels.length} signals`}
     >
       {chartHeight > 0 && visiblePanels.map((panel, index) => {
         const sliderReserve = 42;
@@ -202,28 +131,28 @@ export function EChartsSignalChart({
               <span className="size-2.5 shrink-0 rounded-full ring-2 ring-background" style={{ backgroundColor: panel.color }} aria-hidden="true" />
               <CardTitle className="truncate text-sm font-semibold tracking-tight">{panel.label}</CardTitle>
               <span className="shrink-0 rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                {panel.unit ?? 'Unit unspecified'}
+                {panel.unit ?? LABELS.unitUnspecified}
               </span>
             </div>
             <div className="pointer-events-auto flex shrink-0 items-center gap-2 sm:gap-3 text-[10px] text-muted-foreground" aria-label={`${panel.label} series visibility`}>
-              <button
-                type="button"
+              <Button
+                type="button" variant="ghost" size="sm"
                 aria-pressed={panel.referenceVisible !== false}
                 onClick={() => setSeriesVisibility((current) => ({ ...current, [panel.id]: { reference: !(current[panel.id]?.reference ?? true), comparison: current[panel.id]?.comparison ?? true } }))}
-                className={`flex items-center gap-1.5 rounded-sm outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-ring ${panel.referenceVisible === false ? 'opacity-40' : 'opacity-100'}`}
-                title={`Toggle ${panel.label} reference series`}
+                className={`h-auto rounded-sm px-0 py-0 text-[10px] transition-opacity ${panel.referenceVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                title={`${LABELS.referenceSeries}: ${panel.label}`}
               >
-                <span className="w-4 border-t border-dashed border-foreground/70" />Reference
-              </button>
-              <button
-                type="button"
+                <span className="w-4 border-t border-dashed border-foreground/70" />{LABELS.referenceSeries}
+              </Button>
+              <Button
+                type="button" variant="ghost" size="sm"
                 aria-pressed={panel.comparisonVisible !== false}
                 onClick={() => setSeriesVisibility((current) => ({ ...current, [panel.id]: { reference: current[panel.id]?.reference ?? true, comparison: !(current[panel.id]?.comparison ?? true) } }))}
-                className={`flex items-center gap-1.5 rounded-sm outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-ring ${panel.comparisonVisible === false ? 'opacity-40' : 'opacity-100'}`}
-                title={`Toggle ${panel.label} comparison series`}
+                className={`h-auto rounded-sm px-0 py-0 text-[10px] transition-opacity ${panel.comparisonVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                title={`${LABELS.comparisonSeries}: ${panel.label}`}
               >
-                <span className="w-4 border-t-2" style={{ borderColor: panel.color }} />Comparison
-              </button>
+                <span className="w-4 border-t-2" style={{ borderColor: panel.color }} />{LABELS.comparisonSeries}
+              </Button>
             </div>
           </CardHeader>
         );
@@ -237,15 +166,7 @@ export function EChartsSignalChart({
           lazyUpdate
           opts={{ renderer: 'canvas' }}
           onChartReady={(chart) => {
-            if (wheelTargetRef.current && wheelHandlerRef.current) {
-              wheelTargetRef.current.removeEventListener('wheel', wheelHandlerRef.current, true);
-            }
-            chartRef.current = chart;
-            const target = chart.getDom();
-            const handler = (event: WheelEvent) => handleCommandWheel(event);
-            target.addEventListener('wheel', handler, { passive: false, capture: true });
-            wheelTargetRef.current = target;
-            wheelHandlerRef.current = handler;
+            attachChart(chart);
             requestInitialViewport(chart);
           }}
           onEvents={{ datazoom: handleDataZoom, updateAxisPointer: handleAxisPointer, globalout: clearPointerTime }}
