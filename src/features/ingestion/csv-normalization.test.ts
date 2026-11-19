@@ -64,3 +64,10 @@ test('only auto-detects one unambiguous timestamp column', () => {
   assert.equal(detectTimestampColumn(['time_s', 'timestamp', 'RPM']), null);
   assert.equal(detectTimestampColumn(['RPM', 'Speed']), null);
 });
+
+test('normalises negative zero while preserving ordinary signed values', () => {
+  const negativeZero = parseNumericSample('-0.00');
+  assert.equal(negativeZero, 0);
+  assert.equal(Object.is(negativeZero, -0), false);
+  assert.equal(parseNumericSample('-3.25'), -3.25);
+});

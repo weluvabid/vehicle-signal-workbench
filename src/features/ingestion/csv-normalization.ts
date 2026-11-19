@@ -55,7 +55,8 @@ export function parseNumericSample(raw: string | undefined): number {
 
   const value = Number(raw);
 
-  return Number.isFinite(value) ? value : Number.NaN;
+  if (!Number.isFinite(value)) return Number.NaN;
+  return Object.is(value, -0) ? 0 : value;
 }
 
 export function parseColumnLabel(sourceColumn: string): { label: string; unit: string | null } {

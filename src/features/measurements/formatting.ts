@@ -4,7 +4,8 @@ const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits
 const integerFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 
 export function formatMeasurementValue(value: number | null): string {
-  return value === null ? '—' : numberFormatter.format(value);
+  if (value === null) return '—';
+  return numberFormatter.format(Object.is(value, -0) ? 0 : value);
 }
 
 export function formatChannelStatistics(statistics: ChannelStatistics) {

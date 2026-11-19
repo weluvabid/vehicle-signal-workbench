@@ -38,7 +38,9 @@ test('comparison workload includes deterministic speed-sensor dropouts', async (
 test('mixed-drive signals follow a plausible speed, powertrain and braking envelope', async () => {
   const { generateDriveRecording } = await import('./synthetic-drive.ts');
   const recording = await generateDriveRecording(80_000, 'reference');
-  const rows = (await recording.text()).trim().split('\n').slice(1).map((line) => line.split(',').map(Number));
+  const rows = (await recording.text()).trim().split('\n').slice(1).map((line) =>
+    line.split(',').map((field) => field === '' ? Number.NaN : Number(field)),
+  );
   const speed = rows.map((row) => row[1]);
   const rpm = rows.map((row) => row[2]);
   const throttle = rows.map((row) => row[3]);
@@ -52,4 +54,57 @@ test('mixed-drive signals follow a plausible speed, powertrain and braking envel
   assert.ok(speed.every((value) => value >= 0 && value <= 130));
   assert.ok(throttle.every((value) => value >= 0 && value <= 100));
   assert.ok(brake.every((value) => value >= 0 && value <= 100));
+});
+
+
+test('inactive throttle and brake remain exactly zero in both recordings', async () => {
+  const { generateDriveRecording } = await import('./synthetic-drive.ts');
+  const [reference, comparison] = await Promise.all([
+    generateDriveRecording(1_700, 'reference'),
+    generateDriveRecording(1_700, 'comparison'),
+  ]);
+
+  for (const recording of [reference, comparison]) {
+    const rows = (await recording.text()).trim().split('\n').slice(1);
+    for (const row of rows) {
+      const [, , , throttle, brake] = row.split(',');
+      assert.equal(Number(throttle), 0);
+      assert.equal(Number(brake), 0);
+    }
+  }
+});
+
+test('comparison dropouts remain empty CSV fields rather than numeric zero', async () => {
+  const { generateDriveRecording } = await import('./synthetic-drive.ts');
+  const recording = await generateDriveRecording(45_021, 'comparison');
+  const rows = (await recording.text()).trim().split('\n').slice(1);
+  const missing = rows.filter((row) => row.split(',')[1] === '');
+  assert.ok(missing.length > 0);
+  assert.ok(missing.every((row) => row.split(',')[1] === ''));
+});
+
+test('offline CSV generator stays byte-identical to the in-app generator', async () => {
+  const { mkdtemp, readFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join, resolve } = await import('node:path');
+  const { spawnSync } = await import('node:child_process');
+  const { generateDriveRecording } = await import('./synthetic-drive.ts');
+  const outputDirectory = await mkdtemp(join(tmpdir(), 'vsw-samples-'));
+
+  try {
+    const result = spawnSync(process.execPath, [
+      resolve('data/samples/generate.mjs'),
+      '--rows', '64',
+      '--output-dir', outputDirectory,
+    ], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+
+    for (const role of ['reference', 'comparison'] as const) {
+      const generated = await generateDriveRecording(64, role);
+      const offline = await readFile(join(outputDirectory, `mixed-drive-${role}-64-rows.csv`), 'utf8');
+      assert.equal(offline, await generated.text());
+    }
+  } finally {
+    await rm(outputDirectory, { recursive: true, force: true });
+  }
 });

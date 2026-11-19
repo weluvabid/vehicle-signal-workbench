@@ -105,8 +105,14 @@ function sampleAt(index, role) {
   const noise = (salt, amplitude) => deterministicNoise(index, salt + (comparison ? 101 : 0)) * amplitude;
   const speed = clamp(state.speed + (comparison && state.speed > 1 ? 0.18 : 0) + noise(1, 0.12), 0, 130);
   const rpm = clamp(state.rpm + (comparison ? 12 : 0) + noise(2, 7), 700, 6_500);
-  const throttle = clamp(state.throttle + (comparison ? 0.35 : 0) + noise(3, 0.45), 0, 100);
-  const brake = clamp(state.brake + (comparison ? 0.08 : 0) + noise(4, 0.08), 0, 100);
+  // Keep sensor noise and comparison bias proportional to an active command.
+  // An inactive actuator must remain at zero rather than acquiring a phantom demand.
+  const throttle = state.throttle > 0
+    ? clamp(state.throttle + (comparison ? 0.35 : 0) + noise(3, 0.45), 0, 100)
+    : 0;
+  const brake = state.brake > 0
+    ? clamp(state.brake + (comparison ? 0.08 : 0) + noise(4, 0.08), 0, 100)
+    : 0;
   const steering = clamp(steeringAt(seconds % DRIVE_CYCLE_SECONDS) + (comparison ? 0.6 : 0) + noise(5, 0.7), -540, 540);
   const cyclePosition = seconds % DRIVE_CYCLE_SECONDS;
   const dropout = comparison && ((cyclePosition >= 450 && cyclePosition < 450.2)
