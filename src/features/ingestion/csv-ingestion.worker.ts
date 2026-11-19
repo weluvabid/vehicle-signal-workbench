@@ -1,5 +1,6 @@
 import { importCsv } from './csv-import';
-import { handleMeasurementQuery } from './measurement-query.handlers';
+import { handleComparisonQuery } from './measurement-query.handlers';
+import { handleTableQuery } from './table-query.handler';
 import { createWorkerRuntimeContext } from './worker-runtime';
 import type { IngestionRequest } from './worker-protocol';
 
@@ -25,12 +26,15 @@ self.onmessage = (event: MessageEvent<IngestionRequest>): void => {
     case 'import':
       importCsv(request, context.activeImports, context.datasets, context.post);
       return;
-    default:
-      void handleMeasurementQuery(request, context).then((handled) => {
-        if (!handled) throw new Error(`Unhandled worker request: ${JSON.stringify(request)}`);
-      }).catch((error: unknown) => {
-        throw error;
-      });
+    case 'query-table':
+      void handleTableQuery(request, context);
       return;
+    case 'query-comparison-batch':
+      void handleComparisonQuery(request, context);
+      return;
+    default: {
+      const exhaustive: never = request;
+      throw new Error(`Unhandled worker request: ${JSON.stringify(exhaustive)}`);
+    }
   }
 };
