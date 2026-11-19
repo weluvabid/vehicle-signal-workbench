@@ -89,7 +89,9 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
   }, [dispatchViewport]);
 
-  const handleDataZoom = useCallback((event: DataZoomRangeEvent) => {
+  const handleDataZoom = useCallback((event: DataZoomRangeEvent & { readonly dataZoomId?: string; readonly batch?: readonly (DataZoomRangeEvent & { readonly dataZoomId?: string })[] }) => {
+    const zoomEvents = event.batch?.length ? event.batch : [event];
+    if (zoomEvents.every((item) => item.dataZoomId?.startsWith('signal-y-inside-'))) return;
     const viewport = resolveDataZoomViewport(
       event,
       latestProps.current.domainStartSeconds,

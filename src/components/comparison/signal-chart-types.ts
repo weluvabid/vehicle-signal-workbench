@@ -8,4 +8,6 @@ export interface SignalChartPanel {
   readonly reference: SignalPoint[];
   readonly comparison: SignalPoint[];
   readonly visible: boolean;
+  readonly referenceVisible?: boolean;
+  readonly comparisonVisible?: boolean;
 }

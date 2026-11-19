@@ -82,8 +82,8 @@ function createTooltipFormatter(
 
     for (const panel of panels) {
       if (!panel.visible) continue;
-      const reference = sampleRenderedSeries(panel.reference, time);
-      const comparison = sampleRenderedSeries(panel.comparison, time);
+      const reference = panel.referenceVisible === false ? null : sampleRenderedSeries(panel.reference, time);
+      const comparison = panel.comparisonVisible === false ? null : sampleRenderedSeries(panel.comparison, time);
       const difference = reference !== null && comparison !== null ? reference - comparison : null;
       rows.push(
         `<div class="vsw-chart-tooltip__channel"><strong>${escapeTooltipText(panel.label)}</strong> <span>${escapeTooltipText(panel.unit ?? '')}</span></div>`,
@@ -129,7 +129,7 @@ export function createSignalChartOption(
     backgroundColor: 'transparent',
     textStyle: {
       color: '#c4c9d2',
-      fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: 'Atkinson Hyperlegible, Arial, sans-serif',
       fontSize: 11,
     },
     grid: panels.map((_, index) => {
@@ -211,9 +211,9 @@ export function createSignalChartOption(
         xAxisIndex: axisIndexes,
         filterMode: 'none',
         minValueSpan: MIN_VIEWPORT_SPAN_SECONDS,
-        zoomOnMouseWheel: true,
+        zoomOnMouseWheel: 'ctrl',
         moveOnMouseMove: true,
-        moveOnMouseWheel: false,
+        moveOnMouseWheel: 'shift',
         preventDefaultMouseMove: true,
         throttle: 80,
       },
@@ -238,6 +238,16 @@ export function createSignalChartOption(
         brushSelect: false,
         throttle: 80,
       },
+      ...panels.map((_, index) => ({
+        id: `signal-y-inside-${index}`,
+        type: 'inside' as const,
+        orient: 'vertical' as const,
+        yAxisIndex: [index],
+        filterMode: 'none' as const,
+        zoomOnMouseWheel: 'alt' as const,
+        moveOnMouseWheel: false,
+        throttle: 80,
+      })),
     ],
     series,
     aria: { enabled: true },
@@ -247,7 +257,7 @@ export function createSignalChartOption(
 function createPanelSeries(panel: SignalChartPanel, index: number) {
   // Viewport-bounded arrays are passed through without copying.
   return [
-    {
+    ...(panel.referenceVisible === false ? [] : [{
       id: `${panel.id}-reference`,
       name: `${panel.label} · Reference`,
       type: 'line' as const,
@@ -259,8 +269,8 @@ function createPanelSeries(panel: SignalChartPanel, index: number) {
       smooth: false,
       lineStyle: { color: '#c4c9d2', width: 1.5, type: 'dashed' as const, opacity: 0.9 },
       emphasis: { focus: 'series' as const, lineStyle: { width: 2.2 } },
-    },
-    {
+    }]),
+    ...(panel.comparisonVisible === false ? [] : [{
       id: `${panel.id}-comparison`,
       name: `${panel.label} · Comparison`,
       type: 'line' as const,
@@ -272,6 +282,6 @@ function createPanelSeries(panel: SignalChartPanel, index: number) {
       smooth: false,
       lineStyle: { color: panel.color, width: 2.2, opacity: 1 },
       emphasis: { focus: 'series' as const, lineStyle: { width: 2.2 } },
-    },
+    }]),
   ];
 }

@@ -3,7 +3,7 @@ import type { SignalPanelResult } from '@/features/comparison/use-signal-viewpor
 import type { SignalSelection } from '@/features/comparison/types';
 import { buildSignalPoints, type ComparisonPlotData } from '@/features/measurements/plot-data';
 
-const SERIES_COLORS = ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'] as const;
+const SERIES_COLORS = ['#a78bfa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'] as const;
 const EMPTY_DATA: ComparisonPlotData = { reference: [], comparison: [] };
 
 /** Pure projection from selected channels and worker results to chart view models. */

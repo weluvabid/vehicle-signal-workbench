@@ -90,6 +90,20 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
 
   const retainedBytes = (props.reference.retainedStorageBytes ?? 0) + (props.comparison.retainedStorageBytes ?? 0);
   const totalRows = props.reference.sampleCount + props.comparison.sampleCount;
+  const validChannelSamples = [props.reference, props.comparison].reduce(
+    (total, dataset) => total + dataset.channels.reduce(
+      (channelTotal, channel) => channelTotal + channel.sampleCount - channel.missingSampleCount,
+      0,
+    ),
+    0,
+  );
+  const ingestionSeconds = (props.ingestionMetrics?.ingestionDurationMs ?? 0) / 1_000;
+  const formatRate = (value: number) => Number.isFinite(value) && value >= 0
+    ? `${(value / 1_000_000).toFixed(2)}M`
+    : '—';
+  const throughput = ingestionSeconds > 0
+    ? `${formatRate(totalRows / ingestionSeconds)} rows/s · ${formatRate(validChannelSamples / ingestionSeconds)} samples/s`
+    : '—';
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-4 pb-2" data-testid="plot-workspace">
@@ -227,6 +241,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       <LivePerformanceDock
         fps={fps}
         ingestion={props.ingestionMetrics ? `${(props.ingestionMetrics.ingestionDurationMs / 1000).toFixed(2)} s` : '—'}
+        throughput={throughput}
         memory={retainedBytes > 0 ? `${(retainedBytes / 1_048_576).toFixed(1)} MiB` : '—'}
         rows={totalRows.toLocaleString()}
       />
@@ -234,12 +249,12 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   );
 }
 
-function LivePerformanceDock({ fps, ingestion, memory, rows }: { readonly fps: number | null; readonly ingestion: string; readonly memory: string; readonly rows: string }) {
+function LivePerformanceDock({ fps, ingestion, throughput, memory, rows }: { readonly fps: number | null; readonly ingestion: string; readonly throughput: string; readonly memory: string; readonly rows: string }) {
   const items = [
-    { label: 'Frame rate', value: fps === null ? '—' : String(fps), unit: 'FPS' },
-    { label: 'CSV ingestion', value: ingestion, unit: '' },
-    { label: 'Typed-array memory', value: memory, unit: '' },
-    { label: 'Timestamp rows', value: rows, unit: '' },
+    { label: 'Frame rate', value: fps === null ? '—' : String(fps), unit: 'FPS', detail: 'Live rendering' },
+    { label: 'CSV ingestion', value: ingestion, unit: '', detail: throughput },
+    { label: 'Typed-array memory', value: memory, unit: '', detail: 'Retained measurement buffers' },
+    { label: 'Timestamp rows', value: rows, unit: '', detail: 'Across both recordings' },
   ];
 
   return (
@@ -248,15 +263,16 @@ function LivePerformanceDock({ fps, ingestion, memory, rows }: { readonly fps: n
       aria-label="Live performance"
       data-testid="live-performance-dock"
     >
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 sm:py-4">
+      <div className="w-full px-5 py-3 sm:px-8 sm:py-4 lg:px-10">
         <h2 className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Live performance</h2>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 sm:gap-6">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 sm:gap-x-10 lg:gap-x-16">
           {items.map((item) => (
             <div key={item.label} className="min-w-0">
               <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{item.label}</p>
               <p className="mt-0.5 truncate font-mono text-base font-medium tabular-nums sm:text-xl">
                 {item.value}{item.unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{item.unit}</span>}
               </p>
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground/75 sm:text-[11px]">{item.detail}</p>
             </div>
           ))}
         </div>
