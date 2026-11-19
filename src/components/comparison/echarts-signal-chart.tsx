@@ -14,7 +14,7 @@ import {
   TitleComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { useEChartsSignalChart } from '@/features/comparison/chart/use-echarts-signal-chart';
@@ -52,6 +52,16 @@ export function EChartsSignalChart({
   onViewportChange,
   onMetricsViewportChange,
 }: EChartsSignalChartProps) {
+  const pointerTime = useRef<number | null>(null);
+  const getPointerTime = useCallback(() => pointerTime.current, []);
+  const handleAxisPointer = useCallback((event: unknown) => {
+    if (!event || typeof event !== 'object') return;
+    const axesInfo = (event as { axesInfo?: Array<{ axisDim?: string; value?: string | number }> }).axesInfo;
+    const value = axesInfo?.find((axis) => axis.axisDim === 'x')?.value ?? axesInfo?.[0]?.value;
+    const time = Number(value);
+    pointerTime.current = value !== undefined && Number.isFinite(time) ? time : null;
+  }, []);
+  const clearPointerTime = useCallback(() => { pointerTime.current = null; }, []);
   const {
     container, chartHeight, measuredWidth,
     requestInitialViewport, handleDataZoom,
@@ -65,8 +75,8 @@ export function EChartsSignalChart({
   });
 
   const option = useMemo(
-    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction),
-    [chartHeight, domainEndSeconds, domainStartSeconds, initialVisibleFraction, measuredWidth, panels],
+    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction, getPointerTime),
+    [chartHeight, domainEndSeconds, domainStartSeconds, initialVisibleFraction, measuredWidth, panels, getPointerTime],
   );
 
   return (
@@ -128,7 +138,7 @@ export function EChartsSignalChart({
           onChartReady={(chart) => {
             requestInitialViewport(chart);
           }}
-          onEvents={{ datazoom: handleDataZoom }}
+          onEvents={{ datazoom: handleDataZoom, updateAxisPointer: handleAxisPointer, globalout: clearPointerTime }}
           style={{ width: '100%', height: '100%' }}
         />
       </div>

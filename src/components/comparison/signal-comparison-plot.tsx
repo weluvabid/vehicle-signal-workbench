@@ -12,6 +12,8 @@ import type { SignalSelection } from '@/features/comparison/types';
 import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
 import { useMetricsViewport } from '@/features/comparison/analysis/use-metrics-viewport';
 import { getInitialVisibleFraction } from '@/features/comparison/initial-viewport';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 
 const EChartsSignalChart = dynamic(
@@ -30,7 +32,7 @@ interface SignalComparisonPlotProps {
   readonly ingestionMetrics: { readonly ingestionDurationMs: number; readonly totalBytes: number } | null;
 }
 
-const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 function useAnimationFrameRate(): number | null {
   const [fps, setFps] = useState<number | null>(null);
@@ -132,56 +134,59 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
             const reference = panel ? formatChannelStatistics(panel.referenceStatistics) : null;
             const comparison = panel ? formatChannelStatistics(panel.comparisonStatistics) : null;
             const difference = panel?.differenceStatistics;
-            const metric = (name: string, ref: string, cmp: string) => (
-              <div className="rounded-md border bg-background/40 px-3 py-2" key={name}>
-                <p className="text-[11px] text-muted-foreground">{name}</p>
-                <div className="mt-1 grid grid-cols-2 gap-2 text-xs tabular-nums">
-                  <span className="font-mono">{ref}</span><span className="font-mono">{cmp}</span>
-                </div>
-              </div>
-            );
+
             return (
-              <article key={`${selection.referenceChannelId}:${selection.comparisonChannelId}`} className="min-w-0 rounded-xl border bg-card/40 p-3 sm:p-4">
-                <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <Card key={`${selection.referenceChannelId}:${selection.comparisonChannelId}`} size="sm" className="min-w-0 bg-card/40">
+                <CardHeader className="flex flex-row items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'][index % 6] }} />
-                    <h3 className="truncate text-sm font-semibold">{label}</h3>
+                    <CardTitle className="truncate text-sm">{label}</CardTitle>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{unit ?? '—'}</span>
                   </div>
-                  <span className="text-[11px] text-muted-foreground">{difference?.matchedCount.toLocaleString() ?? '—'} matched</span>
-                </header>
-                <div className="overflow-hidden rounded-lg border">
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] border-b bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <span>Measurement</span><span>Reference</span><span>Comparison</span>
-                  </div>
-                  {[
-                    ['Minimum', reference?.min ?? '—', comparison?.min ?? '—'],
-                    ['Maximum', reference?.max ?? '—', comparison?.max ?? '—'],
-                    ['Average', reference?.mean ?? '—', comparison?.mean ?? '—'],
-                    ['Std deviation', reference?.standardDeviation ?? '—', comparison?.standardDeviation ?? '—'],
-                    ['Valid samples', reference?.valid ?? '—', comparison?.valid ?? '—'],
-                    ['Missing samples', reference?.missing ?? '—', comparison?.missing ?? '—'],
-                  ].map(([name, ref, cmp]) => (
-                    <div key={name} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] border-b px-3 py-2 last:border-b-0">
-                      <span className="text-xs text-muted-foreground">{name}</span><span className="font-mono text-xs tabular-nums">{ref}</span><span className="font-mono text-xs tabular-nums">{cmp}</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">{difference?.matchedCount.toLocaleString() ?? '—'} matched</span>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="h-8 px-2 text-[10px] uppercase tracking-wide text-muted-foreground">Measurement</TableHead>
+                        <TableHead className="h-8 px-2 text-[10px] uppercase tracking-wide text-muted-foreground">Reference</TableHead>
+                        <TableHead className="h-8 px-2 text-[10px] uppercase tracking-wide text-muted-foreground">Comparison</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {[
+                        ['Minimum', reference?.min ?? '—', comparison?.min ?? '—'],
+                        ['Maximum', reference?.max ?? '—', comparison?.max ?? '—'],
+                        ['Average', reference?.mean ?? '—', comparison?.mean ?? '—'],
+                        ['Std deviation', reference?.standardDeviation ?? '—', comparison?.standardDeviation ?? '—'],
+                        ['Valid samples', reference?.valid ?? '—', comparison?.valid ?? '—'],
+                        ['Missing samples', reference?.missing ?? '—', comparison?.missing ?? '—'],
+                      ].map(([name, ref, cmp]) => (
+                        <TableRow key={name}>
+                          <TableCell className="px-2 py-2 text-xs text-muted-foreground">{name}</TableCell>
+                          <TableCell className="px-2 py-2 font-mono text-xs tabular-nums">{ref}</TableCell>
+                          <TableCell className="px-2 py-2 font-mono text-xs tabular-nums">{cmp}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="border-t pt-3">
+                    <h4 className="mb-2 text-xs font-semibold">Comparison analysis</h4>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <AnalysisValue label="Bias" value={formatMeasurementValue(difference?.bias ?? null)} />
+                      <AnalysisValue label="MAE" value={formatMeasurementValue(difference?.meanAbsoluteError ?? null)} />
+                      <AnalysisValue label="RMSE" value={formatMeasurementValue(difference?.rootMeanSquareError ?? null)} />
+                      <AnalysisValue label="Maximum deviation" value={formatMeasurementValue(difference?.maximumAbsoluteError ?? null)} />
                     </div>
-                  ))}
-                </div>
-                <div className="mt-3 border-t pt-3">
-                  <h4 className="mb-2 text-xs font-semibold">Comparison analysis</h4>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <AnalysisValue label="Bias" value={formatMeasurementValue(difference?.bias ?? null)} />
-                    <AnalysisValue label="MAE" value={formatMeasurementValue(difference?.meanAbsoluteError ?? null)} />
-                    <AnalysisValue label="RMSE" value={formatMeasurementValue(difference?.rootMeanSquareError ?? null)} />
-                    <AnalysisValue label="Maximum deviation" value={formatMeasurementValue(difference?.maximumAbsoluteError ?? null)} />
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <CoverageValue label="Matched" value={difference?.matchedCount.toLocaleString() ?? '—'} />
+                      <CoverageValue label="Unavailable" value={difference?.unavailableCount.toLocaleString() ?? '—'} />
+                      <CoverageValue label="Match coverage" value={difference ? `${((difference.matchedCount / Math.max(1, difference.matchedCount + difference.unavailableCount)) * 100).toFixed(2)}%` : '—'} />
+                    </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <CoverageValue label="Matched" value={difference?.matchedCount.toLocaleString() ?? '—'} />
-                    <CoverageValue label="Unavailable" value={difference?.unavailableCount.toLocaleString() ?? '—'} />
-                    <CoverageValue label="Match coverage" value={difference ? `${((difference.matchedCount / Math.max(1, difference.matchedCount + difference.unavailableCount)) * 100).toFixed(2)}%` : '—'} />
-                  </div>
-                </div>
-              </article>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
@@ -191,13 +196,35 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
 }
 
 function AnalysisValue({ label, value }: { readonly label: string; readonly value: string }) {
-  return <div className="rounded-md border bg-muted/25 px-3 py-2"><p className="text-[10px] text-muted-foreground">{label}</p><p className="mt-1 font-mono text-sm font-semibold tabular-nums">{value}</p></div>;
+  return (
+    <Card size="sm" className="bg-muted/20">
+      <CardContent className="space-y-1">
+        <p className="text-[10px] text-muted-foreground">{label}</p>
+        <p className="font-mono text-sm font-semibold tabular-nums">{value}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function CoverageValue({ label, value }: { readonly label: string; readonly value: string }) {
-  return <div className="rounded-md bg-muted/20 px-3 py-2"><p className="text-[10px] text-muted-foreground">{label}</p><p className="mt-1 font-mono text-xs font-medium tabular-nums">{value}</p></div>;
+  return (
+    <Card size="sm" className="bg-muted/15">
+      <CardContent className="space-y-1">
+        <p className="text-[10px] text-muted-foreground">{label}</p>
+        <p className="font-mono text-xs font-medium tabular-nums">{value}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function Metric({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail?: string }) {
-  return <div className="min-w-0 rounded-lg border bg-card/45 px-3 py-2.5"><p className="truncate text-[10px] text-muted-foreground">{label}</p><p className="mt-1 font-mono text-sm font-semibold tabular-nums">{value}</p>{detail && <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-muted-foreground">{detail}</p>}</div>;
+  return (
+    <Card size="sm" className="min-w-0 bg-card/45">
+      <CardContent className="space-y-1">
+        <p className="truncate text-[10px] text-muted-foreground">{label}</p>
+        <p className="font-mono text-sm font-semibold tabular-nums">{value}</p>
+        {detail && <p className="line-clamp-2 text-[10px] leading-4 text-muted-foreground">{detail}</p>}
+      </CardContent>
+    </Card>
+  );
 }

@@ -18,6 +18,7 @@ function formatChartValue(value: number): string {
 const AXIS_COLOR = '#454b55';
 const GRID_COLOR = '#25292f';
 const LABEL_COLOR = '#858b95';
+const MIN_VIEWPORT_SPAN_SECONDS = 0.1;
 
 type TooltipItem = {
   readonly axisValue?: string | number;
@@ -61,12 +62,21 @@ function escapeTooltipText(value: string): string {
   })[character] ?? character);
 }
 
-function createTooltipFormatter(panels: readonly SignalChartPanel[]) {
+function createTooltipFormatter(
+  panels: readonly SignalChartPanel[],
+  getPointerTime: () => number | null,
+) {
   return (rawParams: unknown): string => {
     const items = tooltipItems(rawParams);
     if (items.length === 0) return '';
     const axisValue = items.find((item) => item.axisValue !== undefined)?.axisValue;
-    const time = Number(axisValue);
+    // ECharts axis-tooltip params expose the nearest rendered data point, not
+    // the pointer coordinate. Prefer the unsnapped axis-pointer value so the
+    // tooltip can interpolate continuously between envelope representatives.
+    const pointerTime = getPointerTime();
+    const time = pointerTime !== null && Number.isFinite(pointerTime)
+      ? pointerTime
+      : Number(axisValue);
     if (!Number.isFinite(time)) return '';
     const rows: string[] = [];
 
@@ -76,14 +86,14 @@ function createTooltipFormatter(panels: readonly SignalChartPanel[]) {
       const comparison = sampleRenderedSeries(panel.comparison, time);
       const difference = reference !== null && comparison !== null ? reference - comparison : null;
       rows.push(
-        `<div style="margin-top:6px"><strong>${escapeTooltipText(panel.label)}</strong> <span style="opacity:.7">${escapeTooltipText(panel.unit ?? '')}</span></div>`,
-        `<div>Reference: ${reference === null ? 'Missing' : formatChartValue(reference)}</div>`,
-        `<div>Comparison: ${comparison === null ? 'Missing' : formatChartValue(comparison)}</div>`,
-        `<div>Difference (Ref − Comp): <strong>${difference === null ? 'Unavailable' : formatChartValue(difference)}</strong></div>`,
+        `<div class="vsw-chart-tooltip__channel"><strong>${escapeTooltipText(panel.label)}</strong> <span>${escapeTooltipText(panel.unit ?? '')}</span></div>`,
+        `<div class="vsw-chart-tooltip__row">Reference: <span>${reference === null ? 'Missing' : formatChartValue(reference)}</span></div>`,
+        `<div class="vsw-chart-tooltip__row">Comparison: <span>${comparison === null ? 'Missing' : formatChartValue(comparison)}</span></div>`,
+        `<div class="vsw-chart-tooltip__row">Difference (Ref − Comp): <strong>${difference === null ? 'Unavailable' : formatChartValue(difference)}</strong></div>`,
       );
     }
 
-    return `<div style="min-width:180px"><strong>Time: ${formatChartValue(time)} s</strong>${rows.join('')}</div>`;
+    return `<div class="vsw-chart-tooltip__content"><div class="vsw-chart-tooltip__time">Time: ${formatChartValue(time)} s</div>${rows.join('')}</div>`;
   };
 }
 
@@ -94,6 +104,7 @@ export function createSignalChartOption(
   chartHeight: number,
   chartWidth: number,
   initialVisibleFraction = 1,
+  getPointerTime: () => number | null = () => null,
 ): EChartsOption {
   const axisIndexes = panels.map((_, index) => index);
   const lastVisibleIndex = panels.reduce((last, panel, index) => panel.visible ? index : last, -1);
@@ -133,10 +144,13 @@ export function createSignalChartOption(
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross', snap: false },
-      backgroundColor: '#171a1f',
-      borderColor: AXIS_COLOR,
-      textStyle: { color: '#f1f2f3', fontSize: 11 },
-      formatter: createTooltipFormatter(panels),
+      className: 'vsw-chart-tooltip',
+      backgroundColor: 'transparent',
+      borderColor: 'transparent',
+      padding: 0,
+      textStyle: { color: 'var(--popover-foreground)', fontSize: 11 },
+      extraCssText: 'box-shadow:none;border:0;',
+      formatter: createTooltipFormatter(panels, getPointerTime),
     },
     xAxis: panels.map((panel, index) => {
       const isLastVisible = index === lastVisibleIndex;
@@ -196,6 +210,7 @@ export function createSignalChartOption(
         end: 100,
         xAxisIndex: axisIndexes,
         filterMode: 'none',
+        minValueSpan: MIN_VIEWPORT_SPAN_SECONDS,
         zoomOnMouseWheel: true,
         moveOnMouseMove: true,
         moveOnMouseWheel: false,
@@ -208,6 +223,7 @@ export function createSignalChartOption(
         start: (1 - initialVisibleFraction) * 100,
         end: 100,
         xAxisIndex: axisIndexes,
+        minValueSpan: MIN_VIEWPORT_SPAN_SECONDS,
         height: 24,
         handleSize: 14,
         moveHandleSize: 10,

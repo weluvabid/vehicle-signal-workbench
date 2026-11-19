@@ -71,3 +71,25 @@
 
 /* ECharts owns its canvas and interaction surface; this is chart sizing only. */
 .echarts-signal-chart { width: 100%; min-width: 0; overflow: hidden; }
+
+
+/* ECharts keeps ownership of cursor-following tooltip placement. Its content uses
+   the same visual tokens and density as the shadcn Popover surface. */
+.vsw-chart-tooltip {
+  z-index: 60;
+  max-width: min(28rem, calc(100vw - 2rem));
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg);
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.28) !important;
+  overflow: hidden;
+  pointer-events: none;
+}
+.vsw-chart-tooltip__content { min-width: 13rem; padding: 0.75rem 0.875rem; font-size: 0.8125rem; line-height: 1.55; }
+.vsw-chart-tooltip__time { margin-bottom: 0.5rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.vsw-chart-tooltip__channel { margin-top: 0.5rem; font-weight: 650; }
+.vsw-chart-tooltip__channel span { color: var(--muted-foreground); font-weight: 400; }
+.vsw-chart-tooltip__row { color: var(--muted-foreground); }
+.vsw-chart-tooltip__row span,
+.vsw-chart-tooltip__row strong { color: var(--popover-foreground); font-variant-numeric: tabular-nums; }
