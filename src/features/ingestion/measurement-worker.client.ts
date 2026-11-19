@@ -1,11 +1,11 @@
 import type { CsvImportOptions, DatasetDescriptor } from '../measurements/model';
 import type {
-  ComparisonBatchQueryResult, ComparisonPanelQuery, IngestionRequest, IngestionResponse,
+  ComparisonBatchQueryResult, ComparisonPanelQuery, TablePanelQuery, TableQueryResult, IngestionRequest, IngestionResponse,
 } from './worker-protocol';
 
 type WorkerOperationRequest = Extract<IngestionRequest, { readonly requestId: number }>;
 type WithoutRequestId<T> = T extends { readonly requestId: number } ? Omit<T, 'requestId'> : never;
-type OperationKind = 'import' | 'comparison-batch';
+type OperationKind = 'import' | 'comparison-batch' | 'table';
 
 interface PendingOperation {
   readonly kind: OperationKind;
@@ -17,6 +17,12 @@ interface PendingOperation {
 export interface ComparisonQueryHandle {
   readonly requestId: number;
   readonly promise: Promise<ComparisonBatchQueryResult>;
+  cancel(): void;
+}
+
+export interface TableQueryHandle {
+  readonly requestId: number;
+  readonly promise: Promise<TableQueryResult>;
   cancel(): void;
 }
 
@@ -78,6 +84,32 @@ export class MeasurementWorkerClient {
     };
   }
 
+  queryTable(
+    referenceDatasetId: string, comparisonDatasetId: string, panels: readonly TablePanelQuery[],
+    startSeconds: number, endSeconds: number, comparisonOffsetSeconds: number,
+    page: number, pageSize = 100, options: { search?: string; sortDirection?: 'asc' | 'desc' } = {},
+  ): TableQueryHandle {
+    const requestId = this.nextRequestId++;
+    let worker: Worker;
+    try { worker = this.getWorker(); }
+    catch (cause) {
+      return { requestId, promise: Promise.reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.')), cancel() {} };
+    }
+    const promise = new Promise<TableQueryResult>((resolve, reject) => {
+      this.pending.set(requestId, { kind: 'table', resolve: (value) => resolve(value as TableQueryResult), reject });
+      try {
+        worker.postMessage({ type: 'query-table', requestId, referenceDatasetId, comparisonDatasetId, panels,
+          startSeconds, endSeconds, comparisonOffsetSeconds, page, pageSize, ...options } satisfies IngestionRequest);
+      } catch (cause) { this.pending.delete(requestId); reject(cause instanceof Error ? cause : new Error('Unable to dispatch table query.')); }
+    });
+    let cancelled = false;
+    return { requestId, promise, cancel: () => {
+      if (cancelled || !this.pending.has(requestId)) return;
+      cancelled = true;
+      this.worker?.postMessage({ type: 'cancel', requestId } satisfies IngestionRequest);
+    } };
+  }
+
   releaseDataset(datasetId: string): void {
     this.worker?.postMessage({ type: 'release', datasetId } satisfies IngestionRequest);
   }
@@ -129,6 +161,8 @@ export class MeasurementWorkerClient {
       } else if (message.type === 'complete' && operation.kind === 'import') {
         operation.resolve(message.dataset);
       } else if (message.type === 'comparison-batch' && operation.kind === 'comparison-batch') {
+        operation.resolve(message.result);
+      } else if (message.type === 'table-page' && operation.kind === 'table') {
         operation.resolve(message.result);
       } else {
         operation.reject(new Error('Measurement worker returned an unexpected response type.'));

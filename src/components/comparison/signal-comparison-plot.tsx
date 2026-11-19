@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { ComparisonPlotData, SignalPoint } from '@/features/measurements/plot-data';
@@ -9,6 +9,7 @@ import { formatMeasurementValue } from '@/features/measurements/formatting';
 import { formatIngestionRates, summarizeIngestion } from '@/features/comparison/performance-metrics';
 import { buildSignalPoints } from '@/features/measurements/plot-data';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
+import type { TableQueryResult, TableQueryRow } from '@/features/ingestion/worker-protocol';
 import type { SignalSelection } from '@/features/comparison/types';
 import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
 import { Button } from '@/components/ui/button';
@@ -30,42 +31,24 @@ interface SignalComparisonPlotProps {
   readonly ingestionMetrics: { readonly durationMs: number; readonly totalBytes: number } | null;
 }
 
-interface TableRowData {
-  readonly timeSeconds: number;
-  readonly signalId: string;
-  readonly signalLabel: string;
-  readonly unit: string | null;
-  readonly color: string;
-  readonly reference: number | null;
-  readonly comparison: number | null;
-  readonly delta: number | null;
-}
-
 const EMPTY_DATA: ComparisonPlotData = { reference: [], comparison: [] };
 const SERIES_COLORS = ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'];
 const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
 const PAGE_SIZE = 100;
 
-function buildRows(panels: readonly {
-  id: string; label: string; unit: string | null; color: string;
-  reference: SignalPoint[]; comparison: SignalPoint[]; delta: SignalPoint[];
-}[]): TableRowData[] {
-  const rows: TableRowData[] = [];
-  for (const panel of panels) {
-    const byTime = new Map<number, { reference: number | null; comparison: number | null; delta: number | null }>();
-    for (const [time, value] of panel.reference) byTime.set(time, { ...(byTime.get(time) ?? { reference: null, comparison: null, delta: null }), reference: value });
-    for (const [time, value] of panel.comparison) byTime.set(time, { ...(byTime.get(time) ?? { reference: null, comparison: null, delta: null }), comparison: value });
-    for (const [time, value] of panel.delta) byTime.set(time, { ...(byTime.get(time) ?? { reference: null, comparison: null, delta: null }), delta: value });
-    for (const [timeSeconds, values] of byTime) rows.push({ timeSeconds, signalId: panel.id, signalLabel: panel.label, unit: panel.unit, color: panel.color, ...values });
-  }
-  rows.sort((a, b) => a.timeSeconds - b.timeSeconds || a.signalLabel.localeCompare(b.signalLabel));
-  return rows;
-}
-
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
-  const { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs } = useSignalViewport(props);
+  const { loading, error, results, requestViewport, selectionKey, initialPreparationMs } = useSignalViewport(props);
   const ingestionSummary = props.ingestionMetrics ? summarizeIngestion(props.reference, props.comparison, props.ingestionMetrics) : null;
   const [page, setPage] = useState(0);
+  const [tableRange, setTableRange] = useState<{ start: number; end: number } | null>(null);
+  const [tableResult, setTableResult] = useState<TableQueryResult | null>(null);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tableError, setTableError] = useState<string | null>(null);
+  const onTableViewportChange = useCallback((start: number, end: number) => {
+    setPage(0);
+    setTableResult(null);
+    setTableRange((current) => current?.start === start && current?.end === end ? current : { start, end });
+  }, []);
   const [interactionFps, setInteractionFps] = useState<number | null>(null);
   const resultById = useMemo(() => new Map(results.map((result) => [result.id, result])), [results]);
   const panels = useMemo(() => props.selections.map((selection, index) => {
@@ -82,10 +65,31 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       visible: true,
     };
   }), [props.selections, props.reference.channels, resultById]);
-  const rows = useMemo(() => buildRows(panels), [panels]);
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  useEffect(() => {
+    if (!tableRange || props.selections.length === 0) return;
+    let active = true;
+    setTableLoading(true);
+    setTableError(null);
+    const handle = props.client.queryTable(
+      props.reference.id, props.comparison.id,
+      props.selections.map((selection, index) => {
+        const channel = props.reference.channels.find((item) => item.id === selection.referenceChannelId);
+        return { referenceChannelId: selection.referenceChannelId, comparisonChannelId: selection.comparisonChannelId,
+          label: channel?.label ?? selection.referenceChannelId, unit: channel?.unit ?? null,
+          color: SERIES_COLORS[index % SERIES_COLORS.length] };
+      }),
+      tableRange.start, tableRange.end, props.offsetSeconds, page, PAGE_SIZE,
+    );
+    void handle.promise.then((result) => { if (active) setTableResult(result); })
+      .catch((cause: unknown) => { if (active && !(cause instanceof DOMException && cause.name === 'AbortError')) setTableError(cause instanceof Error ? cause.message : 'Unable to query measurement table.'); })
+      .finally(() => { if (active) setTableLoading(false); });
+    return () => { active = false; handle.cancel(); };
+  }, [props.client, props.reference, props.comparison, props.selections, props.offsetSeconds, tableRange, page]);
+
+  useEffect(() => { setPage(0); }, [tableRange?.start, tableRange?.end, props.reference.id, props.comparison.id]);
+  const pageCount = Math.max(1, Math.ceil((tableResult?.totalRows ?? 0) / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
-  const pageRows = rows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const pageRows: readonly TableQueryRow[] = tableResult?.rows ?? [];
 
 
   return (
@@ -100,7 +104,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       </div>
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-      {!error && !loading && rows.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected time interval.</p>}
+      {!error && !loading && results.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected time interval.</p>}
 
       <section
         className="h-[calc(var(--signal-panel-count)*200px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*220px+58px)]"
@@ -113,6 +117,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           domainStartSeconds={props.startSeconds}
           domainEndSeconds={props.endSeconds}
           onViewportChange={requestViewport}
+          onTableViewportChange={onTableViewportChange}
           onFpsChange={setInteractionFps}
         />
       </section>
@@ -121,10 +126,10 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold">Measurement data</h2>
-            <p className="text-xs text-muted-foreground">Bounded samples for the current chart viewport · {rows.length.toLocaleString()} rows</p>
+            <p className="text-xs text-muted-foreground">Raw worker samples for the independent table viewport · {(tableResult?.totalRows ?? 0).toLocaleString()} rows</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Page {safePage + 1} of {pageCount}</span>
+            <span>{tableLoading ? 'Loading… · ' : ''}Page {safePage + 1} of {pageCount}</span>
             <Button size="xs" variant="outline" disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</Button>
             <Button size="xs" variant="outline" disabled={safePage + 1 >= pageCount} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>Next</Button>
           </div>
@@ -142,11 +147,11 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
                 <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.comparison)}</TableCell>
                 <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.delta)}</TableCell>
               </TableRow>)}
-              {pageRows.length === 0 && <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Waiting for viewport samples…</TableCell></TableRow>}
+              {pageRows.length === 0 && <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">{tableError ?? (tableLoading ? 'Loading table samples…' : 'No samples in this interval.')}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </div>
-        {resultsRange && <p className="mt-2 text-[11px] text-muted-foreground">Time range {TIME_FORMATTER.format(resultsRange.start)}–{TIME_FORMATTER.format(resultsRange.end)} s · end exclusive</p>}
+        {tableRange && <p className="mt-2 text-[11px] text-muted-foreground">Table range {TIME_FORMATTER.format(tableRange.start)}–{TIME_FORMATTER.format(tableRange.end)} s · end exclusive</p>}
       </section>
     </div>
   );

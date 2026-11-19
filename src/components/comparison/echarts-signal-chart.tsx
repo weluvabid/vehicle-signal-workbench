@@ -39,6 +39,7 @@ interface EChartsSignalChartProps {
   readonly domainStartSeconds: number;
   readonly domainEndSeconds: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
+  readonly onTableViewportChange: (startSeconds: number, endSeconds: number) => void;
   readonly onFpsChange: (fps: number) => void;
 }
 
@@ -61,6 +62,7 @@ export function EChartsSignalChart({
   domainStartSeconds,
   domainEndSeconds,
   onViewportChange,
+  onTableViewportChange,
   onFpsChange,
 }: EChartsSignalChartProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -75,11 +77,11 @@ export function EChartsSignalChart({
   const pointerActive = useRef(false);
   const [chartHeight, setChartHeight] = useState(0);
   const [measuredWidth, setMeasuredWidth] = useState(0);
-  const latestProps = useRef({ domainStartSeconds, domainEndSeconds, onViewportChange });
+  const latestProps = useRef({ domainStartSeconds, domainEndSeconds, onViewportChange, onTableViewportChange });
 
   useEffect(() => {
-    latestProps.current = { domainStartSeconds, domainEndSeconds, onViewportChange };
-  }, [domainStartSeconds, domainEndSeconds, onViewportChange]);
+    latestProps.current = { domainStartSeconds, domainEndSeconds, onViewportChange, onTableViewportChange };
+  }, [domainStartSeconds, domainEndSeconds, onViewportChange, onTableViewportChange]);
 
   const recordInteraction = useCallback(() => {
     fpsLastInteraction.current = performance.now();
@@ -138,7 +140,8 @@ export function EChartsSignalChart({
       endSeconds: domainEndSeconds,
       pixelWidth: chartWidth.current,
     });
-  }, [panels.length, domainStartSeconds, domainEndSeconds, dispatchViewport]);
+    onTableViewportChange(domainStartSeconds, domainEndSeconds);
+  }, [panels.length, domainStartSeconds, domainEndSeconds, dispatchViewport, onTableViewportChange]);
 
   useEffect(() => {
     const element = container.current;
@@ -175,6 +178,7 @@ export function EChartsSignalChart({
       endSeconds: latestProps.current.domainEndSeconds,
       pixelWidth: chartWidth.current,
     });
+    latestProps.current.onTableViewportChange(latestProps.current.domainStartSeconds, latestProps.current.domainEndSeconds);
   }, [dispatchViewport]);
 
   const handleDataZoom = useCallback((rawEvent: DataZoomEvent) => {
@@ -201,6 +205,7 @@ export function EChartsSignalChart({
       endSeconds: boundedEnd,
       pixelWidth: chartWidth.current,
     });
+    latestProps.current.onTableViewportChange(boundedStart, boundedEnd);
   }, [dispatchViewport, recordInteraction]);
 
   const option = useMemo(
