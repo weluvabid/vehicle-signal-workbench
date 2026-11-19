@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useComparisonIngestion } from '@/features/ingestion/hooks/use-comparison-ingestion';
 import { calculateWorkloadEstimates } from '@/features/ingestion/utils/workload-estimates';
 import { INGESTION_LABELS, INGESTION_COPY } from '@/constants/comparison-labels';
-import { Activity, ArrowRight, Cpu, Database, LoaderCircle, Zap } from 'lucide-react';
+import { Activity, ArrowRight, Cpu, Database, Zap } from 'lucide-react';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import { WORKLOAD_PRESETS } from '@/features/ingestion/synthetic-drive';
 import type { DatasetDescriptor } from '@/features/measurements/model';
@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 
 interface ComparisonWizardProps {
@@ -99,10 +98,8 @@ export function ComparisonWizard({ open, onOpenChange, client, onComplete }: Com
           <div className="space-y-3">
             {stages.map((label, index) => <div key={label} className="space-y-1.5">
               <div className="flex items-center justify-between text-sm"><span className={index === stage ? 'font-medium' : 'text-muted-foreground'}>{label}</span><span className="text-xs tabular-nums text-muted-foreground">{index < stage ? INGESTION_COPY.complete : index === stage ? `${Math.round(progress * 100)}%` : INGESTION_COPY.waiting}</span></div>
-              <Progress value={index < stage ? 100 : index === stage ? progress * 100 : 0} className="h-1.5" />
             </div>)}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><LoaderCircle className="size-3.5 animate-spin" />{stages[stage]}</div>
           {error && <p role="alert" className="text-sm text-destructive">{error.message}</p>}
         </div>}
       </DialogContent>
