@@ -1,11 +1,11 @@
 import type { CsvImportOptions, DatasetDescriptor } from '../measurements/model';
 import type {
-  ComparisonBatchQueryResult, ComparisonPanelQuery, TablePanelQuery, TableQueryResult, IngestionRequest, IngestionResponse,
+  ComparisonBatchQueryResult, ComparisonPanelQuery, MetricsPanelQuery, MetricsQueryResult, IngestionRequest, IngestionResponse,
 } from './worker-protocol';
 
 type WorkerOperationRequest = Extract<IngestionRequest, { readonly requestId: number }>;
 type WithoutRequestId<T> = T extends { readonly requestId: number } ? Omit<T, 'requestId'> : never;
-type OperationKind = 'import' | 'comparison-batch' | 'table';
+type OperationKind = 'import' | 'comparison-batch' | 'metrics';
 
 interface PendingOperation {
   readonly kind: OperationKind;
@@ -20,11 +20,12 @@ export interface ComparisonQueryHandle {
   cancel(): void;
 }
 
-export interface TableQueryHandle {
+export interface MetricsQueryHandle {
   readonly requestId: number;
-  readonly promise: Promise<TableQueryResult>;
+  readonly promise: Promise<MetricsQueryResult>;
   cancel(): void;
 }
+
 
 export class MeasurementWorkerClient {
   private worker: Worker | null = null;
@@ -84,23 +85,22 @@ export class MeasurementWorkerClient {
     };
   }
 
-  queryTable(
-    referenceDatasetId: string, comparisonDatasetId: string, panels: readonly TablePanelQuery[],
+  queryMetrics(
+    referenceDatasetId: string, comparisonDatasetId: string, panels: readonly MetricsPanelQuery[],
     startSeconds: number, endSeconds: number, comparisonOffsetSeconds: number,
-    page: number, pageSize = 100, options: { search?: string; sortDirection?: 'asc' | 'desc' } = {},
-  ): TableQueryHandle {
+  ): MetricsQueryHandle {
     const requestId = this.nextRequestId++;
     let worker: Worker;
     try { worker = this.getWorker(); }
     catch (cause) {
       return { requestId, promise: Promise.reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.')), cancel() {} };
     }
-    const promise = new Promise<TableQueryResult>((resolve, reject) => {
-      this.pending.set(requestId, { kind: 'table', resolve: (value) => resolve(value as TableQueryResult), reject });
+    const promise = new Promise<MetricsQueryResult>((resolve, reject) => {
+      this.pending.set(requestId, { kind: 'metrics', resolve: (value) => resolve(value as MetricsQueryResult), reject });
       try {
-        worker.postMessage({ type: 'query-table', requestId, referenceDatasetId, comparisonDatasetId, panels,
-          startSeconds, endSeconds, comparisonOffsetSeconds, page, pageSize, ...options } satisfies IngestionRequest);
-      } catch (cause) { this.pending.delete(requestId); reject(cause instanceof Error ? cause : new Error('Unable to dispatch table query.')); }
+        worker.postMessage({ type: 'query-metrics', requestId, referenceDatasetId, comparisonDatasetId, panels,
+          startSeconds, endSeconds, comparisonOffsetSeconds } satisfies IngestionRequest);
+      } catch (cause) { this.pending.delete(requestId); reject(cause instanceof Error ? cause : new Error('Unable to dispatch metrics query.')); }
     });
     let cancelled = false;
     return { requestId, promise, cancel: () => {
@@ -162,7 +162,7 @@ export class MeasurementWorkerClient {
         operation.resolve(message.dataset);
       } else if (message.type === 'comparison-batch' && operation.kind === 'comparison-batch') {
         operation.resolve(message.result);
-      } else if (message.type === 'table-page' && operation.kind === 'table') {
+      } else if (message.type === 'metrics' && operation.kind === 'metrics') {
         operation.resolve(message.result);
       } else {
         operation.reject(new Error('Measurement worker returned an unexpected response type.'));

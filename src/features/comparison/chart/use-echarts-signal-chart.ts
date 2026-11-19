@@ -15,7 +15,7 @@ interface ChartControllerOptions {
   readonly domainEndSeconds: number;
   readonly initialVisibleFraction: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
-  readonly onTableViewportChange: (startSeconds: number, endSeconds: number) => void;
+  readonly onMetricsViewportChange: (startSeconds: number, endSeconds: number) => void;
   readonly onFpsChange: (fps: number) => void;
   readonly hasPanels: boolean;
 }
@@ -83,8 +83,8 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     if (!options.hasPanels) return;
     const initial = getInitialViewport(options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction);
     dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
-    options.onTableViewportChange(initial.startSeconds, initial.endSeconds);
-  }, [options.hasPanels, options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction, dispatchViewport, options.onTableViewportChange]);
+    options.onMetricsViewportChange(initial.startSeconds, initial.endSeconds);
+  }, [options.hasPanels, options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction, dispatchViewport, options.onMetricsViewportChange]);
 
   useEffect(() => {
     const element = container.current;
@@ -120,7 +120,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
       latestProps.current.initialVisibleFraction,
     );
     dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
-    latestProps.current.onTableViewportChange(initial.startSeconds, initial.endSeconds);
+    latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds);
   }, [dispatchViewport]);
 
   const handleDataZoom = useCallback((event: DataZoomRangeEvent) => {
@@ -132,7 +132,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     );
     if (!viewport) return;
     dispatchViewport({ ...viewport, pixelWidth: chartWidth.current });
-    latestProps.current.onTableViewportChange(viewport.startSeconds, viewport.endSeconds);
+    latestProps.current.onMetricsViewportChange(viewport.startSeconds, viewport.endSeconds);
   }, [dispatchViewport, recordInteraction]);
 
   const handlePointerDown = useCallback(() => { pointerActive.current = true; recordInteraction(); }, [recordInteraction]);

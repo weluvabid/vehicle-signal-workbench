@@ -1,6 +1,6 @@
 import { importCsv } from './csv-import';
 import { handleComparisonQuery } from './measurement-query.handlers';
-import { handleTableQuery } from './table-query.handler';
+import { handleMetricsQuery } from './metrics-query.handler';
 import { createWorkerRuntimeContext } from './worker-runtime';
 import type { IngestionRequest } from './worker-protocol';
 
@@ -26,8 +26,8 @@ self.onmessage = (event: MessageEvent<IngestionRequest>): void => {
     case 'import':
       importCsv(request, context.activeImports, context.datasets, context.post);
       return;
-    case 'query-table':
-      void handleTableQuery(request, context);
+    case 'query-metrics':
+      void handleMetricsQuery(request, context);
       return;
     case 'query-comparison-batch':
       void handleComparisonQuery(request, context);

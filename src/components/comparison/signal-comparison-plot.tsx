@@ -4,16 +4,15 @@ import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
-import { formatMeasurementValue } from '@/features/measurements/formatting';
+import { formatChannelStatistics, formatMeasurementValue } from '@/features/measurements/formatting';
 import { formatIngestionRates, summarizeIngestion } from '@/features/comparison/performance-metrics';
 import { buildSignalChartPanels } from '@/features/comparison/chart/signal-panels';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import type { SignalSelection } from '@/features/comparison/types';
 import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
-import { useMeasurementTable } from '@/features/comparison/table/use-measurement-table';
+import { useMetricsViewport } from '@/features/comparison/analysis/use-metrics-viewport';
 import { getInitialVisibleFraction } from '@/features/comparison/initial-viewport';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 
 const EChartsSignalChart = dynamic(
   () => import('./echarts-signal-chart').then((module) => module.EChartsSignalChart),
@@ -36,14 +35,14 @@ const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits:
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const { loading, error, results, requestViewport, selectionKey, initialPreparation } = useSignalViewport(props);
   const ingestionSummary = props.ingestionMetrics ? summarizeIngestion(props.reference, props.comparison, props.ingestionMetrics) : null;
-  const table = useMeasurementTable({
+  const metrics = useMetricsViewport({
     client: props.client,
     reference: props.reference,
     comparison: props.comparison,
     selections: props.selections,
     offsetSeconds: props.offsetSeconds,
   });
-  const onTableViewportChange = table.setViewportRange;
+  const onMetricsViewportChange = metrics.setViewportRange;
   const [interactionFps, setInteractionFps] = useState<number | null>(null);
   const panels = useMemo(
     () => buildSignalChartPanels(props.selections, props.reference.channels, results),
@@ -83,44 +82,85 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           domainEndSeconds={props.endSeconds}
           initialVisibleFraction={initialVisibleFraction}
           onViewportChange={requestViewport}
-          onTableViewportChange={onTableViewportChange}
+          onMetricsViewportChange={onMetricsViewportChange}
           onFpsChange={setInteractionFps}
         />
       </section>
 
-      <section className="flex min-h-0 flex-col border-t pt-3" aria-label="Measurement samples">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <section className="flex min-h-0 flex-col gap-4 border-t pt-4" aria-label="Channel analysis">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold">Measurement data</h2>
-            <p className="text-xs text-muted-foreground">Raw worker samples for the independent table viewport · {(table.result?.totalRows ?? 0).toLocaleString()} rows</p>
+            <h2 className="text-sm font-semibold">Channel analysis</h2>
+            <p className="text-xs text-muted-foreground">
+              Indexed statistics for the selected interval
+              {metrics.viewport ? ` · ${TIME_FORMATTER.format(metrics.viewport.start)}–${TIME_FORMATTER.format(metrics.viewport.end)} s` : ''}
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{table.loading ? 'Loading… · ' : ''}Page {table.page + 1} of {table.pageCount}</span>
-            <Button size="xs" variant="outline" disabled={table.page === 0} onClick={table.previousPage}>Previous</Button>
-            <Button size="xs" variant="outline" disabled={table.page + 1 >= table.pageCount} onClick={table.nextPage}>Next</Button>
-          </div>
+          <span className="text-xs text-muted-foreground" aria-live="polite">
+            {metrics.loading ? 'Updating metrics…' : metrics.error ? 'Metrics unavailable' : metrics.result ? 'Current interval' : 'Waiting for range'}
+          </span>
         </div>
-        <div className="max-h-[min(30dvh,360px)] min-h-32 overflow-auto rounded-md border" data-testid="measurement-table-scroll">
-          <Table>
-            <TableHeader className="sticky top-0 z-10 bg-background [&_tr]:bg-background">
-              <TableRow><TableHead>Time (s)</TableHead><TableHead>Signal</TableHead><TableHead className="text-right">Reference</TableHead><TableHead className="text-right">Comparison</TableHead><TableHead className="text-right">Δ (Ref − Comp)</TableHead></TableRow>
-            </TableHeader>
-            <TableBody>
-              {table.rows.map((row, index) => <TableRow key={`${row.signalId}:${row.timeSeconds}:${index}`}>
-                <TableCell className="whitespace-nowrap font-mono text-xs tabular-nums">{TIME_FORMATTER.format(row.timeSeconds)}</TableCell>
-                <TableCell className="whitespace-nowrap"><span className="mr-2 inline-block size-2 rounded-full" style={{ backgroundColor: row.color }} /><span className="font-medium">{row.signalLabel}</span><span className="ml-2 text-xs text-muted-foreground">{row.unit ?? ''}</span></TableCell>
-                <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.reference)}</TableCell>
-                <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.comparison)}</TableCell>
-                <TableCell className="text-right font-mono text-xs tabular-nums">{formatMeasurementValue(row.delta)}</TableCell>
-              </TableRow>)}
-              {table.rows.length === 0 && <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">{table.error ?? (table.loading ? 'Loading table samples…' : 'No samples in this interval.')}</TableCell></TableRow>}
-            </TableBody>
-          </Table>
+        {metrics.error && <p className="text-sm text-destructive" role="alert">{metrics.error}</p>}
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          {props.selections.map((selection, index) => {
+            const panel = metrics.result?.panels[index];
+            const channel = props.reference.channels.find((item) => item.id === selection.referenceChannelId);
+            const label = channel?.label ?? selection.referenceChannelId;
+            const unit = channel?.unit;
+            const reference = panel ? formatChannelStatistics(panel.referenceStatistics) : null;
+            const comparison = panel ? formatChannelStatistics(panel.comparisonStatistics) : null;
+            const difference = panel?.differenceStatistics;
+            const metric = (name: string, ref: string, cmp: string) => (
+              <div className="rounded-md border bg-background/40 px-3 py-2" key={name}>
+                <p className="text-[11px] text-muted-foreground">{name}</p>
+                <div className="mt-1 grid grid-cols-2 gap-2 text-xs tabular-nums">
+                  <span className="font-mono">{ref}</span><span className="font-mono">{cmp}</span>
+                </div>
+              </div>
+            );
+            return (
+              <article key={`${selection.referenceChannelId}:${selection.comparisonChannelId}`} className="min-w-0 rounded-xl border bg-card/40 p-3 sm:p-4">
+                <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'][index % 6] }} />
+                    <h3 className="truncate text-sm font-semibold">{label}</h3>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{unit ?? '—'}</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{difference?.matchedCount.toLocaleString() ?? '—'} matched</span>
+                </header>
+                <div className="mb-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <span>Reference</span><span>Comparison</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {metric('Minimum', reference?.min ?? '—', comparison?.min ?? '—')}
+                  {metric('Maximum', reference?.max ?? '—', comparison?.max ?? '—')}
+                  {metric('Average', reference?.mean ?? '—', comparison?.mean ?? '—')}
+                  {metric('Std deviation', reference?.standardDeviation ?? '—', comparison?.standardDeviation ?? '—')}
+                  {metric('Valid samples', reference?.valid ?? '—', comparison?.valid ?? '—')}
+                  {metric('Missing samples', reference?.missing ?? '—', comparison?.missing ?? '—')}
+                </div>
+                <div className="mt-3 border-t pt-3">
+                  <h4 className="mb-2 text-xs font-semibold">Comparison analysis</h4>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <AnalysisValue label="Bias" value={formatMeasurementValue(difference?.bias ?? null)} />
+                    <AnalysisValue label="MAE" value={formatMeasurementValue(difference?.meanAbsoluteError ?? null)} />
+                    <AnalysisValue label="RMSE" value={formatMeasurementValue(difference?.rootMeanSquareError ?? null)} />
+                    <AnalysisValue label="Maximum deviation" value={formatMeasurementValue(difference?.maximumAbsoluteError ?? null)} />
+                    <AnalysisValue label="Matched samples" value={difference?.matchedCount.toLocaleString() ?? '—'} />
+                    <AnalysisValue label="Unavailable samples" value={difference?.unavailableCount.toLocaleString() ?? '—'} />
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
-        {table.viewport && <p className="mt-2 text-[11px] text-muted-foreground">Table range {TIME_FORMATTER.format(table.viewport.start)}–{TIME_FORMATTER.format(table.viewport.end)} s · end exclusive</p>}
       </section>
     </div>
   );
+}
+
+function AnalysisValue({ label, value }: { readonly label: string; readonly value: string }) {
+  return <div className="rounded-md bg-muted/40 px-3 py-2"><p className="text-[10px] text-muted-foreground">{label}</p><p className="mt-1 font-mono text-xs font-semibold tabular-nums">{value}</p></div>;
 }
 
 function Metric({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail?: string }) {

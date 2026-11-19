@@ -40,7 +40,7 @@ interface EChartsSignalChartProps {
   readonly domainEndSeconds: number;
   readonly initialVisibleFraction: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
-  readonly onTableViewportChange: (startSeconds: number, endSeconds: number) => void;
+  readonly onMetricsViewportChange: (startSeconds: number, endSeconds: number) => void;
   readonly onFpsChange: (fps: number) => void;
 }
 
@@ -51,7 +51,7 @@ export function EChartsSignalChart({
   domainEndSeconds,
   initialVisibleFraction,
   onViewportChange,
-  onTableViewportChange,
+  onMetricsViewportChange,
   onFpsChange,
 }: EChartsSignalChartProps) {
   const {
@@ -63,7 +63,7 @@ export function EChartsSignalChart({
     domainEndSeconds,
     initialVisibleFraction,
     onViewportChange,
-    onTableViewportChange,
+    onMetricsViewportChange,
     onFpsChange,
     hasPanels: panels.length > 0,
   });
