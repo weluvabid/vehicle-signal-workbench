@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { formatChannelStatistics, formatMeasurementValue } from '@/features/measurements/formatting';
@@ -13,6 +14,7 @@ import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
 import { useMetricsViewport } from '@/features/comparison/analysis/use-metrics-viewport';
 import { getInitialVisibleFraction } from '@/features/comparison/initial-viewport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 
@@ -66,6 +68,11 @@ function useAnimationFrameRate(): number | null {
 
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const { loading, error, results, requestViewport, selectionKey } = useSignalViewport(props);
+  const [activeChannelIndex, setActiveChannelIndex] = useState(0);
+  const activeChannelIndexSafe = Math.min(activeChannelIndex, Math.max(0, props.selections.length - 1));
+  useEffect(() => {
+    setActiveChannelIndex((current) => Math.min(current, Math.max(0, props.selections.length - 1)));
+  }, [props.selections.length]);
   const fps = useAnimationFrameRate();
   const ingestionSummary = props.ingestionMetrics ? summarizeIngestion(props.reference, props.comparison, props.ingestionMetrics) : null;
   const metrics = useMetricsViewport({
@@ -112,7 +119,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       </section>
 
       <section className="flex min-h-0 flex-col gap-4 border-t pt-4" aria-label="Channel analysis">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold">Channel analysis</h2>
             <p className="text-xs text-muted-foreground">
@@ -120,13 +127,43 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
               {metrics.viewport ? ` · ${TIME_FORMATTER.format(metrics.viewport.start)}–${TIME_FORMATTER.format(metrics.viewport.end)} s` : ''}
             </p>
           </div>
-          <span className="text-xs text-muted-foreground" aria-live="polite">
-            {metrics.loading ? 'Updating metrics…' : metrics.error ? 'Metrics unavailable' : metrics.result ? 'Current interval' : 'Waiting for range'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              {metrics.loading ? 'Updating metrics…' : metrics.error ? 'Metrics unavailable' : metrics.result ? 'Current interval' : 'Waiting for range'}
+            </span>
+            {props.selections.length > 1 && (
+              <div className="flex items-center gap-1" aria-label="Channel navigation">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Previous channel"
+                  disabled={activeChannelIndexSafe === 0}
+                  onClick={() => setActiveChannelIndex((current) => Math.max(0, current - 1))}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </Button>
+                <span className="min-w-10 text-center text-xs tabular-nums text-muted-foreground" aria-live="polite">
+                  {activeChannelIndexSafe + 1} / {props.selections.length}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Next channel"
+                  disabled={activeChannelIndexSafe >= props.selections.length - 1}
+                  onClick={() => setActiveChannelIndex((current) => Math.min(props.selections.length - 1, current + 1))}
+                >
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
         {metrics.error && <p className="text-sm text-destructive" role="alert">{metrics.error}</p>}
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <div className="min-w-0">
           {props.selections.map((selection, index) => {
+            if (index !== activeChannelIndexSafe) return null;
             const panel = metrics.result?.panels[index];
             const channel = props.reference.channels.find((item) => item.id === selection.referenceChannelId);
             const label = channel?.label ?? selection.referenceChannelId;
@@ -173,16 +210,18 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
                   </Table>
                   <div className="border-t pt-3">
                     <h4 className="mb-2 text-xs font-semibold">Comparison analysis</h4>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      <AnalysisValue label="Bias" value={formatMeasurementValue(difference?.bias ?? null)} />
-                      <AnalysisValue label="MAE" value={formatMeasurementValue(difference?.meanAbsoluteError ?? null)} />
-                      <AnalysisValue label="RMSE" value={formatMeasurementValue(difference?.rootMeanSquareError ?? null)} />
-                      <AnalysisValue label="Maximum deviation" value={formatMeasurementValue(difference?.maximumAbsoluteError ?? null)} />
+                    <div className="divide-y divide-border/70">
+                      <ReceiptRow label="Bias" value={formatMeasurementValue(difference?.bias ?? null)} />
+                      <ReceiptRow label="MAE" value={formatMeasurementValue(difference?.meanAbsoluteError ?? null)} />
+                      <ReceiptRow label="RMSE" value={formatMeasurementValue(difference?.rootMeanSquareError ?? null)} />
+                      <ReceiptRow label="Maximum deviation" value={formatMeasurementValue(difference?.maximumAbsoluteError ?? null)} />
                     </div>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                      <CoverageValue label="Matched" value={difference?.matchedCount.toLocaleString() ?? '—'} />
-                      <CoverageValue label="Unavailable" value={difference?.unavailableCount.toLocaleString() ?? '—'} />
-                      <CoverageValue label="Match coverage" value={difference ? `${((difference.matchedCount / Math.max(1, difference.matchedCount + difference.unavailableCount)) * 100).toFixed(2)}%` : '—'} />
+                    <div className="mt-3 border-t pt-2">
+                      <div className="divide-y divide-border/70">
+                        <ReceiptRow label="Matched" value={difference?.matchedCount.toLocaleString() ?? '—'} />
+                        <ReceiptRow label="Unavailable" value={difference?.unavailableCount.toLocaleString() ?? '—'} />
+                        <ReceiptRow label="Match coverage" value={difference ? `${((difference.matchedCount / Math.max(1, difference.matchedCount + difference.unavailableCount)) * 100).toFixed(2)}%` : '—'} />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -195,25 +234,12 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   );
 }
 
-function AnalysisValue({ label, value }: { readonly label: string; readonly value: string }) {
+function ReceiptRow({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <Card size="sm" className="bg-muted/20">
-      <CardContent className="space-y-1">
-        <p className="text-[10px] text-muted-foreground">{label}</p>
-        <p className="font-mono text-sm font-semibold tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function CoverageValue({ label, value }: { readonly label: string; readonly value: string }) {
-  return (
-    <Card size="sm" className="bg-muted/15">
-      <CardContent className="space-y-1">
-        <p className="text-[10px] text-muted-foreground">{label}</p>
-        <p className="font-mono text-xs font-medium tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-between gap-4 py-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-right font-mono text-sm font-medium tabular-nums">{value}</span>
+    </div>
   );
 }
 

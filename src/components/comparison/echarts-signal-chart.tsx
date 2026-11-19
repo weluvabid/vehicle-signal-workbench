@@ -10,21 +10,20 @@ import {
   DataZoomSliderComponent,
   GridComponent,
   LegendComponent,
+  TooltipComponent,
   TitleComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Equal } from 'lucide-react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { useEChartsSignalChart } from '@/features/comparison/chart/use-echarts-signal-chart';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import type { SignalPoint } from '@/features/measurements/plot-data';
 
 echarts.use([
   LineChart,
   GridComponent,
+  TooltipComponent,
   TitleComponent,
   AriaComponent,
   AxisPointerComponent,
@@ -34,42 +33,6 @@ echarts.use([
   CanvasRenderer,
 ]);
 
-
-interface PointerSample { readonly time: number; readonly x: number; readonly y: number }
-
-const tooltipNumber = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
-
-/** Interpolate only between adjacent valid points; nulls remain real data gaps. */
-function sampleSeries(points: readonly SignalPoint[], time: number): number | null {
-  if (!Number.isFinite(time) || points.length === 0 || time < points[0][0] || time > points[points.length - 1][0]) return null;
-  let low = 0;
-  let high = points.length;
-  while (low < high) {
-    const middle = low + Math.floor((high - low) / 2);
-    if (points[middle][0] < time) low = middle + 1;
-    else high = middle;
-  }
-  const right = points[low];
-  if (right && Math.abs(right[0] - time) <= 1e-9) return right[1] !== null && Number.isFinite(right[1]) ? right[1] : null;
-  const left = points[low - 1];
-  if (!left || !right || left[1] === null || right[1] === null || !Number.isFinite(left[1]) || !Number.isFinite(right[1])) return null;
-  const span = right[0] - left[0];
-  if (!(span > 0)) return null;
-  return left[1] + ((time - left[0]) / span) * (right[1] - left[1]);
-}
-
-function formatTooltipValue(value: number | null): string {
-  return value === null ? 'Missing' : tooltipNumber.format(Object.is(value, -0) ? 0 : value);
-}
-
-function DifferenceIndicator({ reference, comparison, difference }: { readonly reference: number | null; readonly comparison: number | null; readonly difference: number | null }) {
-  if (reference === null || comparison === null || difference === null) return <span className="text-muted-foreground">—</span>;
-  const tolerance = Number.EPSILON * 8 * Math.max(1, Math.abs(reference), Math.abs(comparison));
-  if (Math.abs(difference) <= tolerance) return <Equal aria-label="Equal" className="size-4 text-emerald-500" />;
-  return difference > 0
-    ? <ArrowUp aria-label="Reference higher" className="size-4 text-amber-500" />
-    : <ArrowDown aria-label="Comparison higher" className="size-4 text-amber-500" />;
-}
 
 interface EChartsSignalChartProps {
   readonly panels: readonly SignalChartPanel[];
@@ -89,10 +52,16 @@ export function EChartsSignalChart({
   onViewportChange,
   onMetricsViewportChange,
 }: EChartsSignalChartProps) {
-  const [pointer, setPointer] = useState<PointerSample | null>(null);
-  const zrCleanup = useRef<(() => void) | null>(null);
-  const clearPointer = useCallback(() => setPointer(null), []);
-  useEffect(() => () => { zrCleanup.current?.(); }, []);
+  const pointerTime = useRef<number | null>(null);
+  const getPointerTime = useCallback(() => pointerTime.current, []);
+  const handleAxisPointer = useCallback((event: unknown) => {
+    if (!event || typeof event !== 'object') return;
+    const axesInfo = (event as { axesInfo?: Array<{ axisDim?: string; value?: string | number }> }).axesInfo;
+    const value = axesInfo?.find((axis) => axis.axisDim === 'x')?.value ?? axesInfo?.[0]?.value;
+    const time = Number(value);
+    pointerTime.current = value !== undefined && Number.isFinite(time) ? time : null;
+  }, []);
+  const clearPointerTime = useCallback(() => { pointerTime.current = null; }, []);
   const {
     container, chartHeight, measuredWidth,
     requestInitialViewport, handleDataZoom,
@@ -102,12 +71,12 @@ export function EChartsSignalChart({
     initialVisibleFraction,
     onViewportChange,
     onMetricsViewportChange,
-    hasPanels: panels.length > 0,
+      hasPanels: panels.length > 0,
   });
 
   const option = useMemo(
-    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction),
-    [chartHeight, domainEndSeconds, domainStartSeconds, initialVisibleFraction, measuredWidth, panels],
+    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction, getPointerTime),
+    [chartHeight, domainEndSeconds, domainStartSeconds, initialVisibleFraction, measuredWidth, panels, getPointerTime],
   );
 
   return (
@@ -168,61 +137,11 @@ export function EChartsSignalChart({
           opts={{ renderer: 'canvas' }}
           onChartReady={(chart) => {
             requestInitialViewport(chart);
-            zrCleanup.current?.();
-            const zr = chart.getZr();
-            const handleMove = (event: { offsetX?: number; offsetY?: number }) => {
-              const x = event.offsetX;
-              const y = event.offsetY;
-              if (typeof x !== 'number' || typeof y !== 'number') return;
-              const insidePlot = panels.some((_, index) => chart.containPixel({ gridIndex: index }, [x, y]));
-              if (!insidePlot) { setPointer(null); return; }
-              const converted = chart.convertFromPixel({ xAxisIndex: 0 }, x);
-              const time = Number(converted);
-              if (!Number.isFinite(time)) return;
-              setPointer((current) => current && current.time === time && current.x === x && current.y === y
-                ? current : { time, x, y });
-            };
-            zr.on('mousemove', handleMove);
-            zr.on('globalout', clearPointer);
-            zrCleanup.current = () => {
-              zr.off('mousemove', handleMove);
-              zr.off('globalout', clearPointer);
-            };
           }}
-          onEvents={{ datazoom: handleDataZoom }}
+          onEvents={{ datazoom: handleDataZoom, updateAxisPointer: handleAxisPointer, globalout: clearPointerTime }}
           style={{ width: '100%', height: '100%' }}
         />
       </div>
-      <Popover open={pointer !== null} modal={false}>
-        <PopoverTrigger
-          type="button"
-          tabIndex={-1}
-          aria-hidden="true"
-          className="pointer-events-none absolute size-px border-0 p-0 opacity-0"
-          style={{ left: pointer?.x ?? -100, top: pointer?.y ?? -100 }}
-        />
-        {pointer && (
-          <PopoverContent className="pointer-events-none w-[min(31rem,calc(100vw-2rem))] space-y-3 p-3 sm:p-4" side="right" align="start" sideOffset={12}>
-            <div className="text-sm font-semibold tabular-nums">Time: {tooltipNumber.format(pointer.time)} s</div>
-            {panels.filter((panel) => panel.visible).map((panel) => {
-              const reference = sampleSeries(panel.reference, pointer.time);
-              const comparison = sampleSeries(panel.comparison, pointer.time);
-              const difference = reference !== null && comparison !== null ? reference - comparison : null;
-              return (
-                <section key={panel.id} className="space-y-1.5 border-t border-border/70 pt-2 first:border-0 first:pt-0">
-                  <div className="flex items-baseline gap-1.5 text-sm"><strong>{panel.label}</strong><span className="text-muted-foreground">{panel.unit ?? ''}</span></div>
-                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
-                    <span className="text-muted-foreground">Reference</span><span className="tabular-nums">{formatTooltipValue(reference)}</span>
-                    <span className="text-muted-foreground">Comparison</span><span className="tabular-nums">{formatTooltipValue(comparison)}</span>
-                    <span className="text-muted-foreground">Difference (Ref − Comp)</span>
-                    <span className="flex items-center justify-end gap-1.5 font-semibold tabular-nums"><DifferenceIndicator reference={reference} comparison={comparison} difference={difference} />{difference === null ? 'Unavailable' : formatTooltipValue(difference)}</span>
-                  </div>
-                </section>
-              );
-            })}
-          </PopoverContent>
-        )}
-      </Popover>
     </div>
   );
 }
