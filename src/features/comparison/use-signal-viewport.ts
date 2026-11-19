@@ -40,15 +40,8 @@ export function useSignalViewport(options: SignalViewportOptions) {
   const [resultsRange, setResultsRange] = useState<{ readonly start: number; readonly end: number } | null>(null);
   const [initialPreparation, setInitialPreparation] = useState<{
     readonly indexBuildMs: number | null;
-    readonly workerComputeMs: number | null;
     readonly workerRoundTripMs: number;
-    readonly plotSeriesMs: number;
-    readonly postImportViewportPrepMs: number;
   } | null>(null);
-  const [interactionQueryMs, setInteractionQueryMs] = useState<number | null>(null);
-  const [interactionLoading, setInteractionLoading] = useState(false);
-  const [interactionStats, setInteractionStats] = useState<{ medianMs: number; p95Ms: number; count: number } | null>(null);
-  const interactionSamples = useRef<number[]>([]);
   const hasStartedInitialQuery = useRef(false);
   const generation = useRef(0);
   const lastRequestKey = useRef('');
@@ -73,7 +66,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
     const queryStartedAt = performance.now();
     const isInitialPreparation = !hasStartedInitialQuery.current;
     setLoading(true);
-    if (!isInitialPreparation) setInteractionLoading(true);
     setError(null);
 
     const handle = options.client.queryComparisonBatch(
@@ -113,20 +105,8 @@ export function useSignalViewport(options: SignalViewportOptions) {
       if (isInitialPreparation) {
         setInitialPreparation({
           indexBuildMs: batch.timings?.indexBuildMs ?? null,
-          workerComputeMs: batch.timings?.workerComputeMs ?? null,
           workerRoundTripMs: Math.max(0, elapsedMs - plotSeriesMs),
-          plotSeriesMs,
-          postImportViewportPrepMs: elapsedMs,
         });
-      }
-      else {
-        setInteractionQueryMs(elapsedMs);
-        const samples = interactionSamples.current;
-        samples.push(elapsedMs);
-        if (samples.length > 100) samples.shift();
-        const sorted = [...samples].sort((a, b) => a - b);
-        const percentile = (p: number) => sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
-        setInteractionStats({ medianMs: percentile(0.5), p95Ms: percentile(0.95), count: samples.length });
       }
     }).catch((cause: unknown) => {
       if (!mounted.current || generation.current !== currentGeneration) return;
@@ -136,7 +116,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
       if (activeQuery.current === handle) activeQuery.current = null;
       if (mounted.current && generation.current === currentGeneration) {
         setLoading(false);
-        if (!isInitialPreparation) setInteractionLoading(false);
       }
       startPendingQueryRef.current();
     });
@@ -174,10 +153,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
     pendingViewport.current = null;
     debounceElapsed.current = false;
     setInitialPreparation(null);
-    setInteractionQueryMs(null);
-    interactionSamples.current = [];
-    setInteractionStats(null);
-    setInteractionLoading(false);
     activeQuery.current?.cancel();
     if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
     return () => {
@@ -196,5 +171,5 @@ export function useSignalViewport(options: SignalViewportOptions) {
     requestViewport(options.startSeconds, options.endSeconds, 1_024);
   }, [requestViewport, options.startSeconds, options.endSeconds]);
 
-  return { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparation, interactionQueryMs, interactionLoading, interactionStats };
+  return { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparation };
 }

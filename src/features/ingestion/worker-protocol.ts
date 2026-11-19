@@ -20,10 +20,18 @@ export interface MetricsPanelQueryResult {
   readonly differenceStatistics: DifferenceStatistics;
 }
 
+export interface MetricsQueryTimings {
+  /** Synchronous worker time for statistics and difference queries, excluding index construction and cooperative yields. */
+  readonly workerComputeMs: number;
+  /** Time spent building previously-unbuilt tiers during this metrics query. */
+  readonly indexBuildMs: number;
+}
+
 export interface MetricsQueryResult {
   readonly panels: readonly MetricsPanelQueryResult[];
   readonly startSeconds: number;
   readonly endSeconds: number;
+  readonly timings: MetricsQueryTimings;
 }
 
 export interface ComparisonPanelQuery {
@@ -32,10 +40,8 @@ export interface ComparisonPanelQuery {
 }
 
 export interface ComparisonBatchQueryTimings {
-  /** Time spent constructing previously-unbuilt index tiers. */
+  /** Sum of time spent constructing previously-unbuilt index tiers. */
   readonly indexBuildMs: number;
-  /** Worker-side processing time excluding index construction. */
-  readonly workerComputeMs: number;
 }
 
 export interface ComparisonBatchQueryResult {

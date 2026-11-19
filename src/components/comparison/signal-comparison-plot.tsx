@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { formatChannelStatistics, formatMeasurementValue } from '@/features/measurements/formatting';
@@ -43,7 +43,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
     offsetSeconds: props.offsetSeconds,
   });
   const onMetricsViewportChange = metrics.setViewportRange;
-  const [interactionFps, setInteractionFps] = useState<number | null>(null);
   const panels = useMemo(
     () => buildSignalChartPanels(props.selections, props.reference.channels, results),
     [props.selections, props.reference.channels, results],
@@ -56,14 +55,24 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         <Metric label="Timestamp rows / run" value={props.reference.sampleCount.toLocaleString()} detail={`Ref ${props.reference.sampleCount.toLocaleString()} · Cmp ${props.comparison.sampleCount.toLocaleString()} · ${((props.reference.sampleCount + props.comparison.sampleCount)).toLocaleString()} total`} />
         <Metric label="Valid channel samples" value={(ingestionSummary?.totalValidChannelSamples ?? 0).toLocaleString()} detail="Across both recordings; missing cells excluded" />
-        <Metric label="CSV ingestion" value={props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs / 1000).toFixed(2)} s` : '—'} detail={ingestionSummary ? `${(ingestionSummary.totalBytes / 1_048_576).toFixed(1)} MiB input · ${formatIngestionRates(ingestionSummary)}` : 'Concurrent file-import wall time'} />
-        <Metric label="Typed-array memory at import" value={props.reference.retainedStorageBytes !== undefined && props.comparison.retainedStorageBytes !== undefined ? `${((props.reference.retainedStorageBytes + props.comparison.retainedStorageBytes) / 1_048_576).toFixed(1)} MiB` : 'Unavailable'} detail={`Values ${(((props.reference.channelValueBytes ?? 0) + (props.comparison.channelValueBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · indexes at import ${(((props.reference.envelopeIndexBytes ?? 0) + (props.comparison.envelopeIndexBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · axes ${(((props.reference.timeAxisBytes ?? 0) + (props.comparison.timeAxisBytes ?? 0)) / 1_048_576).toFixed(1)} MiB`} />
-        <Metric label="Initial index build" value={initialPreparation?.indexBuildMs != null ? `${initialPreparation.indexBuildMs.toFixed(2)} ms` : (initialPreparation ? 'Unavailable (worker timing payload)' : (loading ? 'Preparing…' : '—'))} detail="Subset of viewport round-trip; newly built tiers only" />
-        <Metric label="Worker compute (excl. index)" value={initialPreparation?.workerComputeMs != null ? `${initialPreparation.workerComputeMs.toFixed(2)} ms` : (initialPreparation ? 'Unavailable (worker timing payload)' : (loading ? 'Preparing…' : '—'))} detail="Envelope queries and response preparation; index build excluded" />
-        <Metric label="Viewport round-trip" value={initialPreparation ? `${initialPreparation.workerRoundTripMs.toFixed(2)} ms` : (loading ? 'Preparing…' : '—')} detail="Includes index build + worker compute + response transfer" />
-        <Metric label="Plot-series prep" value={initialPreparation ? `${initialPreparation.plotSeriesMs.toFixed(2)} ms` : (loading ? 'Preparing…' : '—')} detail="Main-thread work; included in import + viewport data prep" />
-        <Metric label="Import + viewport data prep" value={initialPreparation && props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs + initialPreparation.postImportViewportPrepMs).toFixed(2)} ms` : '—'} detail="CSV import + viewport round-trip + plot prep; excludes chart startup and paint" />
-        <Metric label="Interaction RAF cadence" value={interactionFps === null ? '—' : String(interactionFps)} detail="requestAnimationFrame rate during recent interaction; not a paint-FPS measurement" />
+        <Metric label="Concurrent import wall time" value={props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs / 1000).toFixed(2)} s` : '—'} detail={ingestionSummary ? `${(ingestionSummary.totalBytes / 1_048_576).toFixed(1)} MiB · ${formatIngestionRates(ingestionSummary)}` : 'Both files imported concurrently'} />
+        <Metric label="Typed-array footprint at import" value={props.reference.retainedStorageBytes !== undefined && props.comparison.retainedStorageBytes !== undefined ? `${((props.reference.retainedStorageBytes + props.comparison.retainedStorageBytes) / 1_048_576).toFixed(1)} MiB` : 'Unavailable'} detail={`Values ${(((props.reference.channelValueBytes ?? 0) + (props.comparison.channelValueBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · indexes ${(((props.reference.envelopeIndexBytes ?? 0) + (props.comparison.envelopeIndexBytes ?? 0)) / 1_048_576).toFixed(1)} MiB · axes ${(((props.reference.timeAxisBytes ?? 0) + (props.comparison.timeAxisBytes ?? 0)) / 1_048_576).toFixed(1)} MiB`} />
+        <Metric
+          label="Initial viewport round-trip"
+          value={initialPreparation ? `${initialPreparation.workerRoundTripMs.toFixed(2)} ms` : (loading ? 'Preparing…' : '—')}
+          detail={initialPreparation
+            ? `Cold index build ${initialPreparation.indexBuildMs?.toFixed(2) ?? '—'} ms included · excludes plot-series conversion`
+            : 'Worker request through response transfer'}
+        />
+        <Metric
+          label="Worker compute (excl. index)"
+          value={metrics.workerCompute ? `${metrics.workerCompute.medianMs.toFixed(2)} ms` : '—'}
+          detail={metrics.loading
+            ? `Querying settled channel analysis · ${metrics.workerCompute?.count ?? 0} samples retained`
+            : metrics.workerCompute
+              ? `Median · P95 ${metrics.workerCompute.p95Ms.toFixed(2)} ms · ${metrics.workerCompute.count} settled zoom queries`
+              : 'Waiting for the first settled zoom'}
+        />
       </div>
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
@@ -82,7 +91,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           initialVisibleFraction={initialVisibleFraction}
           onViewportChange={requestViewport}
           onMetricsViewportChange={onMetricsViewportChange}
-          onFpsChange={setInteractionFps}
         />
       </section>
 

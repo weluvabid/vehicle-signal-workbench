@@ -27,6 +27,9 @@ export async function handleMetricsQuery(
     }
 
     const results: MetricsPanelQueryResult[] = [];
+    let indexBuildMs = 0;
+    let workerComputeMs = 0;
+    const recordIndexBuild = (durationMs: number) => { indexBuildMs += durationMs; };
     for (const panel of request.panels) {
       await checkpoint();
       const referenceChannel = reference.channels.get(panel.referenceChannelId);
@@ -36,23 +39,29 @@ export async function handleMetricsQuery(
       }
       const referenceBuffers = { timeSeconds: reference.timeSeconds, values: referenceChannel.values };
       const comparisonBuffers = { timeSeconds: comparison.timeSeconds, values: comparisonChannel.values };
+      const indexBuildBeforePanel = indexBuildMs;
+      const computeStartedAt = performance.now();
       const referenceStatistics = queryTieredChannelStatistics(
         request.referenceDatasetId, panel.referenceChannelId, referenceBuffers, referenceChannel.envelopeIndex,
-        request.startSeconds, request.endSeconds, cancelled,
+        request.startSeconds, request.endSeconds, cancelled, recordIndexBuild,
       );
       const comparisonStatistics = queryTieredChannelStatistics(
         request.comparisonDatasetId, panel.comparisonChannelId, comparisonBuffers, comparisonChannel.envelopeIndex,
-        request.startSeconds - request.comparisonOffsetSeconds, request.endSeconds - request.comparisonOffsetSeconds, cancelled,
+        request.startSeconds - request.comparisonOffsetSeconds, request.endSeconds - request.comparisonOffsetSeconds, cancelled, recordIndexBuild,
       );
       const differenceStatistics = calculateSignalDifferenceInTimeRange(
         { datasetId: request.referenceDatasetId, channelId: panel.referenceChannelId, ...referenceBuffers },
         { datasetId: request.comparisonDatasetId, channelId: panel.comparisonChannelId, ...comparisonBuffers },
         request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds,
       );
+      workerComputeMs += Math.max(0, performance.now() - computeStartedAt - (indexBuildMs - indexBuildBeforePanel));
       results.push({ referenceStatistics, comparisonStatistics, differenceStatistics });
     }
     if (cancelled()) throw new DOMException('Metrics query superseded.', 'AbortError');
-    context.post({ type: 'metrics', requestId, result: { panels: results, startSeconds: request.startSeconds, endSeconds: request.endSeconds } });
+    context.post({ type: 'metrics', requestId, result: {
+      panels: results, startSeconds: request.startSeconds, endSeconds: request.endSeconds,
+      timings: { workerComputeMs, indexBuildMs },
+    } });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') context.post({ type: 'cancelled', requestId });
     else context.post({ type: 'error', requestId, code: 'INVALID_QUERY', message: error instanceof Error ? error.message : 'Unable to query channel metrics.' });

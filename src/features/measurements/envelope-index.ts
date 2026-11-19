@@ -151,13 +151,29 @@ export function buildChannelEnvelopeIndex(values: Float64Array): ChannelEnvelope
     minIndex[node] = chooseIndex(values, minIndex[left], minIndex[right], 'min');
     maxIndex[node] = chooseIndex(values, maxIndex[left], maxIndex[right], 'max');
     missingCount[node] = missingCount[left] + missingCount[right];
-    const merged = mergeStatistics(
-      { count: validCount[left], mean: mean[left], m2: sumSquaredDeviation[left] },
-      { count: validCount[right], mean: mean[right], m2: sumSquaredDeviation[right] },
-    );
-    validCount[node] = merged.count;
-    mean[node] = merged.mean;
-    sumSquaredDeviation[node] = merged.m2;
+    // Merge the two child aggregates directly into typed arrays. Calling the
+    // general-purpose mergeStatistics helper here created temporary objects for
+    // every internal node (millions across a multi-channel recording).
+    const leftCount = validCount[left];
+    const rightCount = validCount[right];
+    const combinedCount = leftCount + rightCount;
+    validCount[node] = combinedCount;
+
+    if (leftCount === 0) {
+      mean[node] = mean[right];
+      sumSquaredDeviation[node] = sumSquaredDeviation[right];
+    } else if (rightCount === 0) {
+      mean[node] = mean[left];
+      sumSquaredDeviation[node] = sumSquaredDeviation[left];
+    } else {
+      const delta = mean[right] - mean[left];
+      const rightWeight = rightCount / combinedCount;
+      mean[node] = mean[left] + delta * rightWeight;
+      sumSquaredDeviation[node] =
+        sumSquaredDeviation[left] +
+        sumSquaredDeviation[right] +
+        delta * delta * (leftCount * rightWeight);
+    }
   }
 
   return {

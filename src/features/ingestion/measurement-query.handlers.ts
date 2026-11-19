@@ -32,7 +32,6 @@ export async function handleComparisonQuery(
     }
 
     const results: ComparisonPanelQueryResult[] = [];
-    const queryStartedAt = performance.now();
     let indexBuildMs = 0;
     const recordIndexBuild = (durationMs: number) => { indexBuildMs += durationMs; };
     for (const selection of request.panels) {
@@ -55,6 +54,7 @@ export async function handleComparisonQuery(
         request.referenceDatasetId, selection.referenceChannelId, referenceBuffers,
         referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, request.pixelWidth, isCancelled, recordIndexBuild,
       );
+
       const comparisonWindow = queryTieredChannelEnvelope(
         request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
         comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth, isCancelled, recordIndexBuild,
@@ -63,13 +63,9 @@ export async function handleComparisonQuery(
     }
 
     cancelIfRequested();
-    const workerElapsedMs = performance.now() - queryStartedAt;
     const result = {
       panels: results,
-      timings: {
-        indexBuildMs,
-        workerComputeMs: Math.max(0, workerElapsedMs - indexBuildMs),
-      },
+      timings: { indexBuildMs },
     };
     const transfer: Transferable[] = [];
     for (const panel of results) {

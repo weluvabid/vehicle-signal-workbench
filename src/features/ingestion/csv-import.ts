@@ -36,12 +36,10 @@ interface ChannelBuffer {
 }
 
 const INITIAL_CAPACITY = 4_096;
+const CSV_CHUNK_SIZE_BYTES = 4 * 1024 * 1024;
 
-function grow(buffer: Float64Array, required: number): Float64Array {
-  if (required <= buffer.length) return buffer;
-
-  let capacity = buffer.length;
-  while (capacity < required) capacity *= 2;
+function grow(buffer: Float64Array, capacity: number): Float64Array {
+  if (capacity <= buffer.length) return buffer;
 
   const next = new Float64Array(capacity);
   next.set(buffer);
@@ -66,6 +64,7 @@ export function importCsv(
   let timeValues = new Float64Array(INITIAL_CAPACITY);
   let channels: ChannelBuffer[] = [];
   let sampleCount = 0;
+  let bufferCapacity = INITIAL_CAPACITY;
   let firstEpochSeconds: number | null = null;
   let lastEpochSeconds = Number.NEGATIVE_INFINITY;
   let terminal = false;
@@ -96,7 +95,7 @@ export function importCsv(
     dynamicTyping: false,
     skipEmptyLines: 'greedy',
     worker: false,
-    chunkSize: 1024 * 1024,
+    chunkSize: CSV_CHUNK_SIZE_BYTES,
     chunk(results, papaParser) {
       active.parser = papaParser;
 
@@ -185,12 +184,23 @@ export function importCsv(
 
           firstEpochSeconds ??= epochSeconds;
           lastEpochSeconds = epochSeconds;
-          timeValues = grow(timeValues, sampleCount + 1);
+
+          // All columns share the same row count and capacity. Grow every buffer
+          // together only at capacity boundaries instead of checking/growing each
+          // channel for every parsed row.
+          if (sampleCount === bufferCapacity) {
+            const nextCapacity = bufferCapacity * 2;
+            timeValues = grow(timeValues, nextCapacity);
+            for (const channel of channels) {
+              channel.values = grow(channel.values, nextCapacity);
+            }
+            bufferCapacity = nextCapacity;
+          }
+
           timeValues[sampleCount] = epochSeconds - firstEpochSeconds;
 
           for (let channelIndex = 0; channelIndex < channels.length; channelIndex += 1) {
             const channel = channels[channelIndex];
-            channel.values = grow(channel.values, sampleCount + 1);
             const value = parseNumericSample(row[channel.columnIndex]);
 
             if (Number.isNaN(value)) {

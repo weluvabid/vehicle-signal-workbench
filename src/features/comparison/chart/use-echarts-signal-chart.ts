@@ -15,55 +15,22 @@ interface ChartControllerOptions {
   readonly domainEndSeconds: number;
   readonly initialVisibleFraction: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
-  readonly onMetricsViewportChange: (startSeconds: number, endSeconds: number) => void;
-  readonly onFpsChange: (fps: number) => void;
+  readonly onMetricsViewportChange: (startSeconds: number, endSeconds: number, isInitial: boolean) => void;
   readonly hasPanels: boolean;
 }
 
-/** Owns chart interaction, RAF viewport dispatch, resize and FPS lifecycles. */
+/** Owns chart viewport dispatch and resize lifecycles. */
 export function useEChartsSignalChart(options: ChartControllerOptions) {
   const container = useRef<HTMLDivElement>(null);
   const pendingViewport = useRef<PendingViewport | null>(null);
   const lastViewport = useRef<PendingViewport | null>(null);
   const animationFrame = useRef<number | null>(null);
   const chartWidth = useRef(1);
-  const fpsFrame = useRef<number | null>(null);
-  const fpsLastInteraction = useRef(0);
-  const fpsWindowStart = useRef(0);
-  const fpsFrames = useRef(0);
-  const pointerActive = useRef(false);
   const [chartHeight, setChartHeight] = useState(0);
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const latestProps = useRef(options);
 
   useEffect(() => { latestProps.current = options; }, [options]);
-
-  const recordInteraction = useCallback(() => {
-    fpsLastInteraction.current = performance.now();
-    if (fpsFrame.current !== null) return;
-    fpsWindowStart.current = 0;
-    fpsFrames.current = 0;
-    const tick = (now: number) => {
-      if (fpsWindowStart.current === 0) fpsWindowStart.current = now;
-      fpsFrames.current += 1;
-      const elapsed = now - fpsWindowStart.current;
-      if (elapsed >= 250) {
-        latestProps.current.onFpsChange(Math.round(((fpsFrames.current - 1) * 1000) / elapsed));
-        fpsWindowStart.current = now;
-        fpsFrames.current = 1;
-      }
-      if (now - fpsLastInteraction.current < 900) {
-        fpsFrame.current = requestAnimationFrame(tick);
-      } else {
-        const finalElapsed = now - fpsWindowStart.current;
-        if (finalElapsed >= 100 && fpsFrames.current > 1) {
-          latestProps.current.onFpsChange(Math.round(((fpsFrames.current - 1) * 1000) / finalElapsed));
-        }
-        fpsFrame.current = null;
-      }
-    };
-    fpsFrame.current = requestAnimationFrame(tick);
-  }, []);
 
   const dispatchViewport = useCallback((viewport: PendingViewport) => {
     lastViewport.current = viewport;
@@ -83,7 +50,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     if (!options.hasPanels) return;
     const initial = getInitialViewport(options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction);
     dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
-    options.onMetricsViewportChange(initial.startSeconds, initial.endSeconds);
+    options.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
   }, [options.hasPanels, options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction, dispatchViewport, options.onMetricsViewportChange]);
 
   useEffect(() => {
@@ -109,7 +76,6 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
   useEffect(() => () => {
     if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
-    if (fpsFrame.current !== null) cancelAnimationFrame(fpsFrame.current);
   }, []);
 
   const requestInitialViewport = useCallback((chart: { getWidth: () => number }) => {
@@ -120,11 +86,10 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
       latestProps.current.initialVisibleFraction,
     );
     dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
-    latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds);
+    latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
   }, [dispatchViewport]);
 
   const handleDataZoom = useCallback((event: DataZoomRangeEvent) => {
-    recordInteraction();
     const viewport = resolveDataZoomViewport(
       event,
       latestProps.current.domainStartSeconds,
@@ -132,16 +97,8 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     );
     if (!viewport) return;
     dispatchViewport({ ...viewport, pixelWidth: chartWidth.current });
-    latestProps.current.onMetricsViewportChange(viewport.startSeconds, viewport.endSeconds);
-  }, [dispatchViewport, recordInteraction]);
+    latestProps.current.onMetricsViewportChange(viewport.startSeconds, viewport.endSeconds, false);
+  }, [dispatchViewport]);
 
-  const handlePointerDown = useCallback(() => { pointerActive.current = true; recordInteraction(); }, [recordInteraction]);
-  const handlePointerMove = useCallback(() => { if (pointerActive.current) recordInteraction(); }, [recordInteraction]);
-  const handlePointerEnd = useCallback(() => { pointerActive.current = false; }, []);
-
-  return {
-    container, chartHeight, measuredWidth, recordInteraction,
-    requestInitialViewport, handleDataZoom,
-    handlePointerDown, handlePointerMove, handlePointerEnd,
-  };
+  return { container, chartHeight, measuredWidth, requestInitialViewport, handleDataZoom };
 }

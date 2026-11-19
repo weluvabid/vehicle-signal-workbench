@@ -40,8 +40,7 @@ interface EChartsSignalChartProps {
   readonly domainEndSeconds: number;
   readonly initialVisibleFraction: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
-  readonly onMetricsViewportChange: (startSeconds: number, endSeconds: number) => void;
-  readonly onFpsChange: (fps: number) => void;
+  readonly onMetricsViewportChange: (startSeconds: number, endSeconds: number, isInitial: boolean) => void;
 }
 
 
@@ -52,20 +51,17 @@ export function EChartsSignalChart({
   initialVisibleFraction,
   onViewportChange,
   onMetricsViewportChange,
-  onFpsChange,
 }: EChartsSignalChartProps) {
   const {
-    container, chartHeight, measuredWidth, recordInteraction,
+    container, chartHeight, measuredWidth,
     requestInitialViewport, handleDataZoom,
-    handlePointerDown, handlePointerMove, handlePointerEnd,
   } = useEChartsSignalChart({
     domainStartSeconds,
     domainEndSeconds,
     initialVisibleFraction,
     onViewportChange,
     onMetricsViewportChange,
-    onFpsChange,
-    hasPanels: panels.length > 0,
+      hasPanels: panels.length > 0,
   });
 
   const option = useMemo(
@@ -79,12 +75,6 @@ export function EChartsSignalChart({
       className="echarts-signal-chart relative h-full min-h-0"
       data-testid="signal-chart"
       role="group"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerCancel={handlePointerEnd}
-      onWheel={recordInteraction}
-      onTouchMove={recordInteraction}
       aria-label={`Synchronized comparison of ${panels.length} signals. Use the mouse wheel or pinch to zoom, drag to pan, and the shared range slider to navigate all timelines.`}
     >
       {chartHeight > 0 && panels.map((panel, index) => {
