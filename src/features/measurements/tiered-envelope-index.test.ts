@@ -57,3 +57,35 @@ test('index-build timing is reported once per newly built tier and not on cache 
   assert.equal(buildDurations.length, 2);
   assert.equal(state.indexes.size, 2);
 });
+
+test('large envelope buckets preserve valid vehicle samples around sparse missing runs', async () => {
+  const count = 4_096;
+  const timeSeconds = Float64Array.from({ length: count }, (_, index) => index * 0.01);
+  const values = Float64Array.from({ length: count }, (_, index) => Math.sin(index / 31));
+  values.fill(Number.NaN, 1_700, 1_704);
+  const buffers = { timeSeconds, values };
+  const index = buildChannelEnvelopeIndex(values);
+
+  const result = queryChannelEnvelopeTimeWindow('comparison', 'vehicle-speed', buffers, index, 0, 40.96, 1);
+
+  assert.ok(result.values.length > 2);
+  assert.ok(result.values.length <= 8);
+  assert.ok(result.values.some(Number.isFinite));
+  assert.ok(result.values.some((value) => !Number.isFinite(value)));
+  assert.ok(result.timeSeconds.some((time) => time < timeSeconds[1_700]));
+  assert.ok(result.timeSeconds.some((time) => time > timeSeconds[1_703]));
+  assert.equal(result.values.length, result.timeSeconds.length);
+});
+
+test('large envelope buckets remain conservative when missing runs exceed the point budget', () => {
+  const count = 4_096;
+  const timeSeconds = Float64Array.from({ length: count }, (_, index) => index * 0.01);
+  const values = Float64Array.from({ length: count }, (_, index) => index);
+  for (let run = 0; run < 5; run += 1) values.fill(Number.NaN, 500 + run * 600, 502 + run * 600);
+  const buffers = { timeSeconds, values };
+  const index = buildChannelEnvelopeIndex(values);
+
+  const result = queryChannelEnvelopeTimeWindow('comparison', 'vehicle-speed', buffers, index, 0, 40.96, 1);
+
+  assert.ok(result.values.every((value) => !Number.isFinite(value)));
+});

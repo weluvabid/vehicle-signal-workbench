@@ -91,7 +91,6 @@ export interface ChannelEnvelopeIndex {
 const ENVELOPE_BLOCK_SIZE = 64;
 const MAX_BUCKETS = 8_192;
 const MAX_BUCKET_POINTS = 8;
-const MAX_GAP_SCAN_SAMPLES = 256;
 
 /**
  * Builds a compact block segment tree. It stores extrema sample indices and
@@ -297,16 +296,12 @@ export function queryChannelEnvelopeTimeWindow(
       continue;
     }
 
-    if (bucketSampleEnd - bucketSampleStart > MAX_GAP_SCAN_SAMPLES) {
-      appendGap(outputTimes, outputValues, buffers.timeSeconds, bucketSampleStart, bucketSampleEnd);
-      continue;
-    }
-
     const candidates = collectGapAwareCandidates(
       buffers.values,
       bucketSampleStart,
       bucketSampleEnd,
       MAX_BUCKET_POINTS,
+      shouldAbort,
     );
 
     if (candidates === null) {
@@ -316,7 +311,8 @@ export function queryChannelEnvelopeTimeWindow(
 
     for (const sampleIndex of candidates) {
       outputTimes.push(buffers.timeSeconds[sampleIndex]);
-      outputValues.push(Number.isFinite(buffers.values[sampleIndex]) ? buffers.values[sampleIndex] : Number.NaN);
+      const value = buffers.values[sampleIndex];
+      outputValues.push(Number.isFinite(value) ? value : Number.NaN);
     }
   }
 
@@ -516,43 +512,46 @@ function collectGapAwareCandidates(
   start: number,
   end: number,
   limit: number,
+  shouldAbort?: () => boolean,
 ): number[] | null {
-  const candidates: number[] = [];
-  let segmentStart = -1;
-  let segmentMin = -1;
-  let segmentMax = -1;
+  // Keep the bucket's outer valid samples and global extrema, plus one NaN
+  // marker per missing run. This preserves the visible signal around sparse
+  // dropouts without retaining every sample in a large bucket.
+  let firstValid = -1;
+  let lastValid = -1;
+  let minIndex = -1;
+  let maxIndex = -1;
   let previousWasMissing = false;
-
-  const flushSegment = (segmentEnd: number): boolean => {
-    if (segmentStart < 0) return true;
-    candidates.push(...uniqueSorted([segmentStart, segmentEnd, segmentMin, segmentMax]));
-    segmentStart = -1;
-    segmentMin = -1;
-    segmentMax = -1;
-    return candidates.length <= limit;
-  };
+  const candidates: number[] = [];
 
   for (let sample = start; sample < end; sample += 1) {
+    if (((sample - start) & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
+
     const value = values[sample];
     if (!Number.isFinite(value)) {
-      if (!flushSegment(sample - 1)) return null;
-      if (!previousWasMissing) candidates.push(sample);
-      previousWasMissing = true;
-    } else {
-      previousWasMissing = false;
-      if (segmentStart < 0) {
-        segmentStart = sample;
-        segmentMin = sample;
-        segmentMax = sample;
-      } else {
-        if (value < values[segmentMin]) segmentMin = sample;
-        if (value > values[segmentMax]) segmentMax = sample;
+      if (!previousWasMissing) {
+        candidates.push(sample);
+        if (candidates.length > limit) return null;
       }
+      previousWasMissing = true;
+      continue;
     }
-    if (candidates.length > limit) return null;
+
+    previousWasMissing = false;
+    if (firstValid < 0) firstValid = sample;
+    lastValid = sample;
+    if (minIndex < 0 || value < values[minIndex]) minIndex = sample;
+    if (maxIndex < 0 || value > values[maxIndex]) maxIndex = sample;
   }
 
-  if (!flushSegment(end - 1)) return null;
+  if (firstValid < 0) {
+    return candidates.length <= limit ? uniqueSorted(candidates) : null;
+  }
+
+  candidates.push(firstValid, lastValid, minIndex, maxIndex);
+  if (candidates.length > limit) return null;
   return uniqueSorted(candidates);
 }
 
