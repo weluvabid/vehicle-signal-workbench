@@ -1,12 +1,9 @@
-import type { DifferencePlotResult, DifferenceStatistics } from '../measurements/difference';
+import type { DifferenceStatistics } from '../measurements/difference';
 import type { ChannelStatistics, ChannelWindow, CsvImportOptions, DatasetDescriptor } from '../measurements/model';
 
 export interface ComparisonPanelQueryResult {
   readonly referenceWindow: ChannelWindow;
   readonly comparisonWindow: ChannelWindow;
-  readonly referenceStatistics: ChannelStatistics;
-  readonly comparisonStatistics: ChannelStatistics;
-  readonly differenceSeries: DifferencePlotResult;
 }
 
 export interface MetricsPanelQuery {
@@ -39,8 +36,6 @@ export interface ComparisonBatchQueryTimings {
   readonly indexBuildMs: number;
   /** Worker-side processing time excluding index construction. */
   readonly workerComputeMs: number;
-  /** Difference-envelope calculation time, included in workerComputeMs. */
-  readonly differenceMs: number;
 }
 
 export interface ComparisonBatchQueryResult {

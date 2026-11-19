@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DatasetDescriptor, ChannelStatistics } from '@/features/measurements/model';
-import type { DifferencePlotResult, DifferenceStatistics } from '@/features/measurements/difference';
+import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { ComparisonPlotData } from '@/features/measurements/plot-data';
 import { buildComparisonPlotData } from '@/features/measurements/plot-data';
 import type { MeasurementWorkerClient, ComparisonQueryHandle } from '@/features/ingestion/measurement-worker.client';
@@ -13,10 +12,6 @@ export interface SignalPanelResult {
   readonly label: string;
   readonly unit: string | null;
   readonly data: ComparisonPlotData;
-  readonly referenceStatistics: ChannelStatistics;
-  readonly comparisonStatistics: ChannelStatistics;
-  readonly differenceStatistics: DifferenceStatistics;
-  readonly differenceSeries: DifferencePlotResult;
 }
 
 interface SignalViewportOptions {
@@ -46,7 +41,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
   const [initialPreparation, setInitialPreparation] = useState<{
     readonly indexBuildMs: number | null;
     readonly workerComputeMs: number | null;
-    readonly differenceMs: number | null;
     readonly workerRoundTripMs: number;
     readonly plotSeriesMs: number;
     readonly postImportViewportPrepMs: number;
@@ -108,10 +102,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
           label: referenceChannel.label,
           unit: referenceChannel.unit,
           data: buildComparisonPlotData(panel.referenceWindow, panel.comparisonWindow, options.offsetSeconds),
-          referenceStatistics: panel.referenceStatistics,
-          comparisonStatistics: panel.comparisonStatistics,
-          differenceStatistics: panel.differenceSeries.statistics,
-          differenceSeries: panel.differenceSeries,
         };
       });
       if (generation.current !== currentGeneration) return;
@@ -124,7 +114,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
         setInitialPreparation({
           indexBuildMs: batch.timings?.indexBuildMs ?? null,
           workerComputeMs: batch.timings?.workerComputeMs ?? null,
-          differenceMs: batch.timings?.differenceMs ?? null,
           workerRoundTripMs: Math.max(0, elapsedMs - plotSeriesMs),
           plotSeriesMs,
           postImportViewportPrepMs: elapsedMs,

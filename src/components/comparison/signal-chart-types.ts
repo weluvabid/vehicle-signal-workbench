@@ -7,6 +7,5 @@ export interface SignalChartPanel {
   readonly color: string;
   readonly reference: SignalPoint[];
   readonly comparison: SignalPoint[];
-  readonly delta: SignalPoint[];
   readonly visible: boolean;
 }

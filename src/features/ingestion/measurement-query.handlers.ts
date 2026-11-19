@@ -1,5 +1,4 @@
-import { calculateSignalDifferencePlotEnvelopeInTimeRange } from '../measurements/difference';
-import { queryTieredChannelEnvelope, queryTieredChannelStatistics } from '../measurements/tiered-envelope-index';
+import { queryTieredChannelEnvelope } from '../measurements/tiered-envelope-index';
 import type { ComparisonPanelQueryResult, IngestionRequest } from './worker-protocol';
 import type { WorkerRuntimeContext } from './worker-runtime';
 
@@ -36,7 +35,6 @@ export async function handleComparisonQuery(
     const queryStartedAt = performance.now();
     let indexBuildMs = 0;
     const recordIndexBuild = (durationMs: number) => { indexBuildMs += durationMs; };
-    let differenceMs = 0;
     for (const selection of request.panels) {
       // Yield between panels so the worker can receive and process a cancel message.
       await yieldToWorker();
@@ -61,28 +59,7 @@ export async function handleComparisonQuery(
         request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
         comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth, isCancelled, recordIndexBuild,
       );
-      const referenceStatistics = queryTieredChannelStatistics(
-        request.referenceDatasetId, selection.referenceChannelId, referenceBuffers,
-        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, isCancelled, recordIndexBuild,
-      );
-      const comparisonStatistics = queryTieredChannelStatistics(
-        request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
-        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, isCancelled, recordIndexBuild,
-      );
-
-      // Give cancellation a checkpoint before the potentially largest operation (difference generation).
-      await yieldToWorker();
-      cancelIfRequested();
-      const differenceStartedAt = performance.now();
-      const differenceSeries = calculateSignalDifferencePlotEnvelopeInTimeRange(
-        { datasetId: request.referenceDatasetId, channelId: selection.referenceChannelId,
-          timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values },
-        { datasetId: request.comparisonDatasetId, channelId: selection.comparisonChannelId,
-          timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values },
-        request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds, request.pixelWidth, isCancelled,
-      );
-      differenceMs += performance.now() - differenceStartedAt;
-      results.push({ referenceWindow, comparisonWindow, referenceStatistics, comparisonStatistics, differenceSeries });
+      results.push({ referenceWindow, comparisonWindow });
     }
 
     cancelIfRequested();
@@ -92,7 +69,6 @@ export async function handleComparisonQuery(
       timings: {
         indexBuildMs,
         workerComputeMs: Math.max(0, workerElapsedMs - indexBuildMs),
-        differenceMs,
       },
     };
     const transfer: Transferable[] = [];
@@ -100,7 +76,6 @@ export async function handleComparisonQuery(
       transfer.push(
         panel.referenceWindow.timeSeconds.buffer, panel.referenceWindow.values.buffer,
         panel.comparisonWindow.timeSeconds.buffer, panel.comparisonWindow.values.buffer,
-        panel.differenceSeries.timeSeconds.buffer, panel.differenceSeries.delta.buffer,
       );
     }
     context.postTransfer({ type: 'comparison-batch', requestId, result }, { transfer });

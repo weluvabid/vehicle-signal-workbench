@@ -23,7 +23,6 @@ export function buildSignalChartPanels(
       color: SERIES_COLORS[index % SERIES_COLORS.length],
       reference: result?.data.reference ?? EMPTY_DATA.reference,
       comparison: result?.data.comparison ?? EMPTY_DATA.comparison,
-      delta: result ? buildSignalPoints(result.differenceSeries.timeSeconds, result.differenceSeries.delta) : [],
       visible: true,
     };
   });
