@@ -16,7 +16,7 @@ interface ComparisonWizardProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly client: MeasurementWorkerClient;
-  readonly onComplete: (reference: DatasetDescriptor, comparison: DatasetDescriptor, metrics: { durationMs: number; totalBytes: number }) => void;
+  readonly onComplete: (reference: DatasetDescriptor, comparison: DatasetDescriptor, metrics: { ingestionDurationMs: number; totalBytes: number }) => void;
 }
 
 const stages = ['Generate reference', 'Ingest reference', 'Generate comparison', 'Ingest comparison'] as const;
@@ -42,24 +42,24 @@ export function ComparisonWizard({ open, onOpenChange, client, onComplete }: Com
     }
   }
 
-  async function ingestRole(role: DriveRole, generationStage: Stage, importStage: Stage): Promise<{ dataset: DatasetDescriptor; bytes: number }> {
+  async function ingestRole(role: DriveRole, generationStage: Stage, importStage: Stage): Promise<{ dataset: DatasetDescriptor; bytes: number; ingestionDurationMs: number }> {
     setStage(generationStage);
     setProgress(0);
     const file = await generateDriveRecording(preset.rows, role, setProgress);
     setStage(importStage);
     setProgress(0);
+    const ingestionStartedAt = performance.now();
     const dataset = await client.import(file, {
       timestampColumn: 'Timestamp',
       timestampEncoding: 'unix-seconds',
     }, setProgress);
-    return { dataset, bytes: file.size };
+    return { dataset, bytes: file.size, ingestionDurationMs: performance.now() - ingestionStartedAt };
   }
 
   async function start() {
     if (running) return;
     setRunning(true);
     setError(null);
-    const startedAt = performance.now();
     let reference: DatasetDescriptor | null = null;
     let comparison: DatasetDescriptor | null = null;
     try {
@@ -71,7 +71,7 @@ export function ComparisonWizard({ open, onOpenChange, client, onComplete }: Com
       const comparisonResult = await ingestRole('comparison', 2, 3);
       comparison = comparisonResult.dataset;
       onComplete(reference, comparison, {
-        durationMs: performance.now() - startedAt,
+        ingestionDurationMs: referenceResult.ingestionDurationMs + comparisonResult.ingestionDurationMs,
         totalBytes: referenceResult.bytes + comparisonResult.bytes,
       });
       onOpenChange(false);

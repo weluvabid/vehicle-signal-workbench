@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface ImportMetrics {
-  readonly durationMs: number;
+  readonly ingestionDurationMs: number;
   readonly totalBytes: number;
 }
 

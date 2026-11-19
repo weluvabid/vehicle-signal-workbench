@@ -26,7 +26,7 @@ function dataset(sampleCount: number, channelCount: number, missingPerChannel = 
 
 test('reports row throughput and actual numeric channel-sample throughput separately', () => {
   const summary = summarizeIngestion(dataset(10_000_000, 3), dataset(10_000_000, 3), {
-    durationMs: 6_530,
+    ingestionDurationMs: 6_530,
     totalBytes: 766.6 * 1_048_576,
   });
 
@@ -39,7 +39,7 @@ test('reports row throughput and actual numeric channel-sample throughput separa
 
 test('excludes missing channel cells and supports unequal run sizes', () => {
   const summary = summarizeIngestion(dataset(10, 3, 2), dataset(8, 2, 1), {
-    durationMs: 9_000,
+    ingestionDurationMs: 9_000,
     totalBytes: 100,
   });
 
@@ -50,7 +50,7 @@ test('excludes missing channel cells and supports unequal run sizes', () => {
 });
 
 test('does not report infinite throughput for zero-duration measurements', () => {
-  const summary = summarizeIngestion(dataset(10, 1), dataset(10, 1), { durationMs: 0, totalBytes: 20 });
+  const summary = summarizeIngestion(dataset(10, 1), dataset(10, 1), { ingestionDurationMs: 0, totalBytes: 20 });
   assert.equal(summary.timestampRowsPerSecond, 0);
   assert.equal(summary.channelSamplesPerSecond, 0);
 });

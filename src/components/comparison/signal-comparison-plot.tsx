@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { formatChannelStatistics, formatMeasurementValue } from '@/features/measurements/formatting';
@@ -27,13 +27,44 @@ interface SignalComparisonPlotProps {
   readonly offsetSeconds: number;
   readonly startSeconds: number;
   readonly endSeconds: number;
-  readonly ingestionMetrics: { readonly durationMs: number; readonly totalBytes: number } | null;
+  readonly ingestionMetrics: { readonly ingestionDurationMs: number; readonly totalBytes: number } | null;
 }
 
 const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
 
+function useAnimationFrameRate(): number | null {
+  const [fps, setFps] = useState<number | null>(null);
+  useEffect(() => {
+    let frames = 0;
+    let startedAt = 0;
+    let frameId = 0;
+    let active = true;
+    const tick = (now: number) => {
+      if (!active) return;
+      if (document.visibilityState === 'hidden') {
+        frames = 0;
+        startedAt = now;
+      } else {
+        if (startedAt === 0) startedAt = now;
+        frames += 1;
+        const elapsed = now - startedAt;
+        if (elapsed >= 1000) {
+          setFps(Math.round((frames * 1000) / elapsed));
+          frames = 0;
+          startedAt = now;
+        }
+      }
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => { active = false; cancelAnimationFrame(frameId); };
+  }, []);
+  return fps;
+}
+
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
-  const { loading, error, results, requestViewport, selectionKey, initialPreparation } = useSignalViewport(props);
+  const { loading, error, results, requestViewport, selectionKey } = useSignalViewport(props);
+  const fps = useAnimationFrameRate();
   const ingestionSummary = props.ingestionMetrics ? summarizeIngestion(props.reference, props.comparison, props.ingestionMetrics) : null;
   const metrics = useMetricsViewport({
     client: props.client,
@@ -52,25 +83,13 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-4" data-testid="plot-workspace">
-      <section className="grid shrink-0 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]" aria-label="Performance instrumentation">
-        <div className="min-w-0 space-y-2">
-          <div className="flex items-center justify-between"><h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Data scale &amp; ingestion</h2><span className="text-[10px] text-muted-foreground">Both recordings</span></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Metric label="Timestamp rows / run" value={props.reference.sampleCount.toLocaleString()} detail={`Ref ${props.reference.sampleCount.toLocaleString()} · Cmp ${props.comparison.sampleCount.toLocaleString()}`} />
-            <Metric label="Valid channel samples" value={(ingestionSummary?.totalValidChannelSamples ?? 0).toLocaleString()} detail="Missing cells excluded" />
-            <Metric label="Generate + ingest" value={props.ingestionMetrics ? `${(props.ingestionMetrics.durationMs / 1000).toFixed(2)} s` : '—'} detail={ingestionSummary ? `${(ingestionSummary.totalBytes / 1_048_576).toFixed(1)} MiB · ${formatIngestionRates(ingestionSummary)}` : 'Browser generation + worker import'} />
-            <Metric label="Typed-array footprint" value={props.reference.retainedStorageBytes !== undefined && props.comparison.retainedStorageBytes !== undefined ? `${((props.reference.retainedStorageBytes + props.comparison.retainedStorageBytes) / 1_048_576).toFixed(1)} MiB` : 'Unavailable'} detail={`Values ${(((props.reference.channelValueBytes ?? 0) + (props.comparison.channelValueBytes ?? 0)) / 1_048_576).toFixed(1)} · indexes ${(((props.reference.envelopeIndexBytes ?? 0) + (props.comparison.envelopeIndexBytes ?? 0)) / 1_048_576).toFixed(1)} · axes ${(((props.reference.timeAxisBytes ?? 0) + (props.comparison.timeAxisBytes ?? 0)) / 1_048_576).toFixed(1)} MiB`} />
-          </div>
-        </div>
-        <div className="min-w-0 space-y-2">
-          <div className="flex items-center justify-between"><h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Interactive compute</h2><span className="text-[10px] text-muted-foreground">Worker timings</span></div>
-          <div className="grid grid-cols-2 gap-2">
-            <Metric label="Initial viewport" value={initialPreparation ? `${initialPreparation.workerRoundTripMs.toFixed(2)} ms` : (loading ? 'Preparing…' : '—')} detail={initialPreparation ? `Cold index build ${initialPreparation.indexBuildMs?.toFixed(2) ?? '—'} ms included` : 'Worker request through response'} />
-            <Metric label="Worker compute · median" value={metrics.workerCompute ? `${metrics.workerCompute.medianMs.toFixed(2)} ms` : '—'} detail={metrics.loading ? 'Querying settled channel analysis' : metrics.workerCompute ? `P95 ${metrics.workerCompute.p95Ms.toFixed(2)} ms · ${metrics.workerCompute.count} queries` : 'Waiting for settled zoom'} />
-          </div>
-        </div>
+      <section className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Ingestion performance">
+        <Metric label="Timestamp rows / run" value={props.reference.sampleCount.toLocaleString()} detail={`Ref ${props.reference.sampleCount.toLocaleString()} · Cmp ${props.comparison.sampleCount.toLocaleString()}`} />
+        <Metric label="Valid channel samples" value={(ingestionSummary?.totalValidChannelSamples ?? 0).toLocaleString()} detail="Across both recordings" />
+        <Metric label="CSV ingestion" value={props.ingestionMetrics ? `${(props.ingestionMetrics.ingestionDurationMs / 1000).toFixed(2)} s` : '—'} detail={ingestionSummary ? `${(ingestionSummary.totalBytes / 1_048_576).toFixed(1)} MiB · ${formatIngestionRates(ingestionSummary)}` : 'Parser + typed-array import'} />
+        <Metric label="Typed-array footprint" value={props.reference.retainedStorageBytes !== undefined && props.comparison.retainedStorageBytes !== undefined ? `${((props.reference.retainedStorageBytes + props.comparison.retainedStorageBytes) / 1_048_576).toFixed(1)} MiB` : 'Unavailable'} detail={`Values ${(((props.reference.channelValueBytes ?? 0) + (props.comparison.channelValueBytes ?? 0)) / 1_048_576).toFixed(1)} · indexes ${(((props.reference.envelopeIndexBytes ?? 0) + (props.comparison.envelopeIndexBytes ?? 0)) / 1_048_576).toFixed(1)} · axes ${(((props.reference.timeAxisBytes ?? 0) + (props.comparison.timeAxisBytes ?? 0)) / 1_048_576).toFixed(1)} MiB`} />
+        <Metric label="FPS" value={fps === null ? '—' : `${fps}`} detail="Live requestAnimationFrame rate" />
       </section>
-
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       {!error && !loading && results.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected time interval.</p>}
 

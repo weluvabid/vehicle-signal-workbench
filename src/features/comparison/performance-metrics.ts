@@ -1,7 +1,7 @@
 import type { DatasetDescriptor } from '@/features/measurements/model';
 
 export interface IngestionPerformanceMetrics {
-  readonly durationMs: number;
+  readonly ingestionDurationMs: number;
   readonly totalBytes: number;
 }
 
@@ -12,7 +12,7 @@ export interface IngestionPerformanceSummary {
   readonly totalValidChannelSamples: number;
   readonly timestampRowsPerSecond: number;
   readonly channelSamplesPerSecond: number;
-  readonly durationMs: number;
+  readonly ingestionDurationMs: number;
   readonly totalBytes: number;
 }
 
@@ -34,7 +34,7 @@ export function summarizeIngestion(
     ),
     0,
   );
-  const durationSeconds = metrics.durationMs / 1_000;
+  const durationSeconds = metrics.ingestionDurationMs / 1_000;
 
   return {
     referenceSamples: reference.sampleCount,
@@ -43,7 +43,7 @@ export function summarizeIngestion(
     totalValidChannelSamples,
     timestampRowsPerSecond: durationSeconds > 0 ? totalTimestampRows / durationSeconds : 0,
     channelSamplesPerSecond: durationSeconds > 0 ? totalValidChannelSamples / durationSeconds : 0,
-    durationMs: metrics.durationMs,
+    durationMs: metrics.ingestionDurationMs,
     totalBytes: metrics.totalBytes,
   };
 }
