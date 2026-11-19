@@ -27,7 +27,8 @@
     "test:e2e:performance": "node scripts/generate-measurement-fixtures.mjs --performance-scenario 19 --force && VSW_RUN_PERFORMANCE=1 playwright test tests/e2e/performance.spec.ts",
     "test:e2e:performance:10m": "node scripts/generate-measurement-fixtures.mjs --performance-scenario 20 --force && VSW_RUN_PERFORMANCE=1 VSW_RUN_10M=1 playwright test tests/e2e/performance.spec.ts",
     "test:all": "pnpm test && pnpm test:e2e",
-    "test:e2e:cross-browser": "node scripts/generate-measurement-fixtures.mjs --force && VSW_CROSS_BROWSER=1 playwright test"
+    "test:e2e:cross-browser": "node scripts/generate-measurement-fixtures.mjs --force && VSW_CROSS_BROWSER=1 playwright test",
+    "samples:generate": "node data/samples/generate.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

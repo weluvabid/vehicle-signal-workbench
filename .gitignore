@@ -49,3 +49,12 @@ tests/fixtures/19-large-run-1m/
 tests/fixtures/20-high-density-run-10m/
 playwright-report/
 test-results/
+
+# Keep the standalone sample generator in source control; generated datasets stay local.
+!data/
+data/*
+!data/samples/
+data/samples/*
+!data/samples/generate.mjs
+!data/samples/README.md
+!data/samples/.gitignore

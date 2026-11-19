@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
     }];
   },
   transpilePackages: ['echarts', 'zrender'],
+  allowedDevOrigins: [
+    '*.trycloudflare.com', // For Cloudflare Quick Tunnels
+    'dev.yourdomain.com',  // For a custom named tunnel domain
+  ],
 };
 
 export default nextConfig;

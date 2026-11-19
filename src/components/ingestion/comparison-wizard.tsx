@@ -1,19 +1,16 @@
 'use client';
 
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, FileSpreadsheet, LoaderCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Activity, ArrowRight, Cpu, Database, LoaderCircle, Zap } from 'lucide-react';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
-import { useComparisonWizard, WIZARD_ENCODINGS as encodings, WIZARD_STEPS as steps } from '@/features/ingestion/hooks/use-comparison-wizard';
-import type { DatasetDescriptor, TimestampEncoding } from '@/features/measurements/model';
-import type { RunRole } from '@/features/ingestion/hooks/use-comparison-wizard';
+import { generateDriveRecording, WORKLOAD_PRESETS, type DriveRole } from '@/features/ingestion/synthetic-drive';
+import type { DatasetDescriptor } from '@/features/measurements/model';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 
 interface ComparisonWizardProps {
   readonly open: boolean;
@@ -22,116 +19,142 @@ interface ComparisonWizardProps {
   readonly onComplete: (reference: DatasetDescriptor, comparison: DatasetDescriptor, metrics: { durationMs: number; totalBytes: number }) => void;
 }
 
+const stages = ['Generate reference', 'Ingest reference', 'Generate comparison', 'Ingest comparison'] as const;
+type Stage = 0 | 1 | 2 | 3;
+
 export function ComparisonWizard({ open, onOpenChange, client, onComplete }: ComparisonWizardProps) {
-  const {
-    step, setStep, active, reference, comparison, current, inspecting, inspectionError,
-    importing, progress, importError, duplicateFile, pairValid, canContinue,
-    selectFile, updateRun, startComparison, clearInspectionError,
-  } = useComparisonWizard({ open, onOpenChange, client, onComplete });
+  const [selected, setSelected] = useState('10');
+  const [running, setRunning] = useState(false);
+  const [stage, setStage] = useState<Stage>(0);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const preset = WORKLOAD_PRESETS.find((item) => item.id === selected) ?? WORKLOAD_PRESETS[1];
+  const estimatedCsvMiB = (preset.rows * 40 * 2) / 1_048_576;
+  const estimatedArrayMiB = (preset.rows * 48 * 2) / 1_048_576;
+
+  function close(next: boolean) {
+    if (running) return;
+    onOpenChange(next);
+    if (!next) {
+      setError(null);
+      setProgress(0);
+      setStage(0);
+    }
+  }
+
+  async function ingestRole(role: DriveRole, generationStage: Stage, importStage: Stage): Promise<{ dataset: DatasetDescriptor; bytes: number }> {
+    setStage(generationStage);
+    setProgress(0);
+    const file = await generateDriveRecording(preset.rows, role, setProgress);
+    setStage(importStage);
+    setProgress(0);
+    const dataset = await client.import(file, {
+      timestampColumn: 'Timestamp',
+      timestampEncoding: 'unix-seconds',
+    }, setProgress);
+    return { dataset, bytes: file.size };
+  }
+
+  async function start() {
+    if (running) return;
+    setRunning(true);
+    setError(null);
+    const startedAt = performance.now();
+    let reference: DatasetDescriptor | null = null;
+    let comparison: DatasetDescriptor | null = null;
+    try {
+      // Import one recording at a time so the generated CSV can be released before
+      // creating the second recording. The measurement worker remains the sole owner
+      // of parsed arrays and indexes.
+      const referenceResult = await ingestRole('reference', 0, 1);
+      reference = referenceResult.dataset;
+      const comparisonResult = await ingestRole('comparison', 2, 3);
+      comparison = comparisonResult.dataset;
+      onComplete(reference, comparison, {
+        durationMs: performance.now() - startedAt,
+        totalBytes: referenceResult.bytes + comparisonResult.bytes,
+      });
+      onOpenChange(false);
+    } catch (cause) {
+      if (reference) client.releaseDataset(reference.id);
+      if (comparison) client.releaseDataset(comparison.id);
+      setError(cause instanceof Error ? cause.message : 'The generated measurement workload could not be imported.');
+    } finally {
+      setRunning(false);
+    }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!importing) onOpenChange(next); }}>
-      <DialogContent className="sm:max-w-3xl" showCloseButton={!importing}>
+    <Dialog open={open} onOpenChange={close}>
+      <DialogContent className="sm:max-w-2xl" showCloseButton={!running}>
         <DialogHeader>
-          <div className="flex items-center justify-between gap-3 pr-8">
-            <DialogTitle>Set up measurement comparison</DialogTitle>
-            <Badge variant="secondary">Step {step + 1} of 3</Badge>
+          <div className="flex items-center gap-2">
+            <div className="grid size-9 place-items-center rounded-lg border bg-muted/40"><Activity className="size-4" /></div>
+            <div>
+              <DialogTitle>Choose a measurement workload</DialogTitle>
+              <DialogDescription className="mt-1">Generate two correlated vehicle recordings locally, then ingest them through the measurement worker.</DialogDescription>
+            </div>
           </div>
-          <DialogDescription>Choose two CSV runs. We'll inspect a small preview first; full measurement imports start only after review.</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-2" aria-label="Comparison setup steps">
-          {steps.map((item, index) => (
-            <div key={item.title} className="min-w-0 space-y-2">
-              <div className={`flex items-center gap-2 text-sm ${index === step ? 'font-medium text-foreground' : index < step ? 'text-foreground' : 'text-muted-foreground'}`}>
-                <span className={`grid size-7 shrink-0 place-items-center rounded-full border ${index < step ? 'border-primary bg-primary text-primary-foreground' : index === step ? 'border-primary' : 'border-muted-foreground/30'}`}>{index < step ? <Check className="size-4" /> : index + 1}</span>
-                <span className="truncate">{item.title}</span>
-              </div>
-              <Progress value={index < step ? 100 : index === step ? 50 : 0} className="h-1" />
+        {!running ? <div className="space-y-5">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div><h3 className="text-sm font-medium">Workload size</h3><p className="text-xs text-muted-foreground">Per recording · Reference and Comparison</p></div>
+              <Badge variant="secondary">Mixed drive cycle</Badge>
             </div>
-          ))}
-        </div>
-
-        {step < 2 && <>
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold">{steps[step].title} measurement</h3>
-            <p className="text-sm text-muted-foreground">{steps[step].description} {step === 0 ? 'This is the baseline that the candidate run will be compared against.' : 'This run will be compared with the selected reference.'}</p>
-          </div>
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-sm"><FileSpreadsheet className="size-4" />{step === 0 ? 'Reference CSV' : 'Comparison CSV'}</CardTitle>
-              <CardDescription>Local preflight reads the header and up to eight non-empty records. It does not import measurement arrays.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor={`wizard-${active}-file`}>Measurement file</Label>
-                <Input id={`wizard-${active}-file`} type="file" accept=".csv,text/csv" disabled={Boolean(inspecting) || importing} onChange={(event) => void selectFile(active, event.target.files?.[0])} />
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Dataset size">
+              {WORKLOAD_PRESETS.map((item) => <Button
+                key={item.id}
+                type="button"
+                size="sm"
+                variant={selected === item.id ? 'default' : 'outline'}
+                aria-pressed={selected === item.id}
+                onClick={() => setSelected(item.id)}
+                className="rounded-full px-4"
+              >{item.label}</Button>)}
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">{preset.label} × 2 recordings</span><span className="text-sm font-semibold tabular-nums">{(preset.rows * 2).toLocaleString('en-US')} total rows</span></div>
+              <p className="mt-1 text-xs text-muted-foreground">{preset.description} · {preset.rows.toLocaleString('en-US')} rows in each recording · up to 10 million per recording.</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t pt-3">
+                <div><p className="text-[11px] text-muted-foreground">Estimated CSV input · both</p><p className="mt-1 text-sm font-medium tabular-nums">~{estimatedCsvMiB.toFixed(1)} MiB</p></div>
+                <div><p className="text-[11px] text-muted-foreground">Base typed-array payload</p><p className="mt-1 text-sm font-medium tabular-nums">~{estimatedArrayMiB.toFixed(1)} MiB</p></div>
               </div>
-              {inspecting === active && <div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" />Inspecting CSV structure…</div>}
-              {current && <>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
-                  <div className="flex min-w-0 items-center gap-2"><FileSpreadsheet className="size-4 shrink-0 text-muted-foreground" /><span className="truncate text-sm font-medium">{current.file.name}</span></div>
-                  <Badge variant="secondary"><CheckCircle2 className="size-3" /> Preview ready</Badge>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Timestamp column</Label>
-                    <Select value={current.timestampColumn} onValueChange={(value) => { if (value) updateRun(active, { timestampColumn: value }); }}>
-                      <SelectTrigger aria-label="Timestamp column"><SelectValue placeholder="Choose timestamp column" /></SelectTrigger>
-                      <SelectContent>{current.preview.headers.map((header, index) => <SelectItem key={`${index}-${header}`} value={header}>{header}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Timestamp format</Label>
-                    <Select value={current.timestampEncoding} onValueChange={(value) => { if (value) updateRun(active, { timestampEncoding: value as TimestampEncoding }); }}>
-                      <SelectTrigger aria-label="Timestamp format"><SelectValue placeholder="Confirm timestamp format" /></SelectTrigger>
-                      <SelectContent>{encodings.map((encoding) => <SelectItem key={encoding.value} value={encoding.value}>{encoding.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Separator />
-                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-                  <div><dt className="text-xs text-muted-foreground">Delimiter</dt><dd className="mt-1 font-medium">{current.preview.delimiter === '\t' ? 'Tab' : current.preview.delimiter === ',' ? 'Comma' : current.preview.delimiter}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Rows inspected</dt><dd className="mt-1 font-medium tabular-nums">{current.preview.inspectedRows}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Numeric channels</dt><dd className="mt-1 font-medium tabular-nums">{current.preview.numericChannels.length}</dd></div>
-                </dl>
-                {current.preview.warnings.length > 0 && <div className="space-y-1" role="status">{current.preview.warnings.map((warning) => <p key={warning} className="text-xs text-muted-foreground">{warning}</p>)}</div>}
-              </>}
-              {inspectionError && <p role="alert" className="text-sm text-destructive">{inspectionError}</p>}
-            </CardContent>
-          </Card>
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="outline" onClick={() => step === 0 ? onOpenChange(false) : setStep(0)} disabled={importing}><ArrowLeft className="size-4" />{step === 0 ? 'Cancel' : 'Previous'}</Button>
-            <Button onClick={() => { clearInspectionError(); setStep((value) => value + 1); }} disabled={!canContinue}>{step === 0 ? 'Next' : 'Review'}<ArrowRight className="size-4" /></Button>
-          </div>
-        </>}
+            </div>
+          </section>
 
-        {step === 2 && reference && comparison && <>
-          <div className="space-y-1"><h3 className="text-base font-semibold">Review measurement pair</h3><p className="text-sm text-muted-foreground">Both files passed lightweight structural inspection. Full imports will now run concurrently in the existing Web Worker.</p></div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {([{ title: 'Reference · Baseline', run: reference }, { title: 'Comparison · Candidate', run: comparison }] as const).map(({ title, run }) => (
-              <Card key={title} size="sm">
-                <CardHeader><CardDescription>{title}</CardDescription><CardTitle className="truncate text-sm">{run.file.name}</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between gap-2"><span className="text-muted-foreground">File size</span><span className="tabular-nums">{(run.file.size / 1024 / 1024).toFixed(2)} MB</span></div>
-                  <div className="flex justify-between gap-2"><span className="text-muted-foreground">Timestamp</span><span className="truncate">{run.timestampColumn}</span></div>
-                  <div className="flex justify-between gap-2"><span className="text-muted-foreground">Format</span><span>{encodings.find((item) => item.value === run.timestampEncoding)?.label}</span></div>
-                  <div className="flex justify-between gap-2"><span className="text-muted-foreground">Numeric channels</span><span>{run.preview.numericChannels.length}</span></div>
-                </CardContent>
-              </Card>
-            ))}
+          <Separator />
+          <section className="grid gap-3 sm:grid-cols-2">
+            <Card size="sm" className="bg-muted/10">
+              <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2"><span className="size-2 rounded-full bg-zinc-400" />Reference</CardDescription><CardTitle className="text-base">Baseline drive</CardTitle></CardHeader>
+              <CardContent className="text-xs text-muted-foreground">Nominal sensor readings with deterministic measurement noise.</CardContent>
+            </Card>
+            <Card size="sm" className="bg-muted/10">
+              <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2"><span className="size-2 rounded-full bg-blue-400" />Comparison</CardDescription><CardTitle className="text-base">Candidate drive</CardTitle></CardHeader>
+              <CardContent className="text-xs text-muted-foreground">Same drive cycle with small sensor bias, response offset and independent noise.</CardContent>
+            </Card>
+          </section>
+          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+            <div className="flex items-center gap-2"><Database className="size-3.5" />Generated in browser</div>
+            <div className="flex items-center gap-2"><Cpu className="size-3.5" />Worker-based ingestion</div>
+            <div className="flex items-center gap-2"><Zap className="size-3.5" />No upload or backend</div>
           </div>
-          {duplicateFile && <p role="alert" className="text-sm text-destructive">Choose two different measurement files. The same file cannot be used for both runs.</p>}
-          {importError && <p role="alert" className="text-sm text-destructive">{importError}</p>}
-          {importing && <div className="space-y-3 rounded-lg border p-3">
-            {(['reference', 'comparison'] as const).map((role) => <div key={role} className="space-y-1"><div className="flex justify-between text-xs text-muted-foreground"><span>{role === 'reference' ? 'Reference' : 'Comparison'} import</span><span>{Math.round(progress[role] * 100)}%</span></div><Progress value={progress[role] * 100} /></div>)}
-          </div>}
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="outline" onClick={() => setStep(1)} disabled={importing}><ArrowLeft className="size-4" />Previous</Button>
-            <Button onClick={() => void startComparison()} disabled={!pairValid || duplicateFile || importing}>{importing ? <><LoaderCircle className="size-4 animate-spin" />Importing measurements…</> : <>Start comparison<ArrowRight className="size-4" /></>}</Button>
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end"><Button onClick={() => void start()}>Generate &amp; ingest <ArrowRight className="size-4" /></Button></div>
+        </div> : <div className="space-y-5 py-2">
+          <div className="space-y-1"><h3 className="font-medium">Preparing measurement workspace</h3><p className="text-sm text-muted-foreground">Generating and importing {preset.rows.toLocaleString('en-US')} samples per recording. Processing stays in this browser.</p></div>
+          <div className="space-y-3">
+            {stages.map((label, index) => <div key={label} className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm"><span className={index === stage ? 'font-medium' : 'text-muted-foreground'}>{label}</span><span className="text-xs tabular-nums text-muted-foreground">{index < stage ? 'Complete' : index === stage ? `${Math.round(progress * 100)}%` : 'Waiting'}</span></div>
+              <Progress value={index < stage ? 100 : index === stage ? progress * 100 : 0} className="h-1.5" />
+            </div>)}
           </div>
-        </>}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><LoaderCircle className="size-3.5 animate-spin" />{stages[stage]}</div>
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        </div>}
       </DialogContent>
     </Dialog>
   );
 }
+
