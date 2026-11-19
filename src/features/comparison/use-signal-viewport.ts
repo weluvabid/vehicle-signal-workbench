@@ -43,7 +43,14 @@ export function useSignalViewport(options: SignalViewportOptions) {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<readonly SignalPanelResult[]>([]);
   const [resultsRange, setResultsRange] = useState<{ readonly start: number; readonly end: number } | null>(null);
-  const [initialPreparationMs, setInitialPreparationMs] = useState<number | null>(null);
+  const [initialPreparation, setInitialPreparation] = useState<{
+    readonly indexBuildMs: number | null;
+    readonly workerComputeMs: number | null;
+    readonly differenceMs: number | null;
+    readonly workerRoundTripMs: number;
+    readonly plotSeriesMs: number;
+    readonly postImportViewportPrepMs: number;
+  } | null>(null);
   const [interactionQueryMs, setInteractionQueryMs] = useState<number | null>(null);
   const [interactionLoading, setInteractionLoading] = useState(false);
   const [interactionStats, setInteractionStats] = useState<{ medianMs: number; p95Ms: number; count: number } | null>(null);
@@ -91,6 +98,7 @@ export function useSignalViewport(options: SignalViewportOptions) {
 
     void handle.promise.then((batch) => {
       if (!mounted.current || generation.current !== currentGeneration || activeQuery.current !== handle) return;
+      const plotStartedAt = performance.now();
       const nextResults = batch.panels.map((panel, index): SignalPanelResult => {
         const selection = options.selections[index];
         const referenceChannel = options.reference.channels.find((channel) => channel.id === selection.referenceChannelId);
@@ -107,11 +115,21 @@ export function useSignalViewport(options: SignalViewportOptions) {
         };
       });
       if (generation.current !== currentGeneration) return;
+      const plotSeriesMs = performance.now() - plotStartedAt;
+      const elapsedMs = performance.now() - queryStartedAt;
       setResults(nextResults);
       hasStartedInitialQuery.current = true;
       setResultsRange({ start: viewport.start, end: viewport.end });
-      const elapsedMs = performance.now() - queryStartedAt;
-      if (isInitialPreparation) setInitialPreparationMs(elapsedMs);
+      if (isInitialPreparation) {
+        setInitialPreparation({
+          indexBuildMs: batch.timings?.indexBuildMs ?? null,
+          workerComputeMs: batch.timings?.workerComputeMs ?? null,
+          differenceMs: batch.timings?.differenceMs ?? null,
+          workerRoundTripMs: Math.max(0, elapsedMs - plotSeriesMs),
+          plotSeriesMs,
+          postImportViewportPrepMs: elapsedMs,
+        });
+      }
       else {
         setInteractionQueryMs(elapsedMs);
         const samples = interactionSamples.current;
@@ -166,7 +184,7 @@ export function useSignalViewport(options: SignalViewportOptions) {
     hasStartedInitialQuery.current = false;
     pendingViewport.current = null;
     debounceElapsed.current = false;
-    setInitialPreparationMs(null);
+    setInitialPreparation(null);
     setInteractionQueryMs(null);
     interactionSamples.current = [];
     setInteractionStats(null);
@@ -189,5 +207,5 @@ export function useSignalViewport(options: SignalViewportOptions) {
     requestViewport(options.startSeconds, options.endSeconds, 1_024);
   }, [requestViewport, options.startSeconds, options.endSeconds]);
 
-  return { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparationMs, interactionQueryMs, interactionLoading, interactionStats };
+  return { loading, error, results, resultsRange, requestViewport, selectionKey, initialPreparation, interactionQueryMs, interactionLoading, interactionStats };
 }

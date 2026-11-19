@@ -25,6 +25,7 @@ export function createSignalChartOption(
   domainEndSeconds: number,
   chartHeight: number,
   chartWidth: number,
+  initialVisibleFraction = 1,
 ): EChartsOption {
   const axisIndexes = panels.map((_, index) => index);
   const lastVisibleIndex = panels.reduce((last, panel, index) => panel.visible ? index : last, -1);
@@ -123,6 +124,8 @@ export function createSignalChartOption(
       {
         id: 'viewport-inside',
         type: 'inside',
+        start: (1 - initialVisibleFraction) * 100,
+        end: 100,
         xAxisIndex: axisIndexes,
         filterMode: 'none',
         zoomOnMouseWheel: true,
@@ -134,6 +137,8 @@ export function createSignalChartOption(
       {
         id: 'viewport-slider',
         type: 'slider',
+        start: (1 - initialVisibleFraction) * 100,
+        end: 100,
         xAxisIndex: axisIndexes,
         height: 24,
         handleSize: 14,

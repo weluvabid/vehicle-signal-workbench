@@ -1,7 +1,6 @@
 import Papa from 'papaparse';
 import type { DatasetDescriptor } from '../measurements/model';
-import type { ChannelEnvelopeIndex } from '../measurements/windowing';
-import { buildChannelEnvelopeIndex } from '../measurements/windowing';
+import { buildAllChannelIndexTiers, createTieredChannelIndex, EAGER_INDEX_SAMPLE_THRESHOLD, getTieredIndexBytes, type TieredChannelIndex } from '../measurements/tiered-envelope-index';
 import { MeasurementError } from '../measurements/errors';
 import {
   createChannelId,
@@ -18,7 +17,7 @@ export interface ActiveImport {
 
 export interface StoredChannel {
   readonly values: Float64Array;
-  readonly envelopeIndex: ChannelEnvelopeIndex;
+  readonly envelopeIndex: TieredChannelIndex;
 }
 
 export interface StoredDataset {
@@ -274,11 +273,14 @@ export function importCsv(
           // Compact the geometrically grown import buffer. The copy is deliberate:
           // retaining a subarray would pin up to 2x capacity for the dataset lifetime.
           const values = channel.values.slice(0, sampleCount);
-          const envelopeIndex = buildChannelEnvelopeIndex(values);
+          const envelopeIndex = createTieredChannelIndex(sampleCount);
+          // Small datasets keep the eager path; larger datasets build only the
+          // tiers requested by the active slider viewport.
+          if (sampleCount <= EAGER_INDEX_SAMPLE_THRESHOLD) {
+            buildAllChannelIndexTiers(envelopeIndex, values);
+          }
+          envelopeIndexBytes += getTieredIndexBytes(envelopeIndex);
           channelValueBytes += values.byteLength;
-          envelopeIndexBytes += envelopeIndex.minIndex.byteLength + envelopeIndex.maxIndex.byteLength +
-            envelopeIndex.missingCount.byteLength + envelopeIndex.validCount.byteLength +
-            envelopeIndex.mean.byteLength + envelopeIndex.sumSquaredDeviation.byteLength;
           storedChannels.set(channel.id, { values, envelopeIndex });
         }
         const timeAxis = timeValues.slice(0, sampleCount);

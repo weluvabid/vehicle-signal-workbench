@@ -1,5 +1,5 @@
 import { calculateSignalDifferencePlotEnvelopeInTimeRange } from '../measurements/difference';
-import { queryChannelEnvelopeTimeWindow, queryChannelTimeStatistics } from '../measurements/windowing';
+import { queryTieredChannelEnvelope, queryTieredChannelStatistics } from '../measurements/tiered-envelope-index';
 import type { ComparisonPanelQueryResult, IngestionRequest } from './worker-protocol';
 import type { WorkerRuntimeContext } from './worker-runtime';
 
@@ -33,6 +33,10 @@ export async function handleComparisonQuery(
     }
 
     const results: ComparisonPanelQueryResult[] = [];
+    const queryStartedAt = performance.now();
+    let indexBuildMs = 0;
+    const recordIndexBuild = (durationMs: number) => { indexBuildMs += durationMs; };
+    let differenceMs = 0;
     for (const selection of request.panels) {
       // Yield between panels so the worker can receive and process a cancel message.
       await yieldToWorker();
@@ -49,26 +53,27 @@ export async function handleComparisonQuery(
       const comparisonStart = request.startSeconds - request.comparisonOffsetSeconds;
       const comparisonEnd = request.endSeconds - request.comparisonOffsetSeconds;
 
-      const referenceWindow = queryChannelEnvelopeTimeWindow(
+      const referenceWindow = queryTieredChannelEnvelope(
         request.referenceDatasetId, selection.referenceChannelId, referenceBuffers,
-        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, request.pixelWidth, isCancelled,
+        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, request.pixelWidth, isCancelled, recordIndexBuild,
       );
-      const comparisonWindow = queryChannelEnvelopeTimeWindow(
+      const comparisonWindow = queryTieredChannelEnvelope(
         request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
-        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth, isCancelled,
+        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth, isCancelled, recordIndexBuild,
       );
-      const referenceStatistics = queryChannelTimeStatistics(
+      const referenceStatistics = queryTieredChannelStatistics(
         request.referenceDatasetId, selection.referenceChannelId, referenceBuffers,
-        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, isCancelled,
+        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, isCancelled, recordIndexBuild,
       );
-      const comparisonStatistics = queryChannelTimeStatistics(
+      const comparisonStatistics = queryTieredChannelStatistics(
         request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
-        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, isCancelled,
+        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, isCancelled, recordIndexBuild,
       );
 
       // Give cancellation a checkpoint before the potentially largest operation (difference generation).
       await yieldToWorker();
       cancelIfRequested();
+      const differenceStartedAt = performance.now();
       const differenceSeries = calculateSignalDifferencePlotEnvelopeInTimeRange(
         { datasetId: request.referenceDatasetId, channelId: selection.referenceChannelId,
           timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values },
@@ -76,11 +81,20 @@ export async function handleComparisonQuery(
           timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values },
         request.startSeconds, request.endSeconds, request.comparisonOffsetSeconds, request.pixelWidth, isCancelled,
       );
+      differenceMs += performance.now() - differenceStartedAt;
       results.push({ referenceWindow, comparisonWindow, referenceStatistics, comparisonStatistics, differenceSeries });
     }
 
     cancelIfRequested();
-    const result = { panels: results };
+    const workerElapsedMs = performance.now() - queryStartedAt;
+    const result = {
+      panels: results,
+      timings: {
+        indexBuildMs,
+        workerComputeMs: Math.max(0, workerElapsedMs - indexBuildMs),
+        differenceMs,
+      },
+    };
     const transfer: Transferable[] = [];
     for (const panel of results) {
       transfer.push(

@@ -38,6 +38,7 @@ interface EChartsSignalChartProps {
   readonly panels: readonly SignalChartPanel[];
   readonly domainStartSeconds: number;
   readonly domainEndSeconds: number;
+  readonly initialVisibleFraction: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
   readonly onTableViewportChange: (startSeconds: number, endSeconds: number) => void;
   readonly onFpsChange: (fps: number) => void;
@@ -48,6 +49,7 @@ export function EChartsSignalChart({
   panels,
   domainStartSeconds,
   domainEndSeconds,
+  initialVisibleFraction,
   onViewportChange,
   onTableViewportChange,
   onFpsChange,
@@ -59,6 +61,7 @@ export function EChartsSignalChart({
   } = useEChartsSignalChart({
     domainStartSeconds,
     domainEndSeconds,
+    initialVisibleFraction,
     onViewportChange,
     onTableViewportChange,
     onFpsChange,
@@ -66,8 +69,8 @@ export function EChartsSignalChart({
   });
 
   const option = useMemo(
-    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024),
-    [chartHeight, domainEndSeconds, domainStartSeconds, measuredWidth, panels],
+    () => createSignalChartOption(panels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction),
+    [chartHeight, domainEndSeconds, domainStartSeconds, initialVisibleFraction, measuredWidth, panels],
   );
 
   return (

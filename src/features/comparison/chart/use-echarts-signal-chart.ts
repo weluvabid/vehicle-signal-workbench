@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { resolveDataZoomViewport, type DataZoomRangeEvent } from '@/components/comparison/chart-viewport';
+import { getInitialViewport } from '@/features/comparison/initial-viewport';
 
 interface PendingViewport {
   readonly startSeconds: number;
@@ -12,6 +13,7 @@ interface PendingViewport {
 interface ChartControllerOptions {
   readonly domainStartSeconds: number;
   readonly domainEndSeconds: number;
+  readonly initialVisibleFraction: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
   readonly onTableViewportChange: (startSeconds: number, endSeconds: number) => void;
   readonly onFpsChange: (fps: number) => void;
@@ -79,13 +81,10 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
   useEffect(() => {
     if (!options.hasPanels) return;
-    dispatchViewport({
-      startSeconds: options.domainStartSeconds,
-      endSeconds: options.domainEndSeconds,
-      pixelWidth: chartWidth.current,
-    });
-    options.onTableViewportChange(options.domainStartSeconds, options.domainEndSeconds);
-  }, [options.hasPanels, options.domainStartSeconds, options.domainEndSeconds, dispatchViewport, options.onTableViewportChange]);
+    const initial = getInitialViewport(options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction);
+    dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
+    options.onTableViewportChange(initial.startSeconds, initial.endSeconds);
+  }, [options.hasPanels, options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction, dispatchViewport, options.onTableViewportChange]);
 
   useEffect(() => {
     const element = container.current;
@@ -115,15 +114,13 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
   const requestInitialViewport = useCallback((chart: { getWidth: () => number }) => {
     chartWidth.current = Math.max(1, Math.floor(chart.getWidth()));
-    dispatchViewport({
-      startSeconds: latestProps.current.domainStartSeconds,
-      endSeconds: latestProps.current.domainEndSeconds,
-      pixelWidth: chartWidth.current,
-    });
-    latestProps.current.onTableViewportChange(
+    const initial = getInitialViewport(
       latestProps.current.domainStartSeconds,
       latestProps.current.domainEndSeconds,
+      latestProps.current.initialVisibleFraction,
     );
+    dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
+    latestProps.current.onTableViewportChange(initial.startSeconds, initial.endSeconds);
   }, [dispatchViewport]);
 
   const handleDataZoom = useCallback((event: DataZoomRangeEvent) => {

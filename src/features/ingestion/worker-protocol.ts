@@ -40,8 +40,18 @@ export interface ComparisonPanelQuery {
   readonly comparisonChannelId: string;
 }
 
+export interface ComparisonBatchQueryTimings {
+  /** Time spent constructing previously-unbuilt index tiers. */
+  readonly indexBuildMs: number;
+  /** Worker-side processing time excluding index construction. */
+  readonly workerComputeMs: number;
+  /** Difference-envelope calculation time, included in workerComputeMs. */
+  readonly differenceMs: number;
+}
+
 export interface ComparisonBatchQueryResult {
   readonly panels: readonly ComparisonPanelQueryResult[];
+  readonly timings: ComparisonBatchQueryTimings;
 }
 
 export type IngestionRequest =
