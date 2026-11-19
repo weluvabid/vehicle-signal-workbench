@@ -111,7 +111,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       {!error && !loading && results.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No samples are available in the selected time interval.</p>}
 
       <section
-        className="h-[calc(var(--signal-panel-count)*200px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*220px+58px)]"
+        className="h-[calc(var(--signal-panel-count)*260px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*300px+58px)] lg:h-[calc(var(--signal-panel-count)*320px+58px)]"
         style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
         aria-label="Synchronized signal charts"
       >
@@ -265,16 +265,18 @@ function LivePerformanceDock({ fps, ingestion, throughput, memory, rows }: { rea
     >
       <div className="w-full px-5 py-3 sm:px-8 sm:py-4 lg:px-10">
         <h2 className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Live performance</h2>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 sm:gap-x-10 lg:gap-x-16">
-          {items.map((item) => (
-            <div key={item.label} className="min-w-0">
-              <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{item.label}</p>
-              <p className="mt-0.5 truncate font-mono text-base font-medium tabular-nums sm:text-xl">
-                {item.value}{item.unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{item.unit}</span>}
-              </p>
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground/75 sm:text-[11px]">{item.detail}</p>
-            </div>
-          ))}
+        <div className="-mx-5 overflow-x-auto overscroll-x-contain px-5 [scrollbar-width:thin] sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">
+          <div className="flex min-w-max items-start justify-between gap-8 sm:min-w-0 sm:gap-6 lg:gap-10">
+            {items.map((item) => (
+              <div key={item.label} className="min-w-[10.5rem] flex-1 sm:min-w-0">
+                <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{item.label}</p>
+                <p className="mt-0.5 truncate font-mono text-base font-medium tabular-nums sm:text-xl">
+                  {item.value}{item.unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{item.unit}</span>}
+                </p>
+                <p className="mt-0.5 truncate text-[10px] text-muted-foreground/75 sm:text-[11px]">{item.detail}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
