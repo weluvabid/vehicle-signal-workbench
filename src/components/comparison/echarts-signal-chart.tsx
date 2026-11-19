@@ -15,6 +15,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { getWheelZoomRange } from './chart-wheel-zoom';
@@ -74,42 +75,72 @@ export function EChartsSignalChart({
   const clearPointerTime = useCallback(() => { pointerTime.current = null; }, []);
 
   const handleCommandWheel = useCallback((event: WheelEvent) => {
-    // ECharts supports Ctrl/Shift/Alt modifiers, but not macOS Command. Handle
-    // Command+wheel here and leave all unmodified wheel events to the document.
-    if (!event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return;
     const chart = chartRef.current;
     if (!chart || chart.isDisposed()) return;
-
+    const modifierCount = Number(event.metaKey) + Number(event.ctrlKey) + Number(event.shiftKey) + Number(event.altKey);
+    if (modifierCount === 0) {
+      // Prevent ECharts' internal wheel handler from consuming ordinary page scroll.
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (modifierCount !== 1) return;
     const zoomOption = chart.getOption().dataZoom;
-    const insideZoom = (Array.isArray(zoomOption) ? zoomOption : []).find(
-      (item) => item && typeof item === 'object' && (item as { id?: string }).id === 'viewport-inside',
-    ) as { start?: number; end?: number } | undefined;
-    const start = insideZoom?.start;
-    const end = insideZoom?.end;
-    if (typeof start !== 'number' || typeof end !== 'number' || end <= start) return;
-
-    const bounds = chart.getDom().getBoundingClientRect();
-    const plotLeft = 56;
-    const plotRight = 20;
-    const plotWidth = Math.max(1, bounds.width - plotLeft - plotRight);
-    const anchor = (event.clientX - bounds.left - plotLeft) / plotWidth;
+    const zooms = Array.isArray(zoomOption) ? zoomOption as Array<{ id?: string; start?: number; end?: number }> : [];
+    const horizontal = zooms.find((item) => item.id === 'viewport-inside');
+    if (!horizontal || typeof horizontal.start !== 'number' || typeof horizontal.end !== 'number') return;
     const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
-    const minimumSpan = 0.1 / Math.max(0.1, domainEndSeconds - domainStartSeconds) * 100;
-    const next = getWheelZoomRange({ start, end }, delta, anchor, minimumSpan);
-    if (!next) return;
-
+    if (!Number.isFinite(delta) || delta === 0) return;
     event.preventDefault();
-    chart.dispatchAction({
-      type: 'dataZoom',
-      dataZoomId: 'viewport-inside',
-      start: next.start,
-      end: next.end,
-    });
-  }, [domainEndSeconds, domainStartSeconds]);
+    event.stopImmediatePropagation();
+
+    if (event.metaKey || event.ctrlKey) {
+      const bounds = chart.getDom().getBoundingClientRect();
+      const plotLeft = 56;
+      const plotRight = 20;
+      const anchor = Math.min(1, Math.max(0, (event.clientX - bounds.left - plotLeft) / Math.max(1, bounds.width - plotLeft - plotRight)));
+      const minimumSpan = 0.1 / Math.max(0.1, domainEndSeconds - domainStartSeconds) * 100;
+      const next = getWheelZoomRange({ start: horizontal.start, end: horizontal.end }, delta, anchor, minimumSpan);
+      if (next) chart.dispatchAction({ type: 'dataZoom', dataZoomId: 'viewport-inside', start: next.start, end: next.end });
+      return;
+    }
+
+    if (event.shiftKey) {
+      const span = horizontal.end - horizontal.start;
+      const shift = delta * 0.04;
+      const start = Math.min(100 - span, Math.max(0, horizontal.start + shift));
+      chart.dispatchAction({ type: 'dataZoom', dataZoomId: 'viewport-inside', start, end: start + span });
+      return;
+    }
+
+    if (event.altKey) {
+      const bounds = chart.getDom().getBoundingClientRect();
+      const sliderReserve = 50;
+      const panelSlot = (bounds.height - sliderReserve - 16) / Math.max(1, panels.length);
+      const index = Math.max(0, Math.min(panels.length - 1, Math.floor((event.clientY - bounds.top - 8) / panelSlot)));
+      const id = `signal-y-inside-${index}`;
+      const current = zooms.find((item) => item.id === id);
+      const start = current?.start ?? 0;
+      const end = current?.end ?? 100;
+      const span = end - start;
+      const nextSpan = Math.max(2, Math.min(100, span * Math.exp(delta * 0.002)));
+      const center = (start + end) / 2;
+      const nextStart = Math.max(0, Math.min(100 - nextSpan, center - nextSpan / 2));
+      chart.dispatchAction({ type: 'dataZoom', dataZoomId: id, start: nextStart, end: nextStart + nextSpan });
+    }
+  }, [domainEndSeconds, domainStartSeconds, panels.length]);
+
+  const resetAllZoom = useCallback(() => {
+    const chart = chartRef.current;
+    if (!chart || chart.isDisposed()) return;
+    chart.dispatchAction({ type: 'dataZoom', dataZoomId: 'viewport-inside', start: 0, end: 100 });
+    panels.forEach((_, index) => chart.dispatchAction({
+      type: 'dataZoom', dataZoomId: `signal-y-inside-${index}`, start: 0, end: 100,
+    }));
+  }, [panels]);
 
   useEffect(() => () => {
     if (wheelTargetRef.current && wheelHandlerRef.current) {
-      wheelTargetRef.current.removeEventListener('wheel', wheelHandlerRef.current);
+      wheelTargetRef.current.removeEventListener('wheel', wheelHandlerRef.current, true);
     }
     chartRef.current = null;
   }, []);
@@ -193,6 +224,9 @@ export function EChartsSignalChart({
           </CardHeader>
         );
       })}
+      <button type="button" onClick={resetAllZoom} aria-label="Reset all chart zoom" title="Reset zoom" className="absolute right-3 top-2 z-30 grid size-8 place-items-center rounded-full border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-muted hover:text-foreground">
+        <RotateCcw className="size-3.5" aria-hidden="true" />
+      </button>
       <div className="absolute inset-0 z-10">
         <ReactEChartsCore
           echarts={echarts}
@@ -203,12 +237,12 @@ export function EChartsSignalChart({
           opts={{ renderer: 'canvas' }}
           onChartReady={(chart) => {
             if (wheelTargetRef.current && wheelHandlerRef.current) {
-              wheelTargetRef.current.removeEventListener('wheel', wheelHandlerRef.current);
+              wheelTargetRef.current.removeEventListener('wheel', wheelHandlerRef.current, true);
             }
             chartRef.current = chart;
             const target = chart.getDom();
             const handler = (event: WheelEvent) => handleCommandWheel(event);
-            target.addEventListener('wheel', handler, { passive: false });
+            target.addEventListener('wheel', handler, { passive: false, capture: true });
             wheelTargetRef.current = target;
             wheelHandlerRef.current = handler;
             requestInitialViewport(chart);
