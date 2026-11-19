@@ -2,9 +2,26 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../styles/fonts/atkinson-hyperlegible-regular.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../styles/fonts/atkinson-hyperlegible-bold.otf') format('opentype');
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: 'Atkinson Hyperlegible', Arial, 'Helvetica Neue', sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -65,7 +82,7 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  body { @apply min-h-screen bg-background text-foreground antialiased; }
+  body { @apply min-h-screen bg-background text-foreground antialiased; font-family: 'Atkinson Hyperlegible', Arial, 'Helvetica Neue', sans-serif; }
   button, input, select { font: inherit; }
 }
 

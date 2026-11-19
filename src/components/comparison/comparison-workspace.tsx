@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Activity, ArrowRight, Plus } from 'lucide-react';
+import { Activity, ArrowRight } from 'lucide-react';
 import { ComparisonWizard } from '@/components/ingestion/comparison-wizard';
 import { SignalComparisonPlot } from '@/components/comparison/signal-comparison-plot';
 import { useComparisonWorkspace } from '@/features/comparison/use-comparison-workspace';
 import { Button } from '@/components/ui/button';
+import { SiteHeader } from '@/components/site/site-header';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface ImportMetrics {
@@ -24,18 +25,7 @@ export function ComparisonWorkspace() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden py-3">
-      <header className="flex shrink-0 items-center justify-between border-b pb-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-lg border bg-muted/30"><Activity className="size-4" /></div>
-          <div className="min-w-0"><p className="text-sm font-semibold tracking-tight">Vehicle Signal Workbench</p><p className="text-xs text-muted-foreground">Measurement analysis workspace</p></div>
-        </div>
-        {reference && comparison && <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 px-4 lg:flex">
-          <div className="min-w-0 text-right"><p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Reference</p><p className="max-w-48 truncate text-xs font-medium" title={reference.sourceFileName}>{reference.sourceFileName}</p></div>
-          <span className="text-[10px] font-semibold text-muted-foreground">VS</span>
-          <div className="min-w-0"><p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Comparison</p><p className="max-w-48 truncate text-xs font-medium" title={comparison.sourceFileName}>{comparison.sourceFileName}</p></div>
-        </div>}
-        <Button size="sm" variant="outline" onClick={() => setWizardOpen(true)}><Plus className="size-4" /><span className="hidden sm:inline">New workload</span></Button>
-      </header>
+      <SiteHeader onNewWorkload={() => setWizardOpen(true)} />
 
       {canPlot && reference && comparison && overlap ? (
         <div className="min-h-0 flex-1 overflow-y-auto" data-testid="comparison-results">
