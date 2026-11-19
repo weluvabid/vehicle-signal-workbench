@@ -15,7 +15,6 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { getWheelZoomRange } from './chart-wheel-zoom';
@@ -138,6 +137,11 @@ export function EChartsSignalChart({
     }));
   }, [panels]);
 
+  useEffect(() => {
+    window.addEventListener('vsw:reset-chart-zoom', resetAllZoom);
+    return () => window.removeEventListener('vsw:reset-chart-zoom', resetAllZoom);
+  }, [resetAllZoom]);
+
   useEffect(() => () => {
     if (wheelTargetRef.current && wheelHandlerRef.current) {
       wheelTargetRef.current.removeEventListener('wheel', wheelHandlerRef.current, true);
@@ -224,9 +228,6 @@ export function EChartsSignalChart({
           </CardHeader>
         );
       })}
-      <button type="button" onClick={resetAllZoom} aria-label="Reset all chart zoom" title="Reset zoom" className="absolute right-3 top-2 z-30 grid size-8 place-items-center rounded-full border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-muted hover:text-foreground">
-        <RotateCcw className="size-3.5" aria-hidden="true" />
-      </button>
       <div className="absolute inset-0 z-10">
         <ReactEChartsCore
           echarts={echarts}
