@@ -83,6 +83,7 @@ function EChartsSignalChartComponent({
   const [cursorTime, setCursorTime] = useState<number | null>(null);
   const horizontalZoomInitialized = useRef(false);
   const [visiblePercent, setVisiblePercent] = useState({ start: 0, end: 100 });
+  const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
   const cursorFrame = useRef<number | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState<
     Record<string, { reference: boolean; comparison: boolean }>
@@ -95,6 +96,13 @@ function EChartsSignalChartComponent({
         comparisonVisible: seriesVisibility[panel.id]?.comparison ?? true,
       })),
     [panels, seriesVisibility],
+  );
+  const chartPanels = useMemo(
+    () =>
+      expandedPanelId === null
+        ? visiblePanels
+        : visiblePanels.filter((panel) => panel.id === expandedPanelId),
+    [expandedPanelId, visiblePanels],
   );
   const getPointerTime = useCallback(() => pointerTime.get(), [pointerTime]);
   const handleAxisPointer = useCallback(
@@ -206,7 +214,7 @@ function EChartsSignalChartComponent({
     () =>
       measuredWidth > 0 && chartHeight > 0
         ? createSignalChartOption(
-            visiblePanels,
+            chartPanels,
             domainStartSeconds,
             domainEndSeconds,
             chartHeight,
@@ -223,9 +231,26 @@ function EChartsSignalChartComponent({
       getPointerTime,
       initialVisibleFraction,
       measuredWidth,
-      visiblePanels,
+      chartPanels,
     ],
   );
+
+  useEffect(() => {
+    if (expandedPanelId === null) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpandedPanelId(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [expandedPanelId]);
 
   useEffect(
     () => () => {
@@ -237,18 +262,22 @@ function EChartsSignalChartComponent({
   return (
     <div
       ref={container}
-      className="relative h-full min-h-0 w-full min-w-0 overflow-hidden"
+      className={
+        expandedPanelId !== null
+          ? 'fixed inset-2 z-[100] h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-border bg-background shadow-2xl'
+          : 'relative h-full min-h-0 w-full min-w-0 overflow-hidden'
+      }
       data-testid="signal-chart"
       role="group"
       aria-label={`${LABELS.chartGroupLabel}: ${panels.length} signals`}
     >
       {chartHeight > 0 &&
-        visiblePanels.map((panel, index) => {
+        chartPanels.map((panel, index) => {
           const sliderReserve = 42;
           const outerInset = 8;
           const cardGap = 14;
           const panelSlot =
-            (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, panels.length);
+            (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, chartPanels.length);
           return (
             <SignalChartCard
               key={panel.id}
@@ -260,6 +289,10 @@ function EChartsSignalChartComponent({
               visibleStartPercent={visiblePercent.start}
               visibleEndPercent={visiblePercent.end}
               cursorTime={cursorTime}
+              expanded={expandedPanelId === panel.id}
+              onExpand={() =>
+                setExpandedPanelId((current) => (current === panel.id ? null : panel.id))
+              }
               onToggleSeries={(panelId, series) =>
                 setSeriesVisibility((current) => ({
                   ...current,

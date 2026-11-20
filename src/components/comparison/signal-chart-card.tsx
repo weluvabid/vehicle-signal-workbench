@@ -1,4 +1,5 @@
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Maximize2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 import { getSignalSummary } from './chart-summary';
@@ -14,6 +15,8 @@ interface SignalChartCardProps {
   readonly visibleStartPercent: number;
   readonly visibleEndPercent: number;
   readonly cursorTime: number | null;
+  readonly expanded: boolean;
+  readonly onExpand: () => void;
   readonly onToggleSeries: (panelId: string, series: 'reference' | 'comparison') => void;
 }
 
@@ -27,6 +30,8 @@ export function SignalChartCard({
   visibleEndPercent,
   cursorTime,
   onToggleSeries,
+  expanded,
+  onExpand,
 }: SignalChartCardProps) {
   const visibleStart =
     domainStartSeconds + ((domainEndSeconds - domainStartSeconds) * visibleStartPercent) / 100;
@@ -56,20 +61,33 @@ export function SignalChartCard({
         className="pointer-events-none absolute inset-x-0 z-20 flex h-[60px] flex-col items-stretch justify-center gap-1 px-3 py-1.5 sm:px-4"
         style={{ top }}
       >
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <span
-              className="size-2 shrink-0 rounded-full ring-2 ring-background"
-              style={{ backgroundColor: panel.color }}
-              aria-hidden="true"
-            />
-            <CardTitle className="truncate text-sm font-semibold tracking-tight">
-              {panel.label}
-            </CardTitle>
-            <span className="shrink-0 rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {panel.unit ?? LABELS.unitUnspecified}
-            </span>
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="size-2 shrink-0 rounded-full ring-2 ring-background"
+                style={{ backgroundColor: panel.color }}
+                aria-hidden="true"
+              />
+              <CardTitle className="truncate text-sm font-semibold tracking-tight">
+                {panel.label}
+              </CardTitle>
+              <span className="shrink-0 rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {panel.unit ?? LABELS.unitUnspecified}
+              </span>
+            </div>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="pointer-events-auto size-7 shrink-0 rounded-md"
+            aria-label={expanded ? `Close expanded ${panel.label} chart` : `Expand ${panel.label} chart`}
+            title={expanded ? 'Close expanded chart' : 'Expand chart'}
+            onClick={onExpand}
+          >
+            {expanded ? <X className="size-4" /> : <Maximize2 className="size-4" />}
+          </Button>
         </div>
         <div className="grid grid-cols-3 gap-3 pl-4 text-[10px] leading-tight sm:max-w-md sm:gap-6 sm:pl-5">
           {summaryItems.map(([label, value]) => (
