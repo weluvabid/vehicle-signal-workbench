@@ -635,16 +635,19 @@ function collectIndexedGapAwareCandidates(
     }
 
     const validCount = index.validCount[index.treeSize + block];
+
     if (validCount === 0) continue;
 
     const blockStart = Math.max(start, block * index.blockSize);
     const blockEnd = Math.min(end, (block + 1) * index.blockSize);
+
     for (let sample = blockStart; sample < blockEnd; sample += 1) {
       if (Number.isFinite(values[sample])) {
         firstValid = sample;
         break;
       }
     }
+
     if (firstValid >= 0) break;
   }
 
@@ -654,16 +657,19 @@ function collectIndexedGapAwareCandidates(
     }
 
     const validCount = index.validCount[index.treeSize + block];
+
     if (validCount === 0) continue;
 
     const blockStart = Math.max(start, block * index.blockSize);
     const blockEnd = Math.min(end, (block + 1) * index.blockSize);
+
     for (let sample = blockEnd - 1; sample >= blockStart; sample -= 1) {
       if (Number.isFinite(values[sample])) {
         lastValid = sample;
         break;
       }
     }
+
     if (lastValid >= 0) break;
   }
 
@@ -675,6 +681,7 @@ function collectIndexedGapAwareCandidates(
     }
 
     const leaf = index.treeSize + block;
+
     if (index.missingCount[leaf] === 0) {
       previousWasMissing = false;
       continue;
@@ -682,12 +689,16 @@ function collectIndexedGapAwareCandidates(
 
     const blockStart = Math.max(start, block * index.blockSize);
     const blockEnd = Math.min(end, (block + 1) * index.blockSize);
+
     for (let sample = blockStart; sample < blockEnd; sample += 1) {
       const missing = !Number.isFinite(values[sample]);
+
       if (missing && !previousWasMissing) {
         candidates.push(sample);
+
         if (candidates.length + 4 > limit) return null;
       }
+
       previousWasMissing = missing;
     }
   }
@@ -695,7 +706,9 @@ function collectIndexedGapAwareCandidates(
   if (firstValid < 0) return end - start > 1 ? [start, end - 1] : [start];
 
   candidates.push(firstValid, lastValid, minIndex, maxIndex);
+
   if (candidates.length > limit) return null;
+
   return uniqueSorted(candidates);
 }
 

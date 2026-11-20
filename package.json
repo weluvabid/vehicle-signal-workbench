@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
     "prepare": "sh ./scripts/install-hooks.sh",
-    "test": "node --experimental-strip-types --test",
+    "test": "tsx --test",
     "benchmark:measurements": "node --experimental-strip-types scripts/benchmark-measurements.mjs",
     "fixtures:generate": "node scripts/generate-measurement-fixtures.mjs",
     "test:e2e": "playwright test",
@@ -59,6 +59,7 @@
     "prettier": "^3.6.2",
     "shadcn": "^4.23.0",
     "tailwindcss": "4.3.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.0",
     "vercel": "^66.2.0"

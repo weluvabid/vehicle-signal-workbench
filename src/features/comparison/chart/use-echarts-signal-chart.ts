@@ -48,12 +48,8 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   const samplingBudget = useRef(5);
   const [measuredSize, setMeasuredSize] = useState<ObservedSize>({ width: 0, height: 0 });
   const { width: measuredWidth, height: chartHeight } = measuredSize;
-  const {
-    domainStartSeconds,
-    domainEndSeconds,
-    initialVisibleFraction,
-    onMetricsViewportChange,
-  } = options;
+  const { domainStartSeconds, domainEndSeconds, initialVisibleFraction, onMetricsViewportChange } =
+    options;
   const latestProps = useRef(options);
 
   // Sampling is intentionally bounded. Use the chart container width only to
@@ -111,9 +107,11 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
       }
 
       const nextBudget = measureSamplingBudget(chart);
+
       if (nextBudget !== samplingBudget.current) {
         samplingBudget.current = nextBudget;
         const viewport = lastViewport.current;
+
         if (viewport) dispatchViewport({ ...viewport, pixelWidth: nextBudget });
       }
     });
