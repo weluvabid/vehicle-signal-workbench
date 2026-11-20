@@ -80,14 +80,12 @@ function EChartsSignalChartComponent({
   const clearPointerTime = useCallback(() => { pointerTime.current = null; if (cursorFrame.current === null) cursorFrame.current = requestAnimationFrame(() => { cursorFrame.current = null; setCursorTime(null); }); }, []);
 
   const { attachChart } = useChartInteractions({
-    domainStartSeconds,
-    domainEndSeconds,
     panelCount: panels.length,
   });
 
   const {
     container, chartHeight, measuredWidth,
-    registerChart, requestInitialViewport, handleDataZoom, resizeChartToContainer,
+    registerChart, requestInitialViewport, handleDataZoom,
   } = useEChartsSignalChart({
     domainStartSeconds,
     domainEndSeconds,
@@ -107,10 +105,7 @@ function EChartsSignalChartComponent({
       }
     }
     handleDataZoom(event as Parameters<typeof handleDataZoom>[0]);
-    // ECharts can update its internal canvas after dataZoom interactions. Reconcile
-    // it against the committed container size on the next animation frame.
-    resizeChartToContainer();
-  }, [handleDataZoom, resizeChartToContainer]);
+  }, [handleDataZoom]);
 
   const chartEvents = useMemo(
     () => ({ datazoom: handleDataZoomWithSummary, updateAxisPointer: handleAxisPointer, globalout: clearPointerTime }),

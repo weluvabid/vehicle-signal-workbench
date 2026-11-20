@@ -64,7 +64,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   // Resize after React has committed the matching geometry-derived option.
   // Keeping measurement in one state value prevents width/height from producing
   // separate intermediate chart configurations.
-  const resizeChartToContainer = useCallback((force = false) => {
+  const resizeChartToContainer = useCallback(() => {
     if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
     resizeFrame.current = requestAnimationFrame(() => {
       resizeFrame.current = null;
@@ -78,10 +78,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
       const height = Math.floor(bounds.height);
       if (width <= 0 || height <= 0) return;
 
-      // A viewport/emulation change can alter the browser's rendering scale even
-      // when ECharts still reports the previous CSS dimensions. Force a painter
-      // resize for browser viewport events; observer-driven calls remain guarded.
-      if (force || Math.abs(chart.getWidth() - width) >= 1 || Math.abs(chart.getHeight() - height) >= 1) {
+      if (Math.abs(chart.getWidth() - width) >= 1 || Math.abs(chart.getHeight() - height) >= 1) {
         chart.resize({ width, height, silent: true });
       }
     });
@@ -90,24 +87,6 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   useLayoutEffect(() => {
     resizeChartToContainer();
   }, [measuredSize, resizeChartToContainer]);
-
-  // ResizeObserver tracks element geometry, while browser viewport events also
-  // cover emulation/orientation and device-pixel-ratio transitions where the
-  // canvas backing store may need rebuilding despite unchanged CSS dimensions.
-  useEffect(() => {
-    const handleViewportResize = () => resizeChartToContainer(true);
-    const viewport = window.visualViewport;
-
-    window.addEventListener('resize', handleViewportResize, { passive: true });
-    window.addEventListener('orientationchange', handleViewportResize, { passive: true });
-    viewport?.addEventListener('resize', handleViewportResize, { passive: true });
-
-    return () => {
-      window.removeEventListener('resize', handleViewportResize);
-      window.removeEventListener('orientationchange', handleViewportResize);
-      viewport?.removeEventListener('resize', handleViewportResize);
-    };
-  }, [resizeChartToContainer]);
 
   const registerChart = useCallback((chart: ResizableChart) => {
     chartInstance.current = chart;
@@ -138,12 +117,10 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
       previousWidth = width;
       previousHeight = height;
-      if (widthChanged || heightChanged) {
-        setMeasuredSize((current) => current.width === width && current.height === height
-          ? current
-          : { width, height });
-        resizeChartToContainer();
-      }
+      setMeasuredSize((current) => current.width === width && current.height === height
+        ? current
+        : { width, height });
+      resizeChartToContainer();
 
       if (widthChanged) {
         chartWidth.current = width;
@@ -187,5 +164,5 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     latestProps.current.onMetricsViewportChange(viewport.startSeconds, viewport.endSeconds, false);
   }, [dispatchViewport]);
 
-  return { container, chartHeight, measuredWidth, registerChart, requestInitialViewport, handleDataZoom, resizeChartToContainer };
+  return { container, chartHeight, measuredWidth, registerChart, requestInitialViewport, handleDataZoom };
 }

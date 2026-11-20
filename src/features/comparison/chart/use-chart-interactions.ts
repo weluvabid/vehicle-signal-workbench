@@ -6,8 +6,6 @@ import { getWheelZoomRange } from './wheel-zoom';
 import { CHART_DATA_ZOOM_IDS, CHART_INTENTS, getVerticalZoomId } from '@/intents/chart-intents';
 
 interface ChartInteractionsOptions {
-  readonly domainStartSeconds: number;
-  readonly domainEndSeconds: number;
   readonly panelCount: number;
 }
 
@@ -18,7 +16,7 @@ function getZoomRanges(chart: echarts.EChartsType): ZoomRange[] {
   return Array.isArray(dataZoom) ? dataZoom as ZoomRange[] : [];
 }
 
-export function useChartInteractions({ domainStartSeconds, domainEndSeconds, panelCount }: ChartInteractionsOptions) {
+export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
   const chartRef = useRef<echarts.EChartsType | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const handlerRef = useRef<((event: WheelEvent) => void) | null>(null);
@@ -76,7 +74,7 @@ export function useChartInteractions({ domainStartSeconds, domainEndSeconds, pan
     const anchorValue = start + span * anchor;
     const nextStart = Math.max(0, Math.min(100 - nextSpan, anchorValue - nextSpan * anchor));
     chart.dispatchAction({ type: 'dataZoom', dataZoomId: id, start: nextStart, end: nextStart + nextSpan });
-  }, [domainEndSeconds, domainStartSeconds, panelCount]);
+  }, [panelCount]);
 
   const setHorizontalZoom = useCallback((event: Event) => {
     const chart = chartRef.current;
