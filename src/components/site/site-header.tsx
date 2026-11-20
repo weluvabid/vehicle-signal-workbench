@@ -66,11 +66,20 @@ export function SiteHeader({ onNewWorkload }: SiteHeaderProps) {
         </a>
         <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
         <Dialog>
-          <DialogTrigger asChild>
-            <Button type="button" size="icon" variant="ghost" className="size-9 rounded-full" aria-label="Chart shortcuts" title="Chart shortcuts">
-              <CircleHelp className="size-[18px]" />
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger
+            render={
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-9 rounded-full"
+                aria-label="Chart shortcuts"
+                title="Chart shortcuts"
+              >
+                <CircleHelp className="size-[18px]" />
+              </Button>
+            }
+          />
           <DialogContent className="max-h-[min(80dvh,36rem)] overflow-y-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Chart shortcuts</DialogTitle>

@@ -126,6 +126,7 @@ function EChartsSignalChartComponent({
             key={panel.id}
             className="pointer-events-none absolute left-0 right-0 z-0 rounded-xl border border-border/70 bg-card/55 shadow-sm"
             style={{ top: `${outerInset + index * panelSlot}px`, height: `${panelSlot - cardGap}px` }}
+            role="group"
             aria-label={`${panel.label} signal chart`}
           />
         );
@@ -147,7 +148,11 @@ function EChartsSignalChartComponent({
                 {panel.unit ?? LABELS.unitUnspecified}
               </span>
             </div>
-            <div className="pointer-events-auto flex shrink-0 items-center gap-2 sm:gap-3 text-[10px] text-muted-foreground" aria-label={`${panel.label} series visibility`}>
+            <div
+              role="group"
+              className="pointer-events-auto flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground sm:gap-3"
+              aria-label={`${panel.label} series visibility`}
+            >
               <Button
                 type="button" variant="ghost" size="sm"
                 aria-pressed={panel.referenceVisible !== false}

@@ -95,7 +95,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
               {metrics.loading ? LABELS.updatingMetrics : metrics.error ? LABELS.metricsUnavailable : metrics.result ? LABELS.currentInterval : LABELS.waitingForRange}
             </span>
             {props.selections.length > 1 && (
-              <div className="flex items-center gap-1" aria-label={LABELS.channelNavigation}>
+              <div className="flex items-center gap-1" role="group" aria-label={LABELS.channelNavigation}>
                 <Button type="button" variant="ghost" size="icon-sm" aria-label={LABELS.previousChannel} disabled={activeChannelIndexSafe === 0} onClick={() => setActiveChannelIndex((current) => Math.max(0, current - 1))}>
                   <ChevronLeft aria-hidden="true" />
                 </Button>
