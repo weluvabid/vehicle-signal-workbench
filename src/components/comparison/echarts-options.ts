@@ -57,7 +57,6 @@ export function createSignalChartOption(
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross', snap: false },
-      appendTo: 'body',
       z: 1000,
       backgroundColor: 'var(--popover)',
       borderColor: 'var(--border)',
