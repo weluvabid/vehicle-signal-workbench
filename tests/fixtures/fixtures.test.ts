@@ -21,14 +21,31 @@ async function findExpectedFiles(directory: string): Promise<string[]> {
 
 test('CSV regression fixture corpus has complete and valid scenario metadata', async () => {
   const expectedFiles = await findExpectedFiles(fixtureRoot);
-  assert.equal(expectedFiles.length, 23, '20 scenarios plus the three timestamp-encoding variants');
+  const performanceFixtureCount = expectedFiles.filter((path) => {
+    const scenarioDirectory = relative(fixtureRoot, dirname(path));
+    return scenarioDirectory.startsWith('19-') || scenarioDirectory.startsWith('20-');
+  }).length;
+
+  assert.equal(
+    expectedFiles.length - performanceFixtureCount,
+    21,
+    '18 functional scenarios plus the three timestamp-encoding variants',
+  );
+  assert.ok(performanceFixtureCount <= 2, 'at most two optional performance fixtures are present');
 
   for (const expectedPath of expectedFiles) {
     const metadata = JSON.parse(await readFile(expectedPath, 'utf8')) as {
       schemaVersion?: number;
+      category?: string;
       import?: { status?: string; timestampColumn?: string; timestampEncoding?: string };
       assertions?: string[];
       variants?: string[];
+      sampleCountPerRun?: number;
+      channelCountPerRun?: number;
+      sampleRateHz?: number;
+      durationSeconds?: number;
+      timestampColumn?: string;
+      timestampEncoding?: string;
     };
     const scenarioDirectory = relative(fixtureRoot, dirname(expectedPath));
     assert.equal(metadata.schemaVersion, 1, `${scenarioDirectory}: supported schema version`);
@@ -43,6 +60,36 @@ test('CSV regression fixture corpus has complete and valid scenario metadata', a
         'unix-milliseconds',
         'unix-seconds',
       ]);
+      continue;
+    }
+
+    if (metadata.category === 'performance') {
+      assert.ok(
+        (metadata.sampleCountPerRun ?? 0) > 0,
+        `${scenarioDirectory}: positive sample count`,
+      );
+      assert.ok(
+        (metadata.channelCountPerRun ?? 0) > 0,
+        `${scenarioDirectory}: positive channel count`,
+      );
+      assert.ok((metadata.sampleRateHz ?? 0) > 0, `${scenarioDirectory}: positive sample rate`);
+      assert.ok((metadata.durationSeconds ?? 0) > 0, `${scenarioDirectory}: positive duration`);
+      assert.equal(metadata.timestampColumn, 'Timestamp', `${scenarioDirectory}: timestamp column`);
+      assert.equal(
+        metadata.timestampEncoding,
+        'unix-seconds',
+        `${scenarioDirectory}: timestamp encoding`,
+      );
+
+      for (const filename of ['reference.csv', 'comparison.csv']) {
+        const filePath = join(fixtureRoot, scenarioDirectory, filename);
+        const fileStats = await stat(filePath);
+        assert.ok(
+          fileStats.isFile() && fileStats.size > 0,
+          `${scenarioDirectory}: ${filename} exists and is non-empty`,
+        );
+      }
+
       continue;
     }
 
