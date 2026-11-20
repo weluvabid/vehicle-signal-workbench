@@ -82,7 +82,9 @@ export function SignalChartCard({
             variant="ghost"
             size="icon-sm"
             className="pointer-events-auto size-7 shrink-0 rounded-md"
-            aria-label={expanded ? `Close expanded ${panel.label} chart` : `Expand ${panel.label} chart`}
+            aria-label={
+              expanded ? `Close expanded ${panel.label} chart` : `Expand ${panel.label} chart`
+            }
             title={expanded ? 'Close expanded chart' : 'Expand chart'}
             onClick={onExpand}
           >
