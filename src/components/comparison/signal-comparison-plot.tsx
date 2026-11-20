@@ -68,33 +68,30 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       {!error && !loading && results.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{LABELS.noSamplesInInterval}</p>}
 
+      <div className="flex min-w-0 items-center justify-end gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={<Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={LABELS.resetZoom}
+              onClick={() => window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM))}
+              className="size-9 rounded-lg bg-background/90"
+            />}>
+              <RotateCcw aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>{LABELS.resetZoom}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TimelineZoomControls />
+      </div>
+
       <section
         className="relative h-[calc(var(--signal-panel-count)*280px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*320px+58px)] lg:h-[calc(var(--signal-panel-count)*340px+58px)]"
         style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
         aria-label={LABELS.chartGroupLabel}
       >
-        <TooltipProvider>
-          <div className="pointer-events-none absolute bottom-1 right-2 z-20 flex items-center gap-2 sm:right-4">
-            <div className="pointer-events-auto">
-              <Tooltip>
-                <TooltipTrigger render={<Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label={LABELS.resetZoom}
-                  onClick={() => window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM))}
-                  className="size-9 rounded-lg bg-background/90"
-                />}>
-                  <RotateCcw aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>{LABELS.resetZoom}</TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="pointer-events-auto">
-              <TimelineZoomControls />
-            </div>
-          </div>
-        </TooltipProvider>
         <EChartsSignalChart
           key={`${selectionKey}:${props.offsetSeconds}:${props.startSeconds}:${props.endSeconds}`}
           panels={panels}
