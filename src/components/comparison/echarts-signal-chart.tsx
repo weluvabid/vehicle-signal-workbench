@@ -87,7 +87,7 @@ function EChartsSignalChartComponent({
 
   const {
     container, chartHeight, measuredWidth,
-    requestInitialViewport, handleDataZoom,
+    registerChart, requestInitialViewport, handleDataZoom,
   } = useEChartsSignalChart({
     domainStartSeconds,
     domainEndSeconds,
@@ -115,9 +115,10 @@ function EChartsSignalChartComponent({
   );
 
   const handleChartReady = useCallback((chart: echarts.EChartsType) => {
+    registerChart(chart);
     attachChart(chart);
     requestInitialViewport(chart);
-  }, [attachChart, requestInitialViewport]);
+  }, [attachChart, registerChart, requestInitialViewport]);
 
   const option = useMemo(
     () => createSignalChartOption(visiblePanels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction, getPointerTime),
@@ -163,6 +164,7 @@ function EChartsSignalChartComponent({
       <div className="absolute inset-0 z-10">
         <ReactEChartsCore
           echarts={echarts}
+          autoResize={false}
           option={option}
           notMerge={false}
           replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
