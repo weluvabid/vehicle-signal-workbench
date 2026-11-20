@@ -32,11 +32,11 @@ export function ComparisonWorkspace() {
   }, [setRun]);
 
   return (
-    <div className="flex flex-1 flex-col gap-3 py-3">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 py-3">
       <SiteHeader onNewWorkload={() => setWizardOpen(true)} />
 
       {canPlot && reference && comparison && overlap ? (
-        <div className="pb-36 sm:pb-32" data-testid="comparison-results">
+        <div className="min-w-0 pb-36 sm:pb-32" data-testid="comparison-results">
           {selectedSignals.length > 0 ? (
             <SignalComparisonPlot
               key={`${reference.id}:${comparison.id}:${selectedSignals.map((item) => item.referenceChannelId).join(',')}`}
