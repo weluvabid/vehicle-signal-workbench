@@ -207,11 +207,31 @@ test('one-million-sample envelope stays bounded by viewport width and retains is
   assert.ok(result.values.length <= 800 * 4);
 });
 
-test('large buckets containing missing samples collapse to a bounded gap without scanning raw samples', () => {
+test('large buckets preserve valid signal around sparse missing samples', () => {
   const sampleCount = 100_000;
   const times = Float64Array.from({ length: sampleCount }, (_, index) => index);
   const values = new Float64Array(sampleCount).fill(5);
   values[50_000] = Number.NaN;
+  const index = buildChannelEnvelopeIndex(values);
+  const result = queryChannelEnvelopeTimeWindow(
+    'dataset',
+    'channel',
+    { timeSeconds: times, values },
+    index,
+    0,
+    sampleCount,
+    1,
+  );
+  assert.ok(result.values.some(Number.isFinite));
+  assert.ok(result.values.some((value) => !Number.isFinite(value)));
+  assert.ok([...result.timeSeconds].some((time) => time < 50_000));
+  assert.ok([...result.timeSeconds].some((time) => time > 50_000));
+});
+
+test('large all-missing buckets remain an explicit bounded gap', () => {
+  const sampleCount = 100_000;
+  const times = Float64Array.from({ length: sampleCount }, (_, index) => index);
+  const values = new Float64Array(sampleCount).fill(Number.NaN);
   const index = buildChannelEnvelopeIndex(values);
   const result = queryChannelEnvelopeTimeWindow(
     'dataset',

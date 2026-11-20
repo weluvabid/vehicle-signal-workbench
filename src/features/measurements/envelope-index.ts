@@ -213,10 +213,9 @@ export function buildChannelEnvelopeIndex(values: Float64Array): ChannelEnvelope
 
 /**
  * Returns a time-bounded min/max envelope sized to the chart's CSS pixel width.
- * Each time bucket preserves first/last/min/max samples. Buckets containing a
- * small number of missing runs retain explicit gap markers. Missing-data buckets
- * larger than 8,192 samples, or with too many transitions, collapse to a gap rather
- * than scanning an unbounded range or drawing false continuity.
+ * Each time bucket preserves first/last/min/max samples. Buckets containing a small number of missing runs retain explicit gap markers.
+ * Large buckets locate missing runs through indexed block summaries, avoiding a
+ * full scan of clean samples while preserving valid signal around dropouts.
  */
 export function queryChannelEnvelopeTimeWindow(
   datasetId: string,
@@ -342,22 +341,28 @@ export function queryChannelEnvelopeTimeWindow(
       continue;
     }
 
-    // Very large buckets with any missing samples are represented by a bounded
-    // explicit gap. The indexed missing count makes this decision without
-    // scanning every raw sample in a potentially multi-million-row bucket.
-    // Smaller buckets are scanned so sparse dropouts retain surrounding signal.
-    if (bucketSampleEnd - bucketSampleStart > 8_192) {
-      appendGap(outputTimes, outputValues, buffers.timeSeconds, bucketSampleStart, bucketSampleEnd);
-      continue;
-    }
-
-    const candidates = collectGapAwareCandidates(
-      buffers.values,
-      bucketSampleStart,
-      bucketSampleEnd,
-      MAX_BUCKET_POINTS,
-      shouldAbort,
-    );
+    // For large buckets, use the block index to locate missing-data blocks.
+    // This preserves the real dropout boundaries without scanning every raw
+    // sample in a potentially multi-million-row bucket.
+    const candidates =
+      bucketSampleEnd - bucketSampleStart > 8_192
+        ? collectIndexedGapAwareCandidates(
+            buffers.values,
+            index,
+            bucketSampleStart,
+            bucketSampleEnd,
+            summary.minIndex,
+            summary.maxIndex,
+            MAX_BUCKET_POINTS,
+            shouldAbort,
+          )
+        : collectGapAwareCandidates(
+            buffers.values,
+            bucketSampleStart,
+            bucketSampleEnd,
+            MAX_BUCKET_POINTS,
+            shouldAbort,
+          );
 
     if (candidates === null) {
       appendGap(outputTimes, outputValues, buffers.timeSeconds, bucketSampleStart, bucketSampleEnd);
@@ -604,6 +609,94 @@ function queryEnvelopeSummary(
   scan(suffixStart, end);
 
   return { minIndex: min, maxIndex: max, missingCount: missing };
+}
+
+function collectIndexedGapAwareCandidates(
+  values: Float64Array,
+  index: ChannelEnvelopeIndex,
+  start: number,
+  end: number,
+  minIndex: number,
+  maxIndex: number,
+  limit: number,
+  shouldAbort?: () => boolean,
+): number[] | null {
+  const firstBlock = Math.floor(start / index.blockSize);
+  const lastBlock = Math.floor((end - 1) / index.blockSize);
+  const candidates: number[] = [];
+  let firstValid = -1;
+  let lastValid = -1;
+  let previousWasMissing = false;
+
+  // Find the first and last valid samples from indexed block summaries.
+  for (let block = firstBlock; block <= lastBlock; block += 1) {
+    if (((block - firstBlock) & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
+
+    const validCount = index.validCount[index.treeSize + block];
+    if (validCount === 0) continue;
+
+    const blockStart = Math.max(start, block * index.blockSize);
+    const blockEnd = Math.min(end, (block + 1) * index.blockSize);
+    for (let sample = blockStart; sample < blockEnd; sample += 1) {
+      if (Number.isFinite(values[sample])) {
+        firstValid = sample;
+        break;
+      }
+    }
+    if (firstValid >= 0) break;
+  }
+
+  for (let block = lastBlock; block >= firstBlock; block -= 1) {
+    if (((lastBlock - block) & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
+
+    const validCount = index.validCount[index.treeSize + block];
+    if (validCount === 0) continue;
+
+    const blockStart = Math.max(start, block * index.blockSize);
+    const blockEnd = Math.min(end, (block + 1) * index.blockSize);
+    for (let sample = blockEnd - 1; sample >= blockStart; sample -= 1) {
+      if (Number.isFinite(values[sample])) {
+        lastValid = sample;
+        break;
+      }
+    }
+    if (lastValid >= 0) break;
+  }
+
+  // Only inspect raw samples in blocks whose index says they contain missing
+  // values. Clean blocks are skipped in O(1), regardless of their sample count.
+  for (let block = firstBlock; block <= lastBlock; block += 1) {
+    if (((block - firstBlock) & 4_095) === 0 && shouldAbort?.()) {
+      throw new DOMException('Viewport query superseded.', 'AbortError');
+    }
+
+    const leaf = index.treeSize + block;
+    if (index.missingCount[leaf] === 0) {
+      previousWasMissing = false;
+      continue;
+    }
+
+    const blockStart = Math.max(start, block * index.blockSize);
+    const blockEnd = Math.min(end, (block + 1) * index.blockSize);
+    for (let sample = blockStart; sample < blockEnd; sample += 1) {
+      const missing = !Number.isFinite(values[sample]);
+      if (missing && !previousWasMissing) {
+        candidates.push(sample);
+        if (candidates.length + 4 > limit) return null;
+      }
+      previousWasMissing = missing;
+    }
+  }
+
+  if (firstValid < 0) return end - start > 1 ? [start, end - 1] : [start];
+
+  candidates.push(firstValid, lastValid, minIndex, maxIndex);
+  if (candidates.length > limit) return null;
+  return uniqueSorted(candidates);
 }
 
 function collectGapAwareCandidates(
