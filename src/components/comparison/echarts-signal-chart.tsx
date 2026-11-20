@@ -81,7 +81,7 @@ function EChartsSignalChartComponent({
   // Keep high-frequency pointer updates outside React state and render-time refs.
   const pointerTime = useMemo(() => createPointerTimeStore(), []);
   const [cursorTime, setCursorTime] = useState<number | null>(null);
-  const horizontalZoomInitialized = useRef(false);
+  const [horizontalZoomInitialized, setHorizontalZoomInitialized] = useState(false);
   const [visiblePercent, setVisiblePercent] = useState({ start: 0, end: 100 });
   const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
   const cursorFrame = useRef<number | null>(null);
@@ -198,7 +198,7 @@ function EChartsSignalChartComponent({
 
   const handleChartReady = useCallback(
     (chart: EChartsReactInstance) => {
-      horizontalZoomInitialized.current = true;
+      setHorizontalZoomInitialized(true);
       registerChart(chart);
       // echarts-for-react and echarts/core resolve separate ECharts declarations
       // in ECharts 6. The runtime instance is shared; adapt at this boundary.
@@ -221,7 +221,7 @@ function EChartsSignalChartComponent({
             measuredWidth,
             initialVisibleFraction,
             getPointerTime,
-            !horizontalZoomInitialized.current,
+            !horizontalZoomInitialized,
           )
         : null,
     [
@@ -230,6 +230,7 @@ function EChartsSignalChartComponent({
       domainStartSeconds,
       getPointerTime,
       initialVisibleFraction,
+      horizontalZoomInitialized,
       measuredWidth,
       chartPanels,
     ],
