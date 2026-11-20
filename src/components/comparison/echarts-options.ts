@@ -34,7 +34,7 @@ export function createSignalChartOption(
   const axisLabelFontSize = 10;
   const xAxisSplitNumber = 10;
   const cardHeight = panelSlot - cardGap;
-  const plotHeight = Math.max(48, cardHeight - 86);
+  const plotHeight = Math.max(48, cardHeight - 92);
   const yAxisSplitNumber = Math.max(2, Math.min(isNarrow ? 4 : 5, Math.floor(plotHeight / 34)));
 
   return {
@@ -139,8 +139,8 @@ export function createSignalChartOption(
         end: 100,
         xAxisIndex: axisIndexes,
         minSpan: 5,
-        left: '4%',
-        right: isNarrow ? 142 : 164,
+        left: 0,
+        right: 0,
         height: 16,
         handleSize: 14,
         moveHandleSize: 10,

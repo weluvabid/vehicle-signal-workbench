@@ -46,6 +46,7 @@ export const COMPARISON_LABELS = {
   currentValue: 'Current',
   maximumValue: 'Max (range)',
   differenceValue: 'Difference',
+  resetZoom: 'Reset zoom',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
   zoomLevel: 'Zoom level',

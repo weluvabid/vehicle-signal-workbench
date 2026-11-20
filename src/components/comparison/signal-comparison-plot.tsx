@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { buildSignalChartPanels } from '@/features/comparison/chart/signal-panels';
@@ -13,10 +13,11 @@ import { useMetricsViewport } from '@/features/comparison/analysis/use-metrics-v
 import { getInitialVisibleFraction } from '@/features/comparison/initial-viewport';
 import { calculateComparisonPerformanceMetrics, type IngestionMetrics } from '@/features/comparison/performance/metrics';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChannelAnalysisCard } from '@/components/comparison/analysis/channel-analysis-card';
 import { TimelineZoomControls } from '@/components/comparison/timeline-zoom-controls';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CHART_INTENTS } from '@/intents/chart-intents';
 import { LivePerformanceMonitor } from '@/components/comparison/performance/live-performance-dock';
 
 const EChartsSignalChart = dynamic(
@@ -72,11 +73,28 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
         aria-label={LABELS.chartGroupLabel}
       >
-        <div className="pointer-events-none absolute bottom-1 right-2 z-20 sm:right-4">
-          <div className="pointer-events-auto">
-            <TimelineZoomControls />
+        <TooltipProvider>
+          <div className="pointer-events-none absolute bottom-1 right-2 z-20 flex items-center gap-2 sm:right-4">
+            <div className="pointer-events-auto">
+              <Tooltip>
+                <TooltipTrigger render={<Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={LABELS.resetZoom}
+                  onClick={() => window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM))}
+                  className="size-9 rounded-lg bg-background/90"
+                />}>
+                  <RotateCcw aria-hidden="true" />
+                </TooltipTrigger>
+                <TooltipContent>{LABELS.resetZoom}</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="pointer-events-auto">
+              <TimelineZoomControls />
+            </div>
           </div>
-        </div>
+        </TooltipProvider>
         <EChartsSignalChart
           key={`${selectionKey}:${props.offsetSeconds}:${props.startSeconds}:${props.endSeconds}`}
           panels={panels}
