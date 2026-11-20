@@ -63,11 +63,14 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   const dispatchViewport = useCallback((viewport: PendingViewport) => {
     lastViewport.current = viewport;
     pendingViewport.current = viewport;
+
     if (animationFrame.current !== null) return;
+
     animationFrame.current = requestAnimationFrame(() => {
       animationFrame.current = null;
       const pending = pendingViewport.current;
       pendingViewport.current = null;
+
       if (pending)
         latestProps.current.onViewportChange(
           pending.startSeconds,
@@ -82,16 +85,19 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   // separate intermediate chart configurations.
   const resizeChartToContainer = useCallback(() => {
     if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
+
     resizeFrame.current = requestAnimationFrame(() => {
       resizeFrame.current = null;
       const chart = chartInstance.current;
       const element = container.current;
+
       if (!chart || chart.isDisposed() || !element) return;
 
       // Read the committed CSS geometry, not a potentially stale observer entry.
       const bounds = element.getBoundingClientRect();
       const width = Math.floor(bounds.width);
       const height = Math.floor(bounds.height);
+
       if (width <= 0 || height <= 0) return;
 
       if (Math.abs(chart.getWidth() - width) >= 1 || Math.abs(chart.getHeight() - height) >= 1) {
@@ -114,6 +120,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
   useEffect(() => {
     if (!hasPanels) return;
+
     const initial = getInitialViewport(
       domainStartSeconds,
       domainEndSeconds,
@@ -132,17 +139,21 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
   useEffect(() => {
     const element = container.current;
+
     if (!element || typeof ResizeObserver === 'undefined') return;
+
     let previousWidth = 0;
     let previousHeight = 0;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       const width = Math.floor(entry?.contentRect.width ?? 0);
       const height = Math.floor(entry?.contentRect.height ?? 0);
+
       if (width <= 0 || height <= 0) return;
 
       const widthChanged = Math.abs(width - previousWidth) >= 1;
       const heightChanged = Math.abs(height - previousHeight) >= 1;
+
       if (!widthChanged && !heightChanged) return;
 
       previousWidth = width;
@@ -155,6 +166,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
       if (widthChanged) {
         chartWidth.current = width;
         const viewport = lastViewport.current;
+
         if (viewport) dispatchViewport({ ...viewport, pixelWidth: width });
       }
     });
@@ -167,7 +179,9 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   useEffect(
     () => () => {
       if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+
       if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
+
       chartInstance.current = null;
     },
     [],
@@ -190,18 +204,22 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   const handleDataZoom = useCallback(
     (event: DataZoomRangeEvent) => {
       const zoomEvents = event.batch?.length ? event.batch : [event];
+
       if (
         zoomEvents.every((item) =>
           item.dataZoomId?.startsWith(CHART_DATA_ZOOM_IDS.verticalInsidePrefix),
         )
       )
         return;
+
       const viewport = resolveDataZoomViewport(
         event,
         latestProps.current.domainStartSeconds,
         latestProps.current.domainEndSeconds,
       );
+
       if (!viewport) return;
+
       dispatchViewport({ ...viewport, pixelWidth: chartWidth.current });
       latestProps.current.onMetricsViewportChange(
         viewport.startSeconds,

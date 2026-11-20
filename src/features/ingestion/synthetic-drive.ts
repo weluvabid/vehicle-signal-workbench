@@ -79,7 +79,9 @@ function profileSpeed(seconds: number): number {
   const cycle = Math.floor(seconds / DRIVE_CYCLE_SECONDS);
   const local = ((seconds % DRIVE_CYCLE_SECONDS) + DRIVE_CYCLE_SECONDS) % DRIVE_CYCLE_SECONDS;
   let segment = 0;
+
   while (segment < SPEED_PROFILE.length - 2 && local > SPEED_PROFILE[segment + 1][0]) segment += 1;
+
   const [startTime, startSpeed] = SPEED_PROFILE[segment];
   const [endTime, endSpeed] = SPEED_PROFILE[segment + 1];
   const duration = endTime - startTime;
@@ -220,13 +222,17 @@ export async function generateDriveRecording(
   }
 
   const parts: BlobPart[] = [HEADERS];
+
   for (let start = 0; start < rows; start += CHUNK_ROWS) {
     const end = Math.min(rows, start + CHUNK_ROWS);
     const lines = new Array<string>(end - start);
+
     for (let index = start; index < end; index += 1)
       lines[index - start] = formatSample(index, role);
+
     parts.push(lines.join(''));
     onProgress?.(end / rows);
+
     if (end < rows) await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
 

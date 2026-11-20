@@ -7,6 +7,7 @@ export class Float64BufferBuilder {
     if (!Number.isSafeInteger(initialCapacity) || initialCapacity < 0) {
       throw new RangeError('Initial capacity must be a non-negative safe integer.');
     }
+
     this.buffer = new Float64Array(Math.max(1, initialCapacity));
   }
 
@@ -20,6 +21,7 @@ export class Float64BufferBuilder {
       next.set(this.buffer);
       this.buffer = next;
     }
+
     this.buffer[this.length] = value;
     this.length += 1;
   }

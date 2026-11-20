@@ -113,7 +113,9 @@ test('large envelope buckets remain conservative when missing runs exceed the po
   const count = 4_096;
   const timeSeconds = Float64Array.from({ length: count }, (_, index) => index * 0.01);
   const values = Float64Array.from({ length: count }, (_, index) => index);
+
   for (let run = 0; run < 5; run += 1) values.fill(Number.NaN, 500 + run * 600, 502 + run * 600);
+
   const buffers = { timeSeconds, values };
   const index = buildChannelEnvelopeIndex(values);
 

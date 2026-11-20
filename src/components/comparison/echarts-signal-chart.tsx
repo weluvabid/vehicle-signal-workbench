@@ -99,12 +99,14 @@ function EChartsSignalChartComponent({
   const handleAxisPointer = useCallback(
     (event: unknown) => {
       if (!event || typeof event !== 'object') return;
+
       const axesInfo = (
         event as { axesInfo?: Array<{ axisDim?: string; value?: string | number }> }
       ).axesInfo;
       const value = axesInfo?.find((axis) => axis.axisDim === 'x')?.value ?? axesInfo?.[0]?.value;
       const time = Number(value);
       pointerTime.set(value !== undefined && Number.isFinite(time) ? time : null);
+
       if (cursorFrame.current === null)
         cursorFrame.current = requestAnimationFrame(() => {
           cursorFrame.current = null;
@@ -115,6 +117,7 @@ function EChartsSignalChartComponent({
   );
   const clearPointerTime = useCallback(() => {
     pointerTime.set(null);
+
     if (cursorFrame.current === null)
       cursorFrame.current = requestAnimationFrame(() => {
         cursorFrame.current = null;
@@ -155,6 +158,7 @@ function EChartsSignalChartComponent({
             (item) =>
               item.dataZoomId === 'viewport-inside' || item.dataZoomId === 'viewport-slider',
           ) ?? candidate;
+
         if (typeof range.start === 'number' && typeof range.end === 'number') {
           setVisiblePercent({ start: range.start, end: range.end });
           window.dispatchEvent(
@@ -164,6 +168,7 @@ function EChartsSignalChartComponent({
           );
         }
       }
+
       handleDataZoom(event as Parameters<typeof handleDataZoom>[0]);
     },
     [handleDataZoom],

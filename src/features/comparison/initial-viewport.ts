@@ -6,6 +6,7 @@ const MAX_INITIAL_VISIBLE_FRACTION = 0.25;
 
 export function getInitialVisibleFraction(sampleCount: number): number {
   if (!Number.isFinite(sampleCount) || sampleCount <= EAGER_INDEX_SAMPLE_THRESHOLD) return 1;
+
   const fraction = REFERENCE_VISIBLE_FRACTION * (REFERENCE_SAMPLE_COUNT / sampleCount) ** 0.301;
   return Math.min(MAX_INITIAL_VISIBLE_FRACTION, Math.max(REFERENCE_VISIBLE_FRACTION, fraction));
 }

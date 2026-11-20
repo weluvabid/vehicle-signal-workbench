@@ -20,12 +20,15 @@ export function getWheelZoomRange(
     !Number.isFinite(deltaY)
   )
     return null;
+
   const span = range.end - range.start;
   const nextSpan = Math.min(
     100,
     Math.max(minimumSpanPercent, span * Math.exp(deltaY * ZOOM_SENSITIVITY)),
   );
+
   if (Math.abs(nextSpan - span) < 1e-9) return null;
+
   const boundedAnchor = Math.min(1, Math.max(0, anchor));
   const anchorPercent = range.start + span * boundedAnchor;
   const start = Math.min(100 - nextSpan, Math.max(0, anchorPercent - nextSpan * boundedAnchor));

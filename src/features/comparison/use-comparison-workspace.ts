@@ -19,6 +19,7 @@ export function useComparisonWorkspace() {
 
   const overlap = useMemo(() => {
     if (!reference || !comparison) return null;
+
     return calculateTimelineOverlap(
       reference.durationSeconds,
       comparison.durationSeconds,
@@ -28,6 +29,7 @@ export function useComparisonWorkspace() {
 
   const compatibleMappings = useMemo(() => {
     if (!reference || !comparison) return [];
+
     return suggestChannelMappings(reference, comparison).filter(
       (mapping) => mapping.compatibility === MAPPING_COMPATIBILITY.COMPATIBLE && mapping.right,
     );
@@ -51,7 +53,9 @@ export function useComparisonWorkspace() {
   const setRun = useCallback(
     (role: 'reference' | 'comparison', dataset: DatasetDescriptor | null) => {
       const previous = role === 'reference' ? reference : comparison;
+
       if (previous && previous.id !== dataset?.id) client.releaseDataset(previous.id);
+
       if (role === 'reference') setReference(dataset);
       else setComparison(dataset);
     },

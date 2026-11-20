@@ -182,10 +182,12 @@ test('one-million-sample envelope stays bounded by viewport width and retains is
   const sampleCount = 1_000_000;
   const times = new Float64Array(sampleCount);
   const values = new Float64Array(sampleCount);
+
   for (let index = 0; index < sampleCount; index += 1) {
     times[index] = index / 1_000;
     values[index] = Math.sin(index / 37);
   }
+
   values[123_456] = 250;
   values[876_543] = -250;
 
@@ -295,11 +297,14 @@ test('indexed visible-window statistics match a direct Welford scan across block
   const sampleCount = 25_003;
   const timeSeconds = new Float64Array(sampleCount);
   const values = new Float64Array(sampleCount);
+
   for (let index = 0; index < sampleCount; index += 1) {
     timeSeconds[index] = index * 0.01;
     values[index] = 1_000_000 + Math.sin(index / 17) * 0.125;
+
     if (index % 97 === 0) values[index] = Number.NaN;
   }
+
   const buffers = { timeSeconds, values };
   const index = buildChannelEnvelopeIndex(values);
 

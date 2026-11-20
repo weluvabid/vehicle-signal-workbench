@@ -11,6 +11,7 @@ async function findExpectedFiles(directory: string): Promise<string[]> {
 
   for (const entry of entries) {
     const path = join(directory, entry.name);
+
     if (entry.isDirectory()) files.push(...(await findExpectedFiles(path)));
     else if (entry.name === 'expected.json') files.push(path);
   }
@@ -20,7 +21,7 @@ async function findExpectedFiles(directory: string): Promise<string[]> {
 
 test('CSV regression fixture corpus has complete and valid scenario metadata', async () => {
   const expectedFiles = await findExpectedFiles(fixtureRoot);
-  assert.equal(expectedFiles.length, 21, '18 scenarios plus the three timestamp-encoding variants');
+  assert.equal(expectedFiles.length, 23, '20 scenarios plus the three timestamp-encoding variants');
 
   for (const expectedPath of expectedFiles) {
     const metadata = JSON.parse(await readFile(expectedPath, 'utf8')) as {

@@ -6,8 +6,11 @@ const scientificFormatter = new Intl.NumberFormat(undefined, {
 
 export function formatChartValue(value: number): string {
   if (!Number.isFinite(value)) return '—';
+
   const magnitude = Math.abs(value);
+
   if (magnitude !== 0 && (magnitude >= 1e9 || magnitude < 1e-4))
     return scientificFormatter.format(value);
+
   return numberFormatter.format(Object.is(value, -0) ? 0 : value);
 }

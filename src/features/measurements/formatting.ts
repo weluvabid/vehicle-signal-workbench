@@ -5,6 +5,7 @@ const integerFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigit
 
 export function formatMeasurementValue(value: number | null): string {
   if (value === null) return '—';
+
   return numberFormatter.format(Object.is(value, -0) ? 0 : value);
 }
 

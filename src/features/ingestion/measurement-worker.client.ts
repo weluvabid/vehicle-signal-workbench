@@ -75,6 +75,7 @@ export class MeasurementWorkerClient {
     };
     const requestId = this.nextRequestId++;
     let worker: Worker;
+
     try {
       worker = this.getWorker();
     } catch (cause) {
@@ -93,6 +94,7 @@ export class MeasurementWorkerClient {
         resolve: (value) => resolve(value as ComparisonBatchQueryResult),
         reject,
       });
+
       try {
         worker.postMessage({ ...request, requestId } satisfies IngestionRequest);
       } catch (cause) {
@@ -111,8 +113,11 @@ export class MeasurementWorkerClient {
       promise,
       cancel: () => {
         if (cancelRequested || !this.pending.has(requestId)) return;
+
         cancelRequested = true;
+
         if (cancelFlag) Atomics.store(cancelFlag, 0, 1);
+
         this.worker?.postMessage({ type: 'cancel', requestId } satisfies IngestionRequest);
       },
     };
@@ -133,6 +138,7 @@ export class MeasurementWorkerClient {
         : undefined;
     const cancelFlag = cancelBuffer ? new Int32Array(cancelBuffer) : null;
     let worker: Worker;
+
     try {
       worker = this.getWorker();
     } catch (cause) {
@@ -144,12 +150,14 @@ export class MeasurementWorkerClient {
         cancel() {},
       };
     }
+
     const promise = new Promise<MetricsQueryResult>((resolve, reject) => {
       this.pending.set(requestId, {
         kind: 'metrics',
         resolve: (value) => resolve(value as MetricsQueryResult),
         reject,
       });
+
       try {
         worker.postMessage({
           type: 'query-metrics',
@@ -173,8 +181,11 @@ export class MeasurementWorkerClient {
       promise,
       cancel: () => {
         if (cancelled || !this.pending.has(requestId)) return;
+
         cancelled = true;
+
         if (cancelFlag) Atomics.store(cancelFlag, 0, 1);
+
         this.worker?.postMessage({ type: 'cancel', requestId } satisfies IngestionRequest);
       },
     };
@@ -187,8 +198,10 @@ export class MeasurementWorkerClient {
   dispose(): void {
     this.worker?.terminate();
     this.worker = null;
+
     for (const operation of this.pending.values())
       operation.reject(new Error('Measurement worker was disposed.'));
+
     this.pending.clear();
   }
 
@@ -200,18 +213,21 @@ export class MeasurementWorkerClient {
     const requestId = this.nextRequestId++;
     return new Promise<T>((resolve, reject) => {
       let worker: Worker;
+
       try {
         worker = this.getWorker();
       } catch (cause) {
         reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.'));
         return;
       }
+
       this.pending.set(requestId, {
         kind,
         resolve: (value) => resolve(value as T),
         reject,
         onProgress,
       });
+
       try {
         worker.postMessage({ ...request, requestId } as IngestionRequest);
       } catch (cause) {
@@ -227,6 +243,7 @@ export class MeasurementWorkerClient {
 
   private getWorker(): Worker {
     if (this.worker) return this.worker;
+
     this.worker = new Worker(new URL('./csv-ingestion.worker.ts', import.meta.url), {
       type: 'module',
       name: 'vsw-measurement-worker',
@@ -234,12 +251,17 @@ export class MeasurementWorkerClient {
     this.worker.onmessage = (event: MessageEvent<IngestionResponse>) => {
       const message = event.data;
       const operation = this.pending.get(message.requestId);
+
       if (!operation) return;
+
       if (message.type === 'progress') {
         if (operation.kind === 'import') operation.onProgress?.(message.fraction);
+
         return;
       }
+
       this.pending.delete(message.requestId);
+
       if (message.type === 'error') {
         operation.reject(new Error(`${message.code}: ${message.message}`));
       } else if (message.type === 'cancelled') {
@@ -256,7 +278,9 @@ export class MeasurementWorkerClient {
     };
     this.worker.onerror = (event) => {
       const error = new Error(event.message || 'Measurement worker failed.');
+
       for (const operation of this.pending.values()) operation.reject(error);
+
       this.pending.clear();
       this.worker?.terminate();
       this.worker = null;

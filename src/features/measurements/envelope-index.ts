@@ -24,6 +24,7 @@ export function queryChannelTimeStatistics(
   const startIndex = lowerBoundFloat64(buffers.timeSeconds, startSeconds);
   const endIndex = lowerBoundFloat64(buffers.timeSeconds, endSeconds);
   const sampleCount = endIndex - startIndex;
+
   if (sampleCount === 0) {
     return {
       datasetId,
@@ -50,24 +51,31 @@ export function queryChannelTimeStatistics(
   let aggregate: StatisticsAggregate = { count: 0, mean: 0, m2: 0 };
   const scan = (from: number, to: number): StatisticsAggregate => {
     let result: StatisticsAggregate = { count: 0, mean: 0, m2: 0 };
+
     for (let sample = from; sample < to; sample += 1) {
       if (((sample - from) & 4_095) === 0 && shouldAbort?.()) {
         throw new DOMException('Viewport query superseded.', 'AbortError');
       }
+
       const value = buffers.values[sample];
+
       if (!Number.isFinite(value)) continue;
+
       result = mergeStatistics(result, { count: 1, mean: value, m2: 0 });
     }
+
     return result;
   };
 
   aggregate = mergeStatistics(aggregate, scan(startIndex, prefixEnd));
+
   if (hasFullBlocks) {
     aggregate = mergeStatistics(
       aggregate,
       queryStatisticsBlocks(index, firstFullBlock, endFullBlock),
     );
   }
+
   aggregate = mergeStatistics(aggregate, scan(suffixStart, endIndex));
 
   const extrema = queryEnvelopeSummary(buffers.values, index, startIndex, endIndex, shouldAbort);
@@ -111,6 +119,7 @@ const MAX_BUCKET_POINTS = 8;
 export function buildChannelEnvelopeIndex(values: Float64Array): ChannelEnvelopeIndex {
   const blockCount = Math.ceil(values.length / ENVELOPE_BLOCK_SIZE);
   let treeSize = 1;
+
   while (treeSize < blockCount) treeSize *= 2;
 
   const minIndex = new Int32Array(treeSize * 2);
@@ -134,12 +143,16 @@ export function buildChannelEnvelopeIndex(values: Float64Array): ChannelEnvelope
 
     for (let index = start; index < end; index += 1) {
       const value = values[index];
+
       if (!Number.isFinite(value)) {
         missing += 1;
         continue;
       }
+
       if (min < 0 || value < values[min]) min = index;
+
       if (max < 0 || value > values[max]) max = index;
+
       count += 1;
       const delta = value - blockMean;
       blockMean += delta / count;
@@ -238,6 +251,7 @@ export function queryChannelEnvelopeTimeWindow(
   output?: { readonly timeSeconds: Float64BufferBuilder; readonly values: Float64BufferBuilder },
 ): ChannelWindow | null {
   validateRange(buffers, 0, buffers.values.length);
+
   if (
     !Number.isFinite(startSeconds) ||
     !Number.isFinite(endSeconds) ||
@@ -251,6 +265,7 @@ export function queryChannelEnvelopeTimeWindow(
 
   const startIndex = lowerBoundFloat64(buffers.timeSeconds, startSeconds);
   const endIndex = lowerBoundFloat64(buffers.timeSeconds, endSeconds);
+
   if (startIndex >= endIndex) {
     return output
       ? null
@@ -276,6 +291,7 @@ export function queryChannelEnvelopeTimeWindow(
     if ((bucket & 255) === 0 && shouldAbort?.()) {
       throw new DOMException('Viewport query superseded.', 'AbortError');
     }
+
     const bucketStart = startSeconds + duration * (bucket / bucketCount);
     const bucketEnd =
       bucket === bucketCount - 1
@@ -286,16 +302,22 @@ export function queryChannelEnvelopeTimeWindow(
       if (((cursor - startIndex) & 4_095) === 0 && shouldAbort?.()) {
         throw new DOMException('Viewport query superseded.', 'AbortError');
       }
+
       cursor += 1;
     }
+
     const bucketSampleStart = cursor;
+
     while (cursor < endIndex && buffers.timeSeconds[cursor] < bucketEnd) {
       if (((cursor - bucketSampleStart) & 4_095) === 0 && shouldAbort?.()) {
         throw new DOMException('Viewport query superseded.', 'AbortError');
       }
+
       cursor += 1;
     }
+
     const bucketSampleEnd = cursor;
+
     if (bucketSampleStart >= bucketSampleEnd) continue;
 
     const summary = queryEnvelopeSummary(
@@ -350,6 +372,7 @@ export function queryChannelEnvelopeTimeWindow(
   }
 
   if (output) return null;
+
   return {
     datasetId,
     channelId,
@@ -374,26 +397,31 @@ function appendUniqueSortedFour(
   let b = second;
   let c = third;
   let d = fourth;
+
   if (b < a) {
     const swap = a;
     a = b;
     b = swap;
   }
+
   if (d < c) {
     const swap = c;
     c = d;
     d = swap;
   }
+
   if (c < a) {
     const swap = a;
     a = c;
     c = swap;
   }
+
   if (d < b) {
     const swap = b;
     b = d;
     d = swap;
   }
+
   if (c < b) {
     const swap = b;
     b = c;
@@ -401,21 +429,25 @@ function appendUniqueSortedFour(
   }
 
   let previous = -1;
+
   if (a >= 0) {
     outputTimes.push(timeSeconds[a]);
     outputValues.push(values[a]);
     previous = a;
   }
+
   if (b >= 0 && b !== previous) {
     outputTimes.push(timeSeconds[b]);
     outputValues.push(values[b]);
     previous = b;
   }
+
   if (c >= 0 && c !== previous) {
     outputTimes.push(timeSeconds[c]);
     outputValues.push(values[c]);
     previous = c;
   }
+
   if (d >= 0 && d !== previous) {
     outputTimes.push(timeSeconds[d]);
     outputValues.push(values[d]);
@@ -431,6 +463,7 @@ function appendGap(
 ): void {
   outputTimes.push(timeSeconds[start]);
   outputValues.push(Number.NaN);
+
   if (end - 1 !== start) {
     outputTimes.push(timeSeconds[end - 1]);
     outputValues.push(Number.NaN);
@@ -454,7 +487,9 @@ function mergeStatistics(
   right: StatisticsAggregate,
 ): StatisticsAggregate {
   if (left.count === 0) return right;
+
   if (right.count === 0) return left;
+
   const count = left.count + right.count;
   const delta = right.mean - left.mean;
   const mean = left.mean + delta * (right.count / count);
@@ -470,6 +505,7 @@ function queryStatisticsBlocks(
   let left = index.treeSize + startBlock;
   let right = index.treeSize + endBlock;
   let aggregate: StatisticsAggregate = { count: 0, mean: 0, m2: 0 };
+
   while (left < right) {
     if (left & 1) {
       aggregate = mergeStatistics(aggregate, {
@@ -479,6 +515,7 @@ function queryStatisticsBlocks(
       });
       left += 1;
     }
+
     if (right & 1) {
       right -= 1;
       aggregate = mergeStatistics(aggregate, {
@@ -487,9 +524,11 @@ function queryStatisticsBlocks(
         m2: index.sumSquaredDeviation[right],
       });
     }
+
     left = Math.floor(left / 2);
     right = Math.floor(right / 2);
   }
+
   return aggregate;
 }
 
@@ -515,17 +554,22 @@ function queryEnvelopeSummary(
       if (((sample - from) & 4_095) === 0 && shouldAbort?.()) {
         throw new DOMException('Viewport query superseded.', 'AbortError');
       }
+
       const value = values[sample];
+
       if (!Number.isFinite(value)) {
         missing += 1;
         continue;
       }
+
       if (min < 0 || value < values[min]) min = sample;
+
       if (max < 0 || value > values[max]) max = sample;
     }
   };
 
   scan(start, prefixEnd);
+
   if (hasFullBlocks) {
     let left = index.treeSize + firstFullBlock;
     let right = index.treeSize + endFullBlock;
@@ -540,12 +584,14 @@ function queryEnvelopeSummary(
         treeMissing += index.missingCount[left];
         left += 1;
       }
+
       if (right & 1) {
         right -= 1;
         treeMin = chooseIndex(values, treeMin, index.minIndex[right], 'min');
         treeMax = chooseIndex(values, treeMax, index.maxIndex[right], 'max');
         treeMissing += index.missingCount[right];
       }
+
       left = Math.floor(left / 2);
       right = Math.floor(right / 2);
     }
@@ -554,6 +600,7 @@ function queryEnvelopeSummary(
     max = chooseIndex(values, max, treeMax, 'max');
     missing += treeMissing;
   }
+
   scan(suffixStart, end);
 
   return { minIndex: min, maxIndex: max, missingCount: missing };
@@ -582,19 +629,26 @@ function collectGapAwareCandidates(
     }
 
     const value = values[sample];
+
     if (!Number.isFinite(value)) {
       if (!previousWasMissing) {
         candidates.push(sample);
+
         if (candidates.length > limit) return null;
       }
+
       previousWasMissing = true;
       continue;
     }
 
     previousWasMissing = false;
+
     if (firstValid < 0) firstValid = sample;
+
     lastValid = sample;
+
     if (minIndex < 0 || value < values[minIndex]) minIndex = sample;
+
     if (maxIndex < 0 || value > values[maxIndex]) maxIndex = sample;
   }
 
@@ -603,7 +657,9 @@ function collectGapAwareCandidates(
   }
 
   candidates.push(firstValid, lastValid, minIndex, maxIndex);
+
   if (candidates.length > limit) return null;
+
   return uniqueSorted(candidates);
 }
 
@@ -614,7 +670,9 @@ function chooseIndex(
   mode: 'min' | 'max',
 ): number {
   if (candidate < 0) return current;
+
   if (current < 0) return candidate;
+
   return mode === 'min'
     ? values[candidate] < values[current]
       ? candidate
@@ -627,12 +685,16 @@ function chooseIndex(
 function uniqueSorted(indices: number[]): number[] {
   indices.sort((left, right) => left - right);
   let writeIndex = 0;
+
   for (let readIndex = 0; readIndex < indices.length; readIndex += 1) {
     const value = indices[readIndex];
+
     if (value < 0 || (writeIndex > 0 && indices[writeIndex - 1] === value)) continue;
+
     indices[writeIndex] = value;
     writeIndex += 1;
   }
+
   indices.length = writeIndex;
   return indices;
 }

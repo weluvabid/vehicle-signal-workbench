@@ -22,17 +22,22 @@ export function buildSignalPoints(
   if (!Number.isFinite(timeOffsetSeconds)) {
     throw new RangeError('Signal time offset must be finite.');
   }
+
   if (timeSeconds.length !== values.length) {
     throw new RangeError('Signal time and value arrays must have equal lengths.');
   }
 
   const points = new Array<SignalPoint>(timeSeconds.length);
+
   for (let index = 0; index < timeSeconds.length; index += 1) {
     const time = timeSeconds[index] + timeOffsetSeconds;
+
     if (!Number.isFinite(time)) throw new RangeError(timestampErrorMessage);
+
     const value = values[index];
     points[index] = [time, Number.isFinite(value) ? value : null];
   }
+
   return points;
 }
 
@@ -44,9 +49,11 @@ export function buildComparisonPlotData(
   if (!Number.isFinite(comparisonOffsetSeconds)) {
     throw new RangeError('Comparison offset must be finite.');
   }
+
   if (reference.timeSeconds.length !== reference.values.length) {
     throw new RangeError('Reference time and value arrays must have equal lengths.');
   }
+
   if (comparison.timeSeconds.length !== comparison.values.length) {
     throw new RangeError('Comparison time and value arrays must have equal lengths.');
   }

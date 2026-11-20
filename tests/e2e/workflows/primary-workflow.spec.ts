@@ -14,6 +14,7 @@ test('complete generated comparison workflow: generate, inspect and navigate', a
 
   const bounds = await chart.locator('canvas').first().boundingBox();
   expect(bounds).not.toBeNull();
+
   if (bounds) {
     const x = bounds.x + bounds.width * 0.55;
     const y = bounds.y + bounds.height * 0.42;
@@ -39,6 +40,7 @@ test('chart resize and workspace teardown do not produce browser exceptions', as
 
   const chart = page.getByTestId('signal-chart');
   const canvas = chart.locator('canvas').first();
+
   for (const viewport of [
     { width: 390, height: 844 },
     { width: 1440, height: 960 },
@@ -49,7 +51,9 @@ test('chart resize and workspace teardown do not produce browser exceptions', as
       .poll(async () => {
         const chartBounds = await chart.boundingBox();
         const canvasBounds = await canvas.boundingBox();
+
         if (!chartBounds || !canvasBounds) return Number.POSITIVE_INFINITY;
+
         return (
           Math.abs(chartBounds.width - canvasBounds.width) +
           Math.abs(chartBounds.height - canvasBounds.height)
@@ -61,6 +65,7 @@ test('chart resize and workspace teardown do not produce browser exceptions', as
     );
     expect(hasHorizontalOverflow).toBe(false);
   }
+
   await page.goto('about:blank');
   expect(errors).toEqual([]);
 });

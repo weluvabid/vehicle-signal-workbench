@@ -26,6 +26,7 @@ interface MetricsViewportOptions {
 
 function summarizeWorkerSamples(samples: readonly number[]): WorkerComputeStatistics | null {
   if (samples.length === 0) return null;
+
   const sorted = [...samples].sort((left, right) => left - right);
   const percentile = (p: number) =>
     sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
@@ -55,6 +56,7 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
 
   useEffect(() => {
     if (previousIdentity.current === identity) return;
+
     previousIdentity.current = identity;
     currentIdentity.current = identity;
     samples.current = [];
@@ -67,6 +69,7 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
   const setViewportRange = useCallback(
     (start: number, end: number, isInitial = false) => {
       if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+
       setViewport((current) =>
         current?.start === start &&
         current?.end === end &&
@@ -87,10 +90,12 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
       currentIdentity.current !== identity
     )
       return;
+
     let current = true;
     let request: ReturnType<MeasurementWorkerClient['queryMetrics']> | null = null;
     const timer = setTimeout(() => {
       if (!current) return;
+
       setLoading(true);
       setError(null);
       request = options.client.queryMetrics(
@@ -104,24 +109,32 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
       void request.promise
         .then((next) => {
           if (!current || currentIdentity.current !== identity) return;
+
           setResult(next);
+
           // Initial viewport is the cold baseline. Only settled user zoom ranges
           // contribute, even if the initial query was superseded before completion.
           if (viewport.isInitial) return;
+
           const workerComputeMs = next.timings?.workerComputeMs;
+
           if (
             !Number.isFinite(workerComputeMs) ||
             workerComputeMs === undefined ||
             workerComputeMs < 0
           )
             return;
+
           const nextSamples = samples.current;
           nextSamples.push(workerComputeMs);
+
           if (nextSamples.length > MAX_WORKER_SAMPLES) nextSamples.shift();
+
           setWorkerCompute(summarizeWorkerSamples(nextSamples));
         })
         .catch((cause: unknown) => {
           if (!current || (cause instanceof DOMException && cause.name === 'AbortError')) return;
+
           setError(cause instanceof Error ? cause.message : 'Unable to query channel metrics.');
         })
         .finally(() => {

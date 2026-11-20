@@ -50,6 +50,7 @@ export function ComparisonWorkspace() {
       metrics: ImportMetrics,
     ) => {
       if (!referenceDataset || !comparisonDataset) return;
+
       setRun('reference', referenceDataset);
       setRun('comparison', comparisonDataset);
       setImportMetrics(metrics);

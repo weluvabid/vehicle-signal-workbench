@@ -114,11 +114,14 @@ export function queryChannelTimeWindow(
   const lowerBound = (target: number): number => {
     let low = 0;
     let high = buffers.timeSeconds.length;
+
     while (low < high) {
       const middle = low + Math.floor((high - low) / 2);
+
       if (buffers.timeSeconds[middle] < target) low = middle + 1;
       else high = middle;
     }
+
     return low;
   };
 

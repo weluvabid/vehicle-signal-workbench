@@ -23,7 +23,11 @@ export default defineConfig([
       'no-eval': 'error',
       'no-var': 'error',
       'prefer-const': 'error',
-      eqeqeq: ['error', 'always'],
+      'padding-line-between-statements': [
+        'error',
+        { blankLine: 'always', prev: '*', next: ['do', 'for', 'if', 'switch', 'try', 'while'] },
+        { blankLine: 'always', prev: ['do', 'for', 'if', 'switch', 'try', 'while'], next: '*' },
+      ],
     },
   },
 ]);

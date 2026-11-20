@@ -15,16 +15,20 @@ export function selectDifferenceEnvelopeIndexes(
   if (!Number.isInteger(pixelWidth) || pixelWidth < 1 || timeSeconds.length !== delta.length) {
     throw new RangeError('Invalid difference envelope input or pixel width.');
   }
+
   const count = timeSeconds.length;
+
   if (count <= pixelWidth * 4) {
     return {
       indexes: Array.from({ length: count }, (_, index) => index),
       forcedGapIndexes: new Set(),
     };
   }
+
   const firstTime = timeSeconds[0];
   const lastTime = timeSeconds[count - 1];
   const duration = lastTime - firstTime;
+
   if (!(duration > 0)) {
     return {
       indexes: Array.from({ length: count }, (_, index) => index),
@@ -35,15 +39,18 @@ export function selectDifferenceEnvelopeIndexes(
   const indexes: number[] = [];
   const forcedGapIndexes = new Set<number>();
   let cursor = 0;
+
   while (cursor < count) {
     if ((cursor & 4_095) === 0 && shouldAbort?.()) {
       throw new DOMException('Viewport query superseded.', 'AbortError');
     }
+
     const bucket = Math.min(
       pixelWidth - 1,
       Math.floor(((timeSeconds[cursor] - firstTime) / duration) * pixelWidth),
     );
     let end = cursor + 1;
+
     while (
       end < count &&
       Math.min(
@@ -54,55 +61,76 @@ export function selectDifferenceEnvelopeIndexes(
       if ((end & 4_095) === 0 && shouldAbort?.()) {
         throw new DOMException('Viewport query superseded.', 'AbortError');
       }
+
       end++;
     }
+
     if ((end & 4_095) === 0 && shouldAbort?.()) {
       throw new DOMException('Viewport query superseded.', 'AbortError');
     }
+
     const candidates: number[] = [];
     let segmentStart = cursor;
     let gapRuns = 0;
+
     while (segmentStart < end) {
       const isMissing = !Number.isFinite(delta[segmentStart]);
       let segmentEnd = segmentStart + 1;
+
       while (segmentEnd < end && !Number.isFinite(delta[segmentEnd]) === isMissing) {
         if ((segmentEnd & 4_095) === 0 && shouldAbort?.()) {
           throw new DOMException('Viewport query superseded.', 'AbortError');
         }
+
         segmentEnd++;
       }
+
       if (isMissing) {
         gapRuns++;
         candidates.push(segmentStart);
+
         if (segmentEnd - 1 !== segmentStart) candidates.push(segmentEnd - 1);
       } else {
         let min = segmentStart;
         let max = segmentStart;
+
         for (let index = segmentStart + 1; index < segmentEnd; index++) {
           if ((index & 4_095) === 0 && shouldAbort?.()) {
             throw new DOMException('Viewport query superseded.', 'AbortError');
           }
+
           if (delta[index] < delta[min]) min = index;
+
           if (delta[index] > delta[max]) max = index;
         }
+
         candidates.push(segmentStart, min, max, segmentEnd - 1);
       }
+
       segmentStart = segmentEnd;
     }
+
     if (gapRuns > 32) {
       candidates.length = 0;
       candidates.push(cursor, end - 1);
+
       for (const index of candidates) {
         if (indexes[indexes.length - 1] !== index) indexes.push(index);
+
         forcedGapIndexes.add(index);
       }
+
       cursor = end;
       continue;
     }
+
     candidates.sort((a, b) => a - b);
+
     for (const index of candidates) if (indexes[indexes.length - 1] !== index) indexes.push(index);
+
     cursor = end;
   }
+
   return { indexes, forcedGapIndexes };
 }
 
@@ -120,7 +148,9 @@ export function downsampleDifferenceEnvelope(
   ) {
     throw new RangeError('Invalid difference envelope input or pixel width.');
   }
+
   if (result.timeSeconds.length <= pixelWidth * 4) return result;
+
   const { indexes, forcedGapIndexes } = selectDifferenceEnvelopeIndexes(
     result.timeSeconds,
     result.delta,

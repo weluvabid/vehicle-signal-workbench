@@ -76,6 +76,7 @@ test('inactive throttle and brake remain exactly zero in both recordings', async
 
   for (const recording of [reference, comparison]) {
     const rows = (await recording.text()).trim().split('\n').slice(1);
+
     for (const row of rows) {
       const [, , , throttle, brake] = row.split(',');
       assert.equal(Number(throttle), 0);
@@ -145,6 +146,7 @@ test('reference and comparison recordings share a 10ms sample cadence and stable
     const current = Number(referenceRows[index][0]);
     assert.ok(Math.abs(current - previous - 0.01) < 0.00001, 'reference cadence is 10ms');
   }
+
   for (let index = 1; index < comparisonRows.length; index += 1) {
     const previous = Number(comparisonRows[index - 1][0]);
     const current = Number(comparisonRows[index][0]);

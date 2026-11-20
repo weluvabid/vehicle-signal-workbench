@@ -205,6 +205,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         <div className="min-w-0">
           {props.selections.map((selection, index) => {
             if (index !== activeChannelIndexSafe) return null;
+
             const channel = props.reference.channels.find(
               (item) => item.id === selection.referenceChannelId,
             );

@@ -14,7 +14,9 @@ export function useWorkspaceShortcuts({ onHelp, onNewWorkload }: WorkspaceShortc
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || (event.shiftKey && event.key !== '+'))
         return;
+
       const target = event.target;
+
       if (
         target instanceof HTMLElement &&
         (target.isContentEditable ||

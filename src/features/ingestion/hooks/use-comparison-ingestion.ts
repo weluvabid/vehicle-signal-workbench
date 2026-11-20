@@ -42,6 +42,7 @@ export function useComparisonIngestion({
   const start = useCallback(
     async (preset: WorkloadPreset) => {
       if (runningRef.current) return;
+
       runningRef.current = true;
       setRunning(true);
       setError(null);
@@ -84,7 +85,9 @@ export function useComparisonIngestion({
         onOpenChange(false);
       } catch (cause) {
         if (reference) client.releaseDataset(reference.id);
+
         if (comparison) client.releaseDataset(comparison.id);
+
         setError(resolveIngestionFailure(cause));
       } finally {
         runningRef.current = false;

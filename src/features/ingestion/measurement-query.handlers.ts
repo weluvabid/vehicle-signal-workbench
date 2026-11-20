@@ -22,9 +22,11 @@ export async function handleComparisonQuery(
   try {
     const referenceDataset = context.datasets.get(request.referenceDatasetId);
     const comparisonDataset = context.datasets.get(request.comparisonDatasetId);
+
     if (!referenceDataset || !comparisonDataset) {
       throw new Error('One or both datasets are unavailable in this worker session.');
     }
+
     if (
       !Number.isInteger(request.pixelWidth) ||
       request.pixelWidth < 1 ||
@@ -43,6 +45,7 @@ export async function handleComparisonQuery(
     const recordIndexBuild = (durationMs: number) => {
       indexBuildMs += durationMs;
     };
+
     for (const selection of request.panels) {
       // Yield between panels so the worker can receive and process a cancel message.
       await yieldToWorker();
@@ -50,6 +53,7 @@ export async function handleComparisonQuery(
 
       const referenceChannel = referenceDataset.channels.get(selection.referenceChannelId);
       const comparisonChannel = comparisonDataset.channels.get(selection.comparisonChannelId);
+
       if (!referenceChannel || !comparisonChannel) {
         throw new Error(
           `Comparison channel pair is unavailable: ${selection.referenceChannelId}/${selection.comparisonChannelId}.`,
@@ -99,6 +103,7 @@ export async function handleComparisonQuery(
       timings: { indexBuildMs },
     };
     const transfer: Transferable[] = [];
+
     for (const panel of results) {
       transfer.push(
         panel.referenceWindow.timeSeconds.buffer,
@@ -107,6 +112,7 @@ export async function handleComparisonQuery(
         panel.comparisonWindow.values.buffer,
       );
     }
+
     context.postTransfer({ type: 'comparison-batch', requestId, result }, { transfer });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {

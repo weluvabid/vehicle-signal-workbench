@@ -55,7 +55,9 @@ export function ComparisonWizard({
 
   function close(next: boolean) {
     if (running) return;
+
     onOpenChange(next);
+
     if (!next) reset();
   }
 

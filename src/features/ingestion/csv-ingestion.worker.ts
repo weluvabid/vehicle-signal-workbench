@@ -15,11 +15,14 @@ self.onmessage = (event: MessageEvent<IngestionRequest>): void => {
       return;
     case 'cancel': {
       const active = context.activeImports.get(request.requestId);
+
       if (active) {
         active.cancelled = true;
         active.parser?.abort();
+
         if (active.parser) context.activeImports.delete(request.requestId);
       }
+
       context.activeQueries.delete(request.requestId);
       return;
     }

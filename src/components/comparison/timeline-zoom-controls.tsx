@@ -20,6 +20,7 @@ function getAdjacentZoom(factor: number, direction: -1 | 1): number {
     return (
       ZOOM_LEVELS.find((level) => level > factor + 1e-6) ?? ZOOM_LEVELS[ZOOM_LEVELS.length - 1]
     );
+
   return [...ZOOM_LEVELS].reverse().find((level) => level < factor - 1e-6) ?? ZOOM_LEVELS[0];
 }
 
@@ -44,6 +45,7 @@ export function TimelineZoomControls() {
     window.addEventListener(CHART_INTENTS.ZOOM_OUT, zoomOut);
     const update = (event: Event) => {
       const next = (event as CustomEvent<{ factor?: number }>).detail?.factor;
+
       if (typeof next === 'number' && Number.isFinite(next)) {
         const bounded = Math.max(1, Math.min(20, next));
         factorRef.current = bounded;

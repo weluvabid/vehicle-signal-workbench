@@ -22,6 +22,7 @@ export function parseTimestamp(
         rowNumber,
       );
     }
+
     epochMilliseconds = Date.parse(value);
   } else {
     const numeric = Number(value);
@@ -56,6 +57,7 @@ export function parseNumericSample(raw: string | undefined): number {
   const value = Number(raw);
 
   if (!Number.isFinite(value)) return Number.NaN;
+
   return Object.is(value, -0) ? 0 : value;
 }
 

@@ -79,6 +79,7 @@ export function importCsv(
 
   const fail = (error: unknown): void => {
     if (terminal) return;
+
     terminal = true;
     const measurementError =
       error instanceof MeasurementError
@@ -200,9 +201,11 @@ export function importCsv(
           if (sampleCount === bufferCapacity) {
             const nextCapacity = bufferCapacity * 2;
             timeValues = grow(timeValues, nextCapacity);
+
             for (const channel of channels) {
               channel.values = grow(channel.values, nextCapacity);
             }
+
             bufferCapacity = nextCapacity;
           }
 
@@ -288,20 +291,24 @@ export function importCsv(
         const storedChannels = new Map<string, StoredChannel>();
         let channelValueBytes = 0;
         let envelopeIndexBytes = 0;
+
         for (const channel of validChannels) {
           // Compact the geometrically grown import buffer. The copy is deliberate:
           // retaining a subarray would pin up to 2x capacity for the dataset lifetime.
           const values = channel.values.slice(0, sampleCount);
           const envelopeIndex = createTieredChannelIndex(sampleCount);
+
           // Small datasets keep the eager path; larger datasets build only the
           // tiers requested by the active slider viewport.
           if (sampleCount <= EAGER_INDEX_SAMPLE_THRESHOLD) {
             buildAllChannelIndexTiers(envelopeIndex, values);
           }
+
           envelopeIndexBytes += getTieredIndexBytes(envelopeIndex);
           channelValueBytes += values.byteLength;
           storedChannels.set(channel.id, { values, envelopeIndex });
         }
+
         const timeAxis = timeValues.slice(0, sampleCount);
         const timeAxisBytes = timeAxis.byteLength;
         const retainedStorageBytes = timeAxisBytes + channelValueBytes + envelopeIndexBytes;

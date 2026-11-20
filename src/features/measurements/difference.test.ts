@@ -226,8 +226,11 @@ test('builds pixel-bounded difference envelopes without full-resolution result a
   const comparisonValues = Float64Array.from({ length: times.length }, (_, index) =>
     Math.cos(index / 23),
   );
+
   for (let index = 1_000; index < 1_100; index++) comparisonValues[index] = Number.NaN;
+
   for (let index = 4_000; index < 4_050; index++) referenceValues[index] = Number.NaN;
+
   const reference = {
     datasetId: 'r',
     channelId: 'rpm',
@@ -245,6 +248,7 @@ test('builds pixel-bounded difference envelopes without full-resolution result a
   const actual = calculateSignalDifferenceEnvelopeInTimeRange(reference, comparison, 0, 100, 0, 80);
   const assertSameNumbers = (left: Float64Array, right: Float64Array) => {
     assert.equal(left.length, right.length);
+
     for (let index = 0; index < left.length; index++) {
       if (Number.isNaN(left[index]))
         assert.ok(Number.isNaN(right[index]), `expected NaN at ${index}`);

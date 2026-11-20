@@ -18,13 +18,17 @@ export async function handleMetricsQuery(
     (cancelFlag !== null && Atomics.load(cancelFlag, 0) !== 0);
   const checkpoint = async () => {
     await yieldToWorker();
+
     if (cancelled()) throw new DOMException('Metrics query superseded.', 'AbortError');
   };
+
   try {
     const reference = context.datasets.get(request.referenceDatasetId);
     const comparison = context.datasets.get(request.comparisonDatasetId);
+
     if (!reference || !comparison)
       throw new Error('One or both datasets are unavailable in this worker session.');
+
     if (
       !Number.isFinite(request.startSeconds) ||
       !Number.isFinite(request.endSeconds) ||
@@ -41,15 +45,18 @@ export async function handleMetricsQuery(
     const recordIndexBuild = (durationMs: number) => {
       indexBuildMs += durationMs;
     };
+
     for (const panel of request.panels) {
       await checkpoint();
       const referenceChannel = reference.channels.get(panel.referenceChannelId);
       const comparisonChannel = comparison.channels.get(panel.comparisonChannelId);
+
       if (!referenceChannel || !comparisonChannel) {
         throw new Error(
           `Metrics channel pair is unavailable: ${panel.referenceChannelId}/${panel.comparisonChannelId}.`,
         );
       }
+
       const referenceBuffers = {
         timeSeconds: reference.timeSeconds,
         values: referenceChannel.values,
@@ -102,7 +109,9 @@ export async function handleMetricsQuery(
       );
       results.push({ referenceStatistics, comparisonStatistics, differenceStatistics });
     }
+
     if (cancelled()) throw new DOMException('Metrics query superseded.', 'AbortError');
+
     context.post({
       type: 'metrics',
       requestId,

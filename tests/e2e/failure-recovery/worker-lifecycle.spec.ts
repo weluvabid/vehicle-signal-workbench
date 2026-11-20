@@ -15,6 +15,7 @@ test('worker startup failure is surfaced and a subsequent generated workload can
             failNextWorker = false;
             throw new Error('E2E forced worker startup failure');
           }
+
           super(scriptURL, options);
         }
       },

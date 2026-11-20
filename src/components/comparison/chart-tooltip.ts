@@ -4,6 +4,7 @@ import { formatChartValue } from './chart-value-format.ts';
 
 function tooltipItems(value: unknown): { readonly axisValue?: string | number }[] {
   if (Array.isArray(value)) return value;
+
   return value && typeof value === 'object'
     ? [value as { readonly axisValue?: string | number }]
     : [];
@@ -14,19 +15,25 @@ function sampleRenderedSeries(
   targetSeconds: number,
 ): number | null {
   if (!Number.isFinite(targetSeconds) || points.length === 0) return null;
+
   let low = 0;
   let high = points.length;
+
   while (low < high) {
     const middle = low + Math.floor((high - low) / 2);
+
     if (points[middle][0] < targetSeconds) low = middle + 1;
     else high = middle;
   }
 
   const right = points[low];
+
   if (right && Math.abs(right[0] - targetSeconds) <= 1e-9) {
     return right[1] !== null && Number.isFinite(right[1]) ? right[1] : null;
   }
+
   const left = points[low - 1];
+
   if (
     !left ||
     !right ||
@@ -36,8 +43,11 @@ function sampleRenderedSeries(
     !Number.isFinite(right[1])
   )
     return null;
+
   const span = right[0] - left[0];
+
   if (!(span > 0)) return null;
+
   return left[1] + (right[1] - left[1]) * ((targetSeconds - left[0]) / span);
 }
 
@@ -61,11 +71,14 @@ export function createTooltipFormatter(
 ) {
   return (rawParams: unknown): string => {
     const items = tooltipItems(rawParams);
+
     if (items.length === 0) return '';
+
     const axisValue = items.find((item) => item.axisValue !== undefined)?.axisValue;
     const pointerTime = getPointerTime();
     const time =
       pointerTime !== null && Number.isFinite(pointerTime) ? pointerTime : Number(axisValue);
+
     if (!Number.isFinite(time)) return '';
 
     const rows = panels

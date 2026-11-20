@@ -24,6 +24,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       const chart = chartRef.current;
+
       if (!chart || chart.isDisposed()) return;
 
       const modifierCount =
@@ -31,16 +32,21 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
         Number(event.ctrlKey) +
         Number(event.shiftKey) +
         Number(event.altKey);
+
       if (modifierCount === 0) {
         event.stopImmediatePropagation();
         return;
       }
+
       if (modifierCount !== 1) return;
 
       const zooms = getZoomRanges(chart);
       const horizontal = zooms.find((item) => item.id === CHART_DATA_ZOOM_IDS.horizontalInside);
+
       if (typeof horizontal?.start !== 'number' || typeof horizontal.end !== 'number') return;
+
       const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+
       if (!Number.isFinite(delta) || delta === 0) return;
 
       event.preventDefault();
@@ -65,6 +71,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
           anchor,
           minimumSpan,
         );
+
         if (next)
           chart.dispatchAction({
             type: 'dataZoom',
@@ -72,6 +79,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
             start: next.start,
             end: next.end,
           });
+
         return;
       }
 
@@ -116,8 +124,11 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
 
   const setHorizontalZoom = useCallback((event: Event) => {
     const chart = chartRef.current;
+
     if (!chart || chart.isDisposed()) return;
+
     const factor = (event as CustomEvent<{ factor?: number }>).detail?.factor;
+
     if (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 1) {
       chart.dispatchAction({
         type: 'dataZoom',
@@ -127,6 +138,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       });
       return;
     }
+
     const boundedFactor = Math.min(20, Math.max(1, factor));
     const span = 100 / boundedFactor;
     const current = getZoomRanges(chart).find(
@@ -149,6 +161,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
     (chart: echarts.EChartsType) => {
       if (targetRef.current && handlerRef.current)
         targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+
       chartRef.current = chart;
       const target = chart.getDom();
       target.addEventListener('wheel', handleWheel, { passive: false, capture: true });
@@ -160,13 +173,16 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
 
   const resetAllZoom = useCallback(() => {
     const chart = chartRef.current;
+
     if (!chart || chart.isDisposed()) return;
+
     chart.dispatchAction({
       type: 'dataZoom',
       dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
       start: 0,
       end: 100,
     });
+
     for (let index = 0; index < panelCount; index += 1) {
       chart.dispatchAction({
         type: 'dataZoom',
@@ -190,6 +206,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
     () => () => {
       if (targetRef.current && handlerRef.current)
         targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+
       chartRef.current = null;
     },
     [],

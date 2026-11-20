@@ -78,6 +78,7 @@ export function useSignalViewport(options: SignalViewportOptions) {
       !pendingViewport.current
     )
       return;
+
     const viewport = pendingViewport.current;
     pendingViewport.current = null;
     debounceElapsed.current = false;
@@ -110,6 +111,7 @@ export function useSignalViewport(options: SignalViewportOptions) {
           activeQuery.current !== handle
         )
           return;
+
         const plotStartedAt = performance.now();
         const nextResults = mapComparisonPanels(
           batch.panels,
@@ -117,12 +119,15 @@ export function useSignalViewport(options: SignalViewportOptions) {
           options.reference,
           options.offsetSeconds,
         );
+
         if (generation.current !== currentGeneration) return;
+
         const plotSeriesMs = performance.now() - plotStartedAt;
         const elapsedMs = performance.now() - queryStartedAt;
         setResults(nextResults);
         hasStartedInitialQuery.current = true;
         setResultsRange({ start: viewport.start, end: viewport.end });
+
         if (isInitialPreparation) {
           setInitialPreparationState({
             contextKey: queryContextKey,
@@ -135,14 +140,18 @@ export function useSignalViewport(options: SignalViewportOptions) {
       })
       .catch((cause: unknown) => {
         if (!mounted.current || generation.current !== currentGeneration) return;
+
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
+
         setError(cause instanceof Error ? cause.message : COMPARISON_LABELS.unableQuerySignalData);
       })
       .finally(() => {
         if (activeQuery.current === handle) activeQuery.current = null;
+
         if (mounted.current && generation.current === currentGeneration) {
           setLoading(false);
         }
+
         startPendingQueryRef.current();
       });
   }, [
@@ -162,6 +171,7 @@ export function useSignalViewport(options: SignalViewportOptions) {
     (startSeconds: number, endSeconds: number, pixelWidth: number) => {
       const start = Math.max(options.startSeconds, startSeconds);
       const end = Math.min(options.endSeconds, endSeconds);
+
       if (
         !Number.isFinite(start) ||
         !Number.isFinite(end) ||
@@ -169,9 +179,12 @@ export function useSignalViewport(options: SignalViewportOptions) {
         options.selections.length === 0
       )
         return;
+
       const width = Math.max(1, Math.min(8_192, Math.floor(pixelWidth)));
       const key = [start.toPrecision(13), end.toPrecision(13), width, selectionKey].join(':');
+
       if (key === lastRequestKey.current) return;
+
       lastRequestKey.current = key;
       generation.current += 1; // invalidate any result already in flight immediately
       pendingViewport.current = { start, end, width, key };
@@ -180,7 +193,9 @@ export function useSignalViewport(options: SignalViewportOptions) {
       // A new viewport makes the active result stale immediately. The worker
       // acknowledges cancellation at cooperative yield points in its batch.
       activeQuery.current?.cancel();
+
       if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+
       debounceTimer.current = setTimeout(() => {
         debounceTimer.current = null;
         debounceElapsed.current = true;
@@ -203,12 +218,16 @@ export function useSignalViewport(options: SignalViewportOptions) {
     pendingViewport.current = null;
     debounceElapsed.current = false;
     activeQuery.current?.cancel();
+
     if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+
     return () => {
       mounted.current = false;
       generation.current += 1;
       pendingViewport.current = null;
+
       if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+
       debounceTimer.current = null;
       activeQuery.current?.cancel();
       activeQuery.current = null;

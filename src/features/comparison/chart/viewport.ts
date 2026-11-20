@@ -1,9 +1,12 @@
 export function parseFiniteChartNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
+
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
+
     if (Number.isFinite(parsed)) return parsed;
   }
+
   return null;
 }
 
@@ -29,6 +32,7 @@ export function resolveDataZoomViewport(
 ): TimeViewport | null {
   if (!Number.isFinite(domainStart) || !Number.isFinite(domainEnd) || domainEnd <= domainStart)
     return null;
+
   const events = rawEvent.batch?.length ? [...rawEvent.batch].reverse() : [rawEvent];
   const event = events.find((candidate) => {
     const hasValues =
@@ -39,6 +43,7 @@ export function resolveDataZoomViewport(
       parseFiniteChartNumber(candidate.end) !== null;
     return hasValues || hasPercentages;
   });
+
   if (!event) return null;
 
   const duration = domainEnd - domainStart;
@@ -50,7 +55,9 @@ export function resolveDataZoomViewport(
     startValue ?? (startPercent === null ? null : domainStart + (duration * startPercent) / 100);
   const end =
     endValue ?? (endPercent === null ? null : domainStart + (duration * endPercent) / 100);
+
   if (start === null || end === null || end <= start) return null;
+
   const boundedStart = Math.max(domainStart, start);
   const boundedEnd = Math.min(domainEnd, end);
   return boundedEnd > boundedStart ? { startSeconds: boundedStart, endSeconds: boundedEnd } : null;

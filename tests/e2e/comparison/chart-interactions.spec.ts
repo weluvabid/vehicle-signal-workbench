@@ -14,14 +14,17 @@ test('rapid zoom and pan interactions keep chart and worker-backed statistics co
   await expect(canvas).toBeVisible();
   const bounds = await canvas.boundingBox();
   expect(bounds).not.toBeNull();
+
   if (!bounds) return;
 
   const x = bounds.x + bounds.width / 2;
   const y = bounds.y + bounds.height / 3;
   await page.mouse.move(x, y);
+
   for (let index = 0; index < 5; index += 1) {
     await page.mouse.wheel(0, index % 2 === 0 ? -240 : 180);
   }
+
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x + 120, y + 5, { steps: 8 });
@@ -44,6 +47,7 @@ test('chart remains interactive after a generated workload is loaded', async ({ 
   const canvas = chart.locator('canvas').first();
   const bounds = await canvas.boundingBox();
   expect(bounds).not.toBeNull();
+
   if (!bounds) return;
 
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
