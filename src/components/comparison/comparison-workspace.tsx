@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Activity, ArrowRight } from 'lucide-react';
 import { ComparisonWizard } from '@/components/ingestion/comparison-wizard';
 import { SignalComparisonPlot } from '@/components/comparison/signal-comparison-plot';
@@ -10,6 +10,7 @@ import { SiteHeader } from '@/components/site/site-header';
 import { Card, CardContent } from '@/components/ui/card';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { WORKSPACE_LABELS as LABELS } from '@/constants/comparison-labels';
+import { CHART_INTENTS } from '@/intents/chart-intents';
 
 interface ImportMetrics {
   readonly ingestionDurationMs: number;
@@ -24,6 +25,35 @@ export function ComparisonWorkspace() {
     compatibleMappings, selectedSignals, setRun,
   } = useComparisonWorkspace();
   const canPlot = Boolean(reference && comparison && overlap && overlap.durationSeconds > 0 && compatibleMappings.length > 0);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || (event.shiftKey && event.key !== '+')) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (
+        target.isContentEditable ||
+        target.closest('input, textarea, select, [role="textbox"], [contenteditable="true"], [role="dialog"]')
+      )) return;
+
+      if (event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        setWizardOpen(true);
+      } else if (event.key === '0') {
+        event.preventDefault();
+        window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM));
+      } else if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        window.dispatchEvent(new Event(CHART_INTENTS.ZOOM_IN));
+      } else if (event.key === '-') {
+        event.preventDefault();
+        window.dispatchEvent(new Event(CHART_INTENTS.ZOOM_OUT));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleComplete = useCallback((referenceDataset: DatasetDescriptor, comparisonDataset: DatasetDescriptor, metrics: ImportMetrics) => {
     if (!referenceDataset || !comparisonDataset) return;
     setRun('reference', referenceDataset);

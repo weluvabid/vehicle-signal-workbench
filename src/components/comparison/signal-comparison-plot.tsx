@@ -76,6 +76,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
               variant="outline"
               size="icon-sm"
               aria-label={LABELS.resetZoom}
+              aria-keyshortcuts="0"
               onClick={() => window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM))}
               className="size-9 rounded-lg bg-background/90"
             />}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { Minus, Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -22,18 +22,42 @@ function getAdjacentZoom(factor: number, direction: -1 | 1): number {
 
 export function TimelineZoomControls() {
   const [factor, setFactor] = useState(1);
+  const factorRef = useRef(1);
 
   useEffect(() => {
+    const zoomIn = () => {
+      const next = getAdjacentZoom(factorRef.current, 1);
+      factorRef.current = next;
+      setFactor(next);
+      applyZoom(next);
+    };
+    const zoomOut = () => {
+      const next = getAdjacentZoom(factorRef.current, -1);
+      factorRef.current = next;
+      setFactor(next);
+      applyZoom(next);
+    };
+    window.addEventListener(CHART_INTENTS.ZOOM_IN, zoomIn);
+    window.addEventListener(CHART_INTENTS.ZOOM_OUT, zoomOut);
     const update = (event: Event) => {
       const next = (event as CustomEvent<{ factor?: number }>).detail?.factor;
-      if (typeof next === 'number' && Number.isFinite(next)) setFactor(Math.max(1, Math.min(20, next)));
+      if (typeof next === 'number' && Number.isFinite(next)) {
+        const bounded = Math.max(1, Math.min(20, next));
+        factorRef.current = bounded;
+        setFactor(bounded);
+      }
     };
     window.addEventListener(CHART_INTENTS.HORIZONTAL_ZOOM_CHANGED, update);
-    return () => window.removeEventListener(CHART_INTENTS.HORIZONTAL_ZOOM_CHANGED, update);
+    return () => {
+      window.removeEventListener(CHART_INTENTS.HORIZONTAL_ZOOM_CHANGED, update);
+      window.removeEventListener(CHART_INTENTS.ZOOM_IN, zoomIn);
+      window.removeEventListener(CHART_INTENTS.ZOOM_OUT, zoomOut);
+    };
   }, []);
 
   const set = (next: number) => {
     const bounded = Math.max(1, Math.min(20, next));
+    factorRef.current = bounded;
     setFactor(bounded);
     applyZoom(bounded);
   };
@@ -42,7 +66,7 @@ export function TimelineZoomControls() {
     <TooltipProvider>
       <div className="flex h-8 items-center gap-0.5 rounded-md border border-border/70 bg-background/95 px-1 shadow-sm backdrop-blur" role="group" aria-label={LABELS.timelineControls}>
         <Tooltip>
-          <TooltipTrigger render={<Button type="button" size="icon-xs" variant="ghost" aria-label={LABELS.zoomOut} disabled={factor <= 1} onClick={() => set(getAdjacentZoom(factor, -1))} />}>
+          <TooltipTrigger render={<Button type="button" size="icon-xs" variant="ghost" aria-label={LABELS.zoomOut} aria-keyshortcuts="-" disabled={factor <= 1} onClick={() => set(getAdjacentZoom(factor, -1))} />}>
             <Minus />
           </TooltipTrigger>
           <TooltipContent>{LABELS.zoomOut}</TooltipContent>
@@ -64,7 +88,7 @@ export function TimelineZoomControls() {
           </PopoverContent>
         </Popover>
         <Tooltip>
-          <TooltipTrigger render={<Button type="button" size="icon-xs" variant="ghost" aria-label={LABELS.zoomIn} disabled={factor >= 20} onClick={() => set(getAdjacentZoom(factor, 1))} />}>
+          <TooltipTrigger render={<Button type="button" size="icon-xs" variant="ghost" aria-label={LABELS.zoomIn} aria-keyshortcuts="+ =" disabled={factor >= 20} onClick={() => set(getAdjacentZoom(factor, 1))} />}>
             <Plus />
           </TooltipTrigger>
           <TooltipContent>{LABELS.zoomIn}</TooltipContent>
