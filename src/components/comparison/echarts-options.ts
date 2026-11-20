@@ -140,7 +140,7 @@ export function createSignalChartOption(
         xAxisIndex: axisIndexes,
         minSpan: 5,
         left: '4%',
-        right: '4%',
+        right: isNarrow ? 142 : 164,
         height: 16,
         handleSize: 14,
         moveHandleSize: 10,

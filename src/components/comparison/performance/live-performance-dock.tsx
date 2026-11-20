@@ -18,14 +18,14 @@ export function LivePerformanceDock({ fps, ingestion, throughput, memory, rows }
   ];
 
   return (
-    <section className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_rgb(0_0_0/0.18)] backdrop-blur-xl" aria-label={LABELS.livePerformance} data-testid="live-performance-dock">
-      <div className="w-full px-5 py-3 sm:px-8 sm:py-4 lg:px-10">
+    <section className="fixed inset-x-0 bottom-0 z-40 box-border w-full max-w-full overflow-x-clip border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_rgb(0_0_0/0.18)] backdrop-blur-xl" aria-label={LABELS.livePerformance} data-testid="live-performance-dock">
+      <div className="box-border w-full min-w-0 px-4 py-3 sm:px-6 sm:py-4 lg:px-10">
         <h2 className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{LABELS.livePerformance}</h2>
-        <div className="grid grid-cols-2 items-start gap-x-4 gap-y-3 sm:grid-cols-4 sm:gap-6 lg:gap-10">
+        <div className="grid w-full min-w-0 grid-cols-[repeat(2,minmax(0,1fr))] items-start gap-x-4 gap-y-3 md:grid-cols-[repeat(4,minmax(0,1fr))] md:gap-6 lg:gap-10">
             {items.map((item) => (
               <div key={item.label} className="min-w-0">
                 <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{item.label}</p>
-                <p className="mt-0.5 truncate font-mono text-base font-medium tabular-nums sm:text-xl">{item.value}{item.unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{item.unit}</span>}</p>
+                <p className="mt-0.5 flex min-w-0 items-baseline gap-1 overflow-hidden font-mono text-base font-medium tabular-nums sm:text-xl"><span className="min-w-0 truncate">{item.value}</span>{item.unit && <span className="shrink-0 text-xs font-normal text-muted-foreground">{item.unit}</span>}</p>
                 <p className="mt-0.5 truncate text-[10px] text-muted-foreground/75 sm:text-[11px]">{item.detail}</p>
               </div>
             ))}
