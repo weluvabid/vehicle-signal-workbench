@@ -241,10 +241,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
     options.endSeconds,
   ]);
 
-  useEffect(() => {
-    requestViewport(options.startSeconds, options.endSeconds, 1_024);
-  }, [requestViewport, options.startSeconds, options.endSeconds]);
-
   const initialPreparation =
     initialPreparationState?.contextKey === queryContextKey ? initialPreparationState.value : null;
 
