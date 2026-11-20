@@ -81,6 +81,7 @@ function EChartsSignalChartComponent({
   // Keep high-frequency pointer updates outside React state and render-time refs.
   const pointerTime = useMemo(() => createPointerTimeStore(), []);
   const [cursorTime, setCursorTime] = useState<number | null>(null);
+  const horizontalZoomInitialized = useRef(false);
   const [visiblePercent, setVisiblePercent] = useState({ start: 0, end: 100 });
   const cursorFrame = useRef<number | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState<
@@ -189,6 +190,7 @@ function EChartsSignalChartComponent({
 
   const handleChartReady = useCallback(
     (chart: EChartsReactInstance) => {
+      horizontalZoomInitialized.current = true;
       registerChart(chart);
       // echarts-for-react and echarts/core resolve separate ECharts declarations
       // in ECharts 6. The runtime instance is shared; adapt at this boundary.
@@ -198,6 +200,8 @@ function EChartsSignalChartComponent({
     [attachChart, registerChart, requestInitialViewport],
   );
 
+  // Seed the horizontal viewport on the first option only. Once ECharts is
+  // initialized, data-only option updates must preserve its interactive range.
   const option = useMemo(
     () =>
       measuredWidth > 0 && chartHeight > 0
@@ -209,6 +213,7 @@ function EChartsSignalChartComponent({
             measuredWidth,
             initialVisibleFraction,
             getPointerTime,
+            !horizontalZoomInitialized.current,
           )
         : null,
     [

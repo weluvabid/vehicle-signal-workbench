@@ -18,6 +18,7 @@ export function createSignalChartOption(
   chartWidth: number,
   initialVisibleFraction = 1,
   getPointerTime: () => number | null = () => null,
+  initializeHorizontalZoom = true,
 ): EChartsOption {
   const axisIndexes = panels.map((_, index) => index);
   const lastVisibleIndex = panels.reduce(
@@ -128,8 +129,9 @@ export function createSignalChartOption(
       {
         id: CHART_DATA_ZOOM_IDS.horizontalInside,
         type: 'inside',
-        start: (1 - initialVisibleFraction) * 100,
-        end: 100,
+        ...(initializeHorizontalZoom
+          ? { start: (1 - initialVisibleFraction) * 100, end: 100 }
+          : {}),
         xAxisIndex: axisIndexes,
         filterMode: 'none',
         minSpan: 5,
@@ -142,8 +144,9 @@ export function createSignalChartOption(
       {
         id: CHART_DATA_ZOOM_IDS.horizontalSlider,
         type: 'slider',
-        start: (1 - initialVisibleFraction) * 100,
-        end: 100,
+        ...(initializeHorizontalZoom
+          ? { start: (1 - initialVisibleFraction) * 100, end: 100 }
+          : {}),
         xAxisIndex: axisIndexes,
         minSpan: 5,
         left: 0,
