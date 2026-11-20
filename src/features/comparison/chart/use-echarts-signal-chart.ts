@@ -4,12 +4,12 @@ import { CHART_DATA_ZOOM_IDS } from '@/intents/chart-intents';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { resolveDataZoomViewport, type DataZoomRangeEvent } from './viewport';
 import { getInitialViewport } from '@/features/comparison/initial-viewport';
+import { resolveSamplingPixelWidth } from './sampling-budget';
 
 interface ResizableChart {
   resize: (options?: { width?: number; height?: number; silent?: boolean }) => void;
   getWidth: () => number;
   getHeight: () => number;
-  convertToPixel: (finder: { xAxisIndex: number }, value: number) => number | number[];
   isDisposed: () => boolean;
 }
 
@@ -45,7 +45,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   const animationFrame = useRef<number | null>(null);
   const resizeFrame = useRef<number | null>(null);
   const chartInstance = useRef<ResizableChart | null>(null);
-  const chartPlotWidth = useRef(1);
+  const samplingBudget = useRef(5);
   const [measuredSize, setMeasuredSize] = useState<ObservedSize>({ width: 0, height: 0 });
   const { width: measuredWidth, height: chartHeight } = measuredSize;
   const {
@@ -56,20 +56,10 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   } = options;
   const latestProps = useRef(options);
 
-  // Measure the actual drawable x-axis span. Chart/container width includes
-  // axis labels, gutters and other non-plot space, so it overstates the useful
-  // horizontal resolution available to the signal series.
-  const measurePlotWidth = useCallback((chart: ResizableChart) => {
-    const { domainStartSeconds: start, domainEndSeconds: end } = latestProps.current;
-    const startResult = chart.convertToPixel({ xAxisIndex: 0 }, start);
-    const endResult = chart.convertToPixel({ xAxisIndex: 0 }, end);
-    const startPixel = typeof startResult === 'number' ? startResult : Number.NaN;
-    const endPixel = typeof endResult === 'number' ? endResult : Number.NaN;
-    const width = Math.floor(Math.abs(endPixel - startPixel));
-
-    return Number.isFinite(width) && width > 0
-      ? width
-      : Math.max(1, Math.floor(chart.getWidth()) - 76);
+  // Sampling is intentionally bounded. Use the chart container width only to
+  // select a small budget; never pass raw monitor or viewport dimensions to the worker.
+  const measureSamplingBudget = useCallback((chart: ResizableChart) => {
+    return resolveSamplingPixelWidth(chart.getWidth());
   }, []);
 
   useEffect(() => {
@@ -120,14 +110,14 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
         chart.resize({ width, height, silent: true });
       }
 
-      const plotWidth = measurePlotWidth(chart);
-      if (plotWidth !== chartPlotWidth.current) {
-        chartPlotWidth.current = plotWidth;
+      const nextBudget = measureSamplingBudget(chart);
+      if (nextBudget !== samplingBudget.current) {
+        samplingBudget.current = nextBudget;
         const viewport = lastViewport.current;
-        if (viewport) dispatchViewport({ ...viewport, pixelWidth: plotWidth });
+        if (viewport) dispatchViewport({ ...viewport, pixelWidth: nextBudget });
       }
     });
-  }, [dispatchViewport, measurePlotWidth]);
+  }, [dispatchViewport, measureSamplingBudget]);
 
   useLayoutEffect(() => {
     resizeChartToContainer();
@@ -186,16 +176,16 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
   const requestInitialViewport = useCallback(
     (chart: ResizableChart) => {
-      chartPlotWidth.current = measurePlotWidth(chart);
+      samplingBudget.current = measureSamplingBudget(chart);
       const initial = getInitialViewport(
         latestProps.current.domainStartSeconds,
         latestProps.current.domainEndSeconds,
         latestProps.current.initialVisibleFraction,
       );
-      dispatchViewport({ ...initial, pixelWidth: chartPlotWidth.current });
+      dispatchViewport({ ...initial, pixelWidth: samplingBudget.current });
       latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
     },
-    [dispatchViewport, measurePlotWidth],
+    [dispatchViewport, measureSamplingBudget],
   );
 
   const handleDataZoom = useCallback(
@@ -217,7 +207,7 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
       if (!viewport) return;
 
-      dispatchViewport({ ...viewport, pixelWidth: chartPlotWidth.current });
+      dispatchViewport({ ...viewport, pixelWidth: samplingBudget.current });
       latestProps.current.onMetricsViewportChange(
         viewport.startSeconds,
         viewport.endSeconds,
