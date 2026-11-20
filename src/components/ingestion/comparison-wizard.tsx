@@ -40,7 +40,7 @@ export function ComparisonWizard({ open, onOpenChange, client, onComplete }: Com
       <DialogContent className="sm:max-w-2xl" showCloseButton={!running}>
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <div className="grid size-9 place-items-center rounded-lg border bg-muted/40"><Activity className="size-4" /></div>
+            <div className="hidden size-9 place-items-center rounded-lg border bg-muted/40 sm:grid"><Activity className="size-4" /></div>
             <div>
               <DialogTitle>{INGESTION_COPY.dialogTitle}</DialogTitle>
               <DialogDescription className="mt-1">{INGESTION_COPY.dialogDescription}</DialogDescription>
