@@ -1,7 +1,7 @@
 'use client';
 
 import { CHART_DATA_ZOOM_IDS } from '@/intents/chart-intents';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { resolveDataZoomViewport, type DataZoomRangeEvent } from './viewport';
 import { getInitialViewport } from '@/features/comparison/initial-viewport';
 
@@ -36,12 +36,11 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   const pendingViewport = useRef<PendingViewport | null>(null);
   const lastViewport = useRef<PendingViewport | null>(null);
   const animationFrame = useRef<number | null>(null);
-  const resizeFrame = useRef<number | null>(null);
   const chartInstance = useRef<ResizableChart | null>(null);
   const observedSize = useRef<ObservedSize>({ width: 0, height: 0 });
   const chartWidth = useRef(1);
-  const [chartHeight, setChartHeight] = useState(0);
-  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const [measuredSize, setMeasuredSize] = useState<ObservedSize>({ width: 0, height: 0 });
+  const { width: measuredWidth, height: chartHeight } = measuredSize;
   const latestProps = useRef(options);
 
   useEffect(() => { latestProps.current = options; }, [options]);
@@ -60,21 +59,23 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     });
   }, []);
 
-  const scheduleChartResize = useCallback(() => {
-    if (resizeFrame.current !== null) return;
-    resizeFrame.current = requestAnimationFrame(() => {
-      resizeFrame.current = null;
-      const chart = chartInstance.current;
-      const { width, height } = observedSize.current;
-      if (!chart || chart.isDisposed() || width <= 0 || height <= 0) return;
-      chart.resize({ width, height, silent: true });
-    });
-  }, []);
+  // Resize after React has committed the matching geometry-derived option.
+  // Keeping measurement in one state value prevents width/height from producing
+  // separate intermediate chart configurations.
+  useLayoutEffect(() => {
+    const chart = chartInstance.current;
+    const { width, height } = measuredSize;
+    if (!chart || chart.isDisposed() || width <= 0 || height <= 0) return;
+    chart.resize({ width, height, silent: true });
+  }, [measuredSize]);
 
   const registerChart = useCallback((chart: ResizableChart) => {
     chartInstance.current = chart;
-    scheduleChartResize();
-  }, [scheduleChartResize]);
+    const { width, height } = observedSize.current;
+    if (width > 0 && height > 0 && !chart.isDisposed()) {
+      chart.resize({ width, height, silent: true });
+    }
+  }, []);
 
   useEffect(() => {
     if (!options.hasPanels) return;
@@ -101,29 +102,26 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
       previousWidth = width;
       previousHeight = height;
       observedSize.current = { width, height };
-      scheduleChartResize();
+      if (widthChanged || heightChanged) {
+        setMeasuredSize((current) => current.width === width && current.height === height
+          ? current
+          : { width, height });
+      }
 
       if (widthChanged) {
-        setMeasuredWidth((current) => current === width ? current : width);
         chartWidth.current = width;
         const viewport = lastViewport.current;
         if (viewport) dispatchViewport({ ...viewport, pixelWidth: width });
       }
-      if (heightChanged) setChartHeight((current) => current === height ? current : height);
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
-      if (resizeFrame.current !== null) {
-        cancelAnimationFrame(resizeFrame.current);
-        resizeFrame.current = null;
-      }
     };
-  }, [dispatchViewport, scheduleChartResize]);
+  }, [dispatchViewport]);
 
   useEffect(() => () => {
     if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
-    if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
     chartInstance.current = null;
   }, []);
 

@@ -121,7 +121,9 @@ function EChartsSignalChartComponent({
   }, [attachChart, registerChart, requestInitialViewport]);
 
   const option = useMemo(
-    () => createSignalChartOption(visiblePanels, domainStartSeconds, domainEndSeconds, chartHeight || 600, measuredWidth || 1024, initialVisibleFraction, getPointerTime),
+    () => measuredWidth > 0 && chartHeight > 0
+      ? createSignalChartOption(visiblePanels, domainStartSeconds, domainEndSeconds, chartHeight, measuredWidth, initialVisibleFraction, getPointerTime)
+      : null,
     [chartHeight, domainEndSeconds, domainStartSeconds, initialVisibleFraction, measuredWidth, visiblePanels, getPointerTime],
   );
 
@@ -162,18 +164,20 @@ function EChartsSignalChartComponent({
         );
       })}
       <div className="absolute inset-0 z-10">
-        <ReactEChartsCore
-          echarts={echarts}
-          autoResize={false}
-          option={option}
-          notMerge={false}
-          replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
-          lazyUpdate
-          opts={ECHARTS_OPTIONS}
-          onChartReady={handleChartReady}
-          onEvents={chartEvents}
-          style={CHART_STYLE}
-        />
+        {option && (
+          <ReactEChartsCore
+            echarts={echarts}
+            autoResize={false}
+            option={option}
+            notMerge={false}
+            replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
+            lazyUpdate
+            opts={ECHARTS_OPTIONS}
+            onChartReady={handleChartReady}
+            onEvents={chartEvents}
+            style={CHART_STYLE}
+          />
+        )}
       </div>
     </div>
   );
