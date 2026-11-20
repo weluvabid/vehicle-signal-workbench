@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { WORKLOAD_PRESETS } from './synthetic-drive.ts';
 
 test('workload presets increase monotonically and cap each recording at ten million rows', () => {
-  assert.deepEqual(WORKLOAD_PRESETS.map((preset) => preset.rows), [25_000, 250_000, 625_000, 1_250_000, 2_500_000, 6_250_000, 10_000_000]);
+  assert.deepEqual(WORKLOAD_PRESETS.map((preset) => preset.rows), [25_000, 250_000, 625_000, 1_000_000, 1_250_000, 2_500_000, 6_250_000, 10_000_000]);
   assert.ok(WORKLOAD_PRESETS.every((preset) => preset.rows <= 10_000_000));
   assert.ok(WORKLOAD_PRESETS.every((preset, index) => index === 0 || preset.rows > WORKLOAD_PRESETS[index - 1].rows));
 });
@@ -116,7 +116,7 @@ test('reference and comparison recordings share a 10ms sample cadence and stable
     generateDriveRecording(128, 'reference'),
     generateDriveRecording(128, 'comparison'),
   ]);
-  const parse = async (file: File) => (await file.text()).trim().split('\\n').slice(1).map((line) => {
+  const parse = async (file: File) => (await file.text()).trim().split('\n').slice(1).map((line) => {
     const fields = line.split(',');
     assert.equal(fields.length, 6, 'all five channels must share one timestamp row');
     return fields;

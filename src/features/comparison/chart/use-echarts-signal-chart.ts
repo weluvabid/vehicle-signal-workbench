@@ -7,6 +7,8 @@ import { getInitialViewport } from '@/features/comparison/initial-viewport';
 
 interface ResizableChart {
   resize: (options?: { width?: number; height?: number; silent?: boolean }) => void;
+  getWidth: () => number;
+  getHeight: () => number;
   isDisposed: () => boolean;
 }
 
@@ -36,8 +38,8 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   const pendingViewport = useRef<PendingViewport | null>(null);
   const lastViewport = useRef<PendingViewport | null>(null);
   const animationFrame = useRef<number | null>(null);
+  const resizeFrame = useRef<number | null>(null);
   const chartInstance = useRef<ResizableChart | null>(null);
-  const observedSize = useRef<ObservedSize>({ width: 0, height: 0 });
   const chartWidth = useRef(1);
   const [measuredSize, setMeasuredSize] = useState<ObservedSize>({ width: 0, height: 0 });
   const { width: measuredWidth, height: chartHeight } = measuredSize;
@@ -62,20 +64,34 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   // Resize after React has committed the matching geometry-derived option.
   // Keeping measurement in one state value prevents width/height from producing
   // separate intermediate chart configurations.
+  const resizeChartToContainer = useCallback(() => {
+    if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
+    resizeFrame.current = requestAnimationFrame(() => {
+      resizeFrame.current = null;
+      const chart = chartInstance.current;
+      const element = container.current;
+      if (!chart || chart.isDisposed() || !element) return;
+
+      // Read the committed CSS geometry, not a potentially stale observer entry.
+      const bounds = element.getBoundingClientRect();
+      const width = Math.floor(bounds.width);
+      const height = Math.floor(bounds.height);
+      if (width <= 0 || height <= 0) return;
+
+      if (Math.abs(chart.getWidth() - width) >= 1 || Math.abs(chart.getHeight() - height) >= 1) {
+        chart.resize({ width, height, silent: true });
+      }
+    });
+  }, []);
+
   useLayoutEffect(() => {
-    const chart = chartInstance.current;
-    const { width, height } = measuredSize;
-    if (!chart || chart.isDisposed() || width <= 0 || height <= 0) return;
-    chart.resize({ width, height, silent: true });
-  }, [measuredSize]);
+    resizeChartToContainer();
+  }, [measuredSize, resizeChartToContainer]);
 
   const registerChart = useCallback((chart: ResizableChart) => {
     chartInstance.current = chart;
-    const { width, height } = observedSize.current;
-    if (width > 0 && height > 0 && !chart.isDisposed()) {
-      chart.resize({ width, height, silent: true });
-    }
-  }, []);
+    resizeChartToContainer();
+  }, [resizeChartToContainer]);
 
   useEffect(() => {
     if (!options.hasPanels) return;
@@ -101,11 +117,11 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
       previousWidth = width;
       previousHeight = height;
-      observedSize.current = { width, height };
       if (widthChanged || heightChanged) {
         setMeasuredSize((current) => current.width === width && current.height === height
           ? current
           : { width, height });
+        resizeChartToContainer();
       }
 
       if (widthChanged) {
@@ -118,10 +134,11 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     return () => {
       observer.disconnect();
     };
-  }, [dispatchViewport]);
+  }, [dispatchViewport, resizeChartToContainer]);
 
   useEffect(() => () => {
     if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+    if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
     chartInstance.current = null;
   }, []);
 
@@ -149,5 +166,5 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     latestProps.current.onMetricsViewportChange(viewport.startSeconds, viewport.endSeconds, false);
   }, [dispatchViewport]);
 
-  return { container, chartHeight, measuredWidth, registerChart, requestInitialViewport, handleDataZoom };
+  return { container, chartHeight, measuredWidth, registerChart, requestInitialViewport, handleDataZoom, resizeChartToContainer };
 }

@@ -1,11 +1,11 @@
-import { Float64BufferBuilder } from './float64-buffer';
-import { lowerBoundFloat64 } from './sorted-search';
+import { Float64BufferBuilder } from './float64-buffer.ts';
+import { lowerBoundFloat64 } from './sorted-search.ts';
 import {
   buildChannelEnvelopeIndex,
   queryChannelEnvelopeTimeWindow,
   queryChannelTimeStatistics,
   type ChannelEnvelopeIndex,
-} from './envelope-index';
+} from './envelope-index.ts';
 import type { ChannelStatistics, ChannelWindow } from './model';
 import type { ChannelBuffers } from './windowing';
 

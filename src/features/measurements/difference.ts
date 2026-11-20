@@ -1,8 +1,8 @@
-import { lowerBoundFloat64 } from './sorted-search';
+import { lowerBoundFloat64 } from './sorted-search.ts';
 import type { ChannelWindow } from './model';
 
-export { downsampleDifferenceEnvelope, selectDifferenceEnvelopeIndexes } from './difference-envelope';
-import { selectDifferenceEnvelopeIndexes } from './difference-envelope';
+export { downsampleDifferenceEnvelope, selectDifferenceEnvelopeIndexes } from './difference-envelope.ts';
+import { selectDifferenceEnvelopeIndexes } from './difference-envelope.ts';
 
 /**
  * Engineering comparison contract, version 1:

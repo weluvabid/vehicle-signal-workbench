@@ -1,7 +1,7 @@
-import { lowerBoundFloat64 } from './sorted-search';
+import { lowerBoundFloat64 } from './sorted-search.ts';
 import type { ChannelStatistics, ChannelWindow } from './model';
 import type { ChannelBuffers } from './windowing';
-import { Float64BufferBuilder } from './float64-buffer';
+import { Float64BufferBuilder } from './float64-buffer.ts';
 
 export function queryChannelTimeStatistics(
   datasetId: string,
@@ -191,7 +191,7 @@ export function buildChannelEnvelopeIndex(values: Float64Array): ChannelEnvelope
  * Returns a time-bounded min/max envelope sized to the chart's CSS pixel width.
  * Each time bucket preserves first/last/min/max samples. Buckets containing a
  * small number of missing runs retain explicit gap markers. Missing-data buckets
- * larger than 256 samples, or with too many transitions, collapse to a gap rather
+ * larger than 8,192 samples, or with too many transitions, collapse to a gap rather
  * than scanning an unbounded range or drawing false continuity.
  */
 export function queryChannelEnvelopeTimeWindow(
@@ -293,6 +293,15 @@ export function queryChannelEnvelopeTimeWindow(
         outputTimes, outputValues, buffers.timeSeconds, buffers.values,
         bucketSampleStart, bucketSampleEnd - 1, summary.minIndex, summary.maxIndex,
       );
+      continue;
+    }
+
+    // Very large buckets with any missing samples are represented by a bounded
+    // explicit gap. The indexed missing count makes this decision without
+    // scanning every raw sample in a potentially multi-million-row bucket.
+    // Smaller buckets are scanned so sparse dropouts retain surrounding signal.
+    if (bucketSampleEnd - bucketSampleStart > 8_192) {
+      appendGap(outputTimes, outputValues, buffers.timeSeconds, bucketSampleStart, bucketSampleEnd);
       continue;
     }
 

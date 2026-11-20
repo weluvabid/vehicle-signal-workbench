@@ -1,6 +1,6 @@
 import type { ChannelDescriptor, DatasetDescriptor } from './model';
-import { MAPPING_COMPATIBILITY } from './mapping-constants';
-import type { MappingCompatibility } from './mapping-constants';
+import { MAPPING_COMPATIBILITY } from './mapping-constants.ts';
+import type { MappingCompatibility } from './mapping-constants.ts';
 
 export interface SuggestedChannelMapping {
   readonly left: ChannelDescriptor;

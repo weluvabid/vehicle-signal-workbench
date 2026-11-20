@@ -1,7 +1,7 @@
 import type { ChannelStatistics, ChannelWindow } from './model';
 
-export { buildChannelEnvelopeIndex, queryChannelEnvelopeTimeWindow, queryChannelTimeStatistics } from './envelope-index';
-export type { ChannelEnvelopeIndex } from './envelope-index';
+export { buildChannelEnvelopeIndex, queryChannelEnvelopeTimeWindow, queryChannelTimeStatistics } from './envelope-index.ts';
+export type { ChannelEnvelopeIndex } from './envelope-index.ts';
 
 export interface ChannelBuffers {
   readonly timeSeconds: Float64Array;

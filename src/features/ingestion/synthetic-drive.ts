@@ -9,6 +9,7 @@ export const WORKLOAD_PRESETS: readonly WorkloadPreset[] = [
   { id: '1', label: '1 MB', rows: 25_000, description: '25K rows / recording' },
   { id: '10', label: '10 MB', rows: 250_000, description: '250K rows / recording' },
   { id: '25', label: '25 MB', rows: 625_000, description: '625K rows / recording' },
+  { id: '40', label: '40 MB', rows: 1_000_000, description: '1M rows / recording' },
   { id: '50', label: '50 MB', rows: 1_250_000, description: '1.25M rows / recording' },
   { id: '100', label: '100 MB', rows: 2_500_000, description: '2.5M rows / recording' },
   { id: '250', label: '250 MB', rows: 6_250_000, description: '6.25M rows / recording' },

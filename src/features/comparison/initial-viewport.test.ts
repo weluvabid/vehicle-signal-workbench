@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getInitialViewport, getInitialVisibleFraction } from './initial-viewport';
+import { getInitialViewport, getInitialVisibleFraction } from './initial-viewport.ts';
 
 test('initial visible fraction scales with dataset size', () => {
   assert.equal(getInitialVisibleFraction(10_000_000), 0.05);

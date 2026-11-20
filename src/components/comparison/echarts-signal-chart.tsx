@@ -87,7 +87,7 @@ function EChartsSignalChartComponent({
 
   const {
     container, chartHeight, measuredWidth,
-    registerChart, requestInitialViewport, handleDataZoom,
+    registerChart, requestInitialViewport, handleDataZoom, resizeChartToContainer,
   } = useEChartsSignalChart({
     domainStartSeconds,
     domainEndSeconds,
@@ -107,7 +107,10 @@ function EChartsSignalChartComponent({
       }
     }
     handleDataZoom(event as Parameters<typeof handleDataZoom>[0]);
-  }, [handleDataZoom]);
+    // ECharts can update its internal canvas after dataZoom interactions. Reconcile
+    // it against the committed container size on the next animation frame.
+    resizeChartToContainer();
+  }, [handleDataZoom, resizeChartToContainer]);
 
   const chartEvents = useMemo(
     () => ({ datazoom: handleDataZoomWithSummary, updateAxisPointer: handleAxisPointer, globalout: clearPointerTime }),

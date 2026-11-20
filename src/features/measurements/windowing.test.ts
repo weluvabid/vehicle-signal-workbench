@@ -133,7 +133,7 @@ test('envelope preserves a small missing-data gap instead of connecting across i
     1,
   );
   assert.ok([...result.values].some(Number.isNaN));
-  assert.equal(result.values.length, 5);
+  assert.equal(result.values.length, 3, 'retain the outer valid samples and one explicit gap marker');
 });
 
 test('pathological missing transitions collapse to a bounded explicit gap', () => {

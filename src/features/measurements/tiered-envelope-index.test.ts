@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildChannelEnvelopeIndex, queryChannelEnvelopeTimeWindow, queryChannelTimeStatistics } from './envelope-index';
-import { createTieredChannelIndex, queryTieredChannelEnvelope, queryTieredChannelStatistics } from './tiered-envelope-index';
+import { buildChannelEnvelopeIndex, queryChannelEnvelopeTimeWindow, queryChannelTimeStatistics } from './envelope-index.ts';
+import { createTieredChannelIndex, queryTieredChannelEnvelope, queryTieredChannelStatistics } from './tiered-envelope-index.ts';
 
 test('tiered queries match a full index across tier boundaries and retain built tiers', () => {
   const count = 1_000;
