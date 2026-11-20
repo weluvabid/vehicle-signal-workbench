@@ -58,3 +58,5 @@ data/samples/*
 !data/samples/generate.mjs
 !data/samples/README.md
 !data/samples/.gitignore
+.vercel
+.env*
