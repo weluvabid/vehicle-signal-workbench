@@ -2,17 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
-import type { ComparisonPlotData } from '@/features/measurements/plot-data';
-import { buildComparisonPlotData } from '@/features/measurements/plot-data';
+import { mapComparisonPanels } from './signal-panel-mapper';
+import type { SignalPanelResult } from './signal-panel-mapper';
 import type { MeasurementWorkerClient, ComparisonQueryHandle } from '@/features/ingestion/measurement-worker.client';
 import type { SignalSelection } from './types';
-
-export interface SignalPanelResult {
-  readonly id: string;
-  readonly label: string;
-  readonly unit: string | null;
-  readonly data: ComparisonPlotData;
-}
+import { COMPARISON_LABELS } from '@/constants/comparison-labels';
 
 interface SignalViewportOptions {
   readonly client: MeasurementWorkerClient;
@@ -85,17 +79,12 @@ export function useSignalViewport(options: SignalViewportOptions) {
     void handle.promise.then((batch) => {
       if (!mounted.current || generation.current !== currentGeneration || activeQuery.current !== handle) return;
       const plotStartedAt = performance.now();
-      const nextResults = batch.panels.map((panel, index): SignalPanelResult => {
-        const selection = options.selections[index];
-        const referenceChannel = options.reference.channels.find((channel) => channel.id === selection.referenceChannelId);
-        if (!referenceChannel) throw new Error(`Reference channel ${selection.referenceChannelId} is unavailable.`);
-        return {
-          id: selection.referenceChannelId,
-          label: referenceChannel.label,
-          unit: referenceChannel.unit,
-          data: buildComparisonPlotData(panel.referenceWindow, panel.comparisonWindow, options.offsetSeconds),
-        };
-      });
+      const nextResults = mapComparisonPanels(
+        batch.panels,
+        options.selections,
+        options.reference,
+        options.offsetSeconds,
+      );
       if (generation.current !== currentGeneration) return;
       const plotSeriesMs = performance.now() - plotStartedAt;
       const elapsedMs = performance.now() - queryStartedAt;
@@ -111,7 +100,7 @@ export function useSignalViewport(options: SignalViewportOptions) {
     }).catch((cause: unknown) => {
       if (!mounted.current || generation.current !== currentGeneration) return;
       if (cause instanceof DOMException && cause.name === 'AbortError') return;
-      setError(cause instanceof Error ? cause.message : 'Unable to query signal data.');
+      setError(cause instanceof Error ? cause.message : COMPARISON_LABELS.unableQuerySignalData);
     }).finally(() => {
       if (activeQuery.current === handle) activeQuery.current = null;
       if (mounted.current && generation.current === currentGeneration) {

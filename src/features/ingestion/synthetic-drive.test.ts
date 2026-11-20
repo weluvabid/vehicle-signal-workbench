@@ -108,3 +108,33 @@ test('offline CSV generator stays byte-identical to the in-app generator', async
     await rm(outputDirectory, { recursive: true, force: true });
   }
 });
+
+
+test('reference and comparison recordings share a 10ms sample cadence and stable 35ms timestamp offset', async () => {
+  const { generateDriveRecording } = await import('./synthetic-drive.ts');
+  const [reference, comparison] = await Promise.all([
+    generateDriveRecording(128, 'reference'),
+    generateDriveRecording(128, 'comparison'),
+  ]);
+  const parse = async (file: File) => (await file.text()).trim().split('\\n').slice(1).map((line) => {
+    const fields = line.split(',');
+    assert.equal(fields.length, 6, 'all five channels must share one timestamp row');
+    return fields;
+  });
+  const [referenceRows, comparisonRows] = await Promise.all([parse(reference), parse(comparison)]);
+
+  for (let index = 1; index < referenceRows.length; index += 1) {
+    const previous = Number(referenceRows[index - 1][0]);
+    const current = Number(referenceRows[index][0]);
+    assert.ok(Math.abs((current - previous) - 0.01) < 0.00001, 'reference cadence is 10ms');
+  }
+  for (let index = 1; index < comparisonRows.length; index += 1) {
+    const previous = Number(comparisonRows[index - 1][0]);
+    const current = Number(comparisonRows[index][0]);
+    assert.ok(Math.abs((current - previous) - 0.01) < 0.00001, 'comparison cadence is 10ms');
+  }
+
+  const phaseOffset = Number(comparisonRows[0][0]) - Number(referenceRows[0][0]);
+  assert.ok(Math.abs(phaseOffset - 0.035) < 0.001, 'comparison recording retains its 35ms phase offset');
+  assert.ok(referenceRows.every((row) => row.length === 6) && comparisonRows.every((row) => row.length === 6));
+});

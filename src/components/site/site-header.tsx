@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { CircleHelp, Github, Plus } from 'lucide-react';
 import ghostMark from '../../../brand/me/brand/mark.svg';
 import { Button } from '@/components/ui/button';
+import { COMPARISON_LABELS } from '@/constants/comparison-labels';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
@@ -16,26 +17,12 @@ import {
 
 interface SiteHeaderProps {
   onNewWorkload: () => void;
+  helpOpen: boolean;
+  onHelpOpenChange: (open: boolean) => void;
 }
 
-export function SiteHeader({ onNewWorkload }: SiteHeaderProps) {
-  const [helpOpen, setHelpOpen] = useState(false);
+export function SiteHeader({ onNewWorkload, helpOpen, onHelpOpenChange }: SiteHeaderProps) {
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== '?' || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (
-        target.isContentEditable ||
-        target.closest('input, textarea, select, [role="textbox"], [contenteditable="true"]')
-      )) return;
-      event.preventDefault();
-      setHelpOpen(true);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   return (
     <TooltipProvider>
@@ -55,25 +42,25 @@ export function SiteHeader({ onNewWorkload }: SiteHeaderProps) {
           </TooltipTrigger>
           <TooltipContent>New workload</TooltipContent>
         </Tooltip>
-        <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <Dialog open={helpOpen} onOpenChange={onHelpOpenChange}>
           <Tooltip>
             <TooltipTrigger render={<DialogTrigger render={<Button type="button" size="icon" variant="ghost" className="size-9 rounded-full" aria-label="Chart shortcuts" aria-keyshortcuts="?"><CircleHelp className="size-[18px]" /></Button>} />} />
             <TooltipContent>Keyboard shortcuts and help</TooltipContent>
           </Tooltip>
           <DialogContent className="max-h-[min(80dvh,36rem)] overflow-y-auto sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Keyboard shortcuts &amp; help</DialogTitle>
-              <DialogDescription>Navigate and inspect vehicle signals.</DialogDescription>
+              <DialogTitle>{COMPARISON_LABELS.shortcutHelp}</DialogTitle>
+              <DialogDescription>{COMPARISON_LABELS.shortcutHelpDescription}</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 text-sm">
               <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Keyboard</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{COMPARISON_LABELS.shortcutSectionKeyboard}</h3>
                 {[
-                  ['?', 'Open this help'],
-                  ['N', 'Open a new workload'],
-                  ['0', 'Reset timeline zoom'],
-                  ['+ / =', 'Zoom timeline in'],
-                  ['−', 'Zoom timeline out'],
+                  ['?', COMPARISON_LABELS.shortcutOpenHelp],
+                  ['N', COMPARISON_LABELS.shortcutNewWorkload],
+                  ['0', COMPARISON_LABELS.shortcutResetZoom],
+                  ['+ / =', COMPARISON_LABELS.shortcutZoomIn],
+                  ['−', COMPARISON_LABELS.shortcutZoomOut],
                 ].map(([key, description]) => (
                   <div key={key} className="flex items-center justify-between gap-3 border-b border-border/60 pb-2 last:border-0">
                     <span className="text-xs text-muted-foreground">{description}</span>
@@ -82,14 +69,14 @@ export function SiteHeader({ onNewWorkload }: SiteHeaderProps) {
                 ))}
               </section>
               <section className="space-y-2 border-t pt-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mouse &amp; trackpad</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{COMPARISON_LABELS.shortcutSectionPointer}</h3>
                 {[
-                  ['Scroll', 'Scroll vertically through the workspace.'],
-                  ['⌘ / Ctrl + scroll', 'Zoom the timeline around the pointer.'],
-                  ['Shift + scroll', 'Pan horizontally through time.'],
-                  ['Drag', 'Pan the timeline.'],
-                  ['Zoom controls', 'Choose a zoom preset or fit the full timeline.'],
-                  ['Alt + scroll', 'Zoom the signal vertically around the pointer.'],
+                  ['Scroll', COMPARISON_LABELS.shortcutScroll],
+                  ['⌘ / Ctrl + scroll', COMPARISON_LABELS.shortcutModifierScroll],
+                  ['Shift + scroll', COMPARISON_LABELS.shortcutShiftScroll],
+                  ['Drag', COMPARISON_LABELS.shortcutDrag],
+                  ['Zoom controls', COMPARISON_LABELS.shortcutZoomControls],
+                  ['Alt + scroll', COMPARISON_LABELS.shortcutAltScroll],
                 ].map(([key, description]) => (
                   <div key={key} className="flex flex-col gap-1 border-b border-border/60 pb-2 last:border-0">
                     <span className="font-medium">{key}</span>

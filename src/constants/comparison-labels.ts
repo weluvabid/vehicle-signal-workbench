@@ -52,6 +52,22 @@ export const COMPARISON_LABELS = {
   zoomLevel: 'Zoom level',
   fitAll: 'Fit all',
   timelineControls: 'Timeline zoom controls',
+  shortcutHelp: 'Keyboard shortcuts & help',
+  shortcutHelpDescription: 'Navigate and inspect vehicle signals.',
+  shortcutSectionKeyboard: 'Keyboard',
+  shortcutSectionPointer: 'Mouse & trackpad',
+  shortcutOpenHelp: 'Open this help',
+  shortcutNewWorkload: 'Open a new workload',
+  shortcutResetZoom: 'Reset timeline zoom',
+  shortcutZoomIn: 'Zoom timeline in',
+  shortcutZoomOut: 'Zoom timeline out',
+  shortcutScroll: 'Scroll vertically through the workspace.',
+  shortcutModifierScroll: 'Zoom the timeline around the pointer.',
+  shortcutShiftScroll: 'Pan horizontally through time.',
+  shortcutDrag: 'Pan the timeline.',
+  shortcutZoomControls: 'Choose a zoom preset or fit the full timeline.',
+  shortcutAltScroll: 'Zoom the signal vertically around the pointer.',
+  unableQuerySignalData: 'Unable to query signal data.', 
 } as const;
 
 export const INGESTION_LABELS = {

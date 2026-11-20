@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Activity, ArrowRight } from 'lucide-react';
 import { ComparisonWizard } from '@/components/ingestion/comparison-wizard';
 import { SignalComparisonPlot } from '@/components/comparison/signal-comparison-plot';
@@ -10,7 +10,7 @@ import { SiteHeader } from '@/components/site/site-header';
 import { Card, CardContent } from '@/components/ui/card';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { WORKSPACE_LABELS as LABELS } from '@/constants/comparison-labels';
-import { CHART_INTENTS } from '@/intents/chart-intents';
+import { useWorkspaceShortcuts } from '@/features/comparison/use-workspace-shortcuts';
 
 interface ImportMetrics {
   readonly ingestionDurationMs: number;
@@ -19,6 +19,7 @@ interface ImportMetrics {
 
 export function ComparisonWorkspace() {
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [importMetrics, setImportMetrics] = useState<ImportMetrics | null>(null);
   const {
     client, reference, comparison, offset, overlap,
@@ -26,33 +27,9 @@ export function ComparisonWorkspace() {
   } = useComparisonWorkspace();
   const canPlot = Boolean(reference && comparison && overlap && overlap.durationSeconds > 0 && compatibleMappings.length > 0);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || (event.shiftKey && event.key !== '+')) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (
-        target.isContentEditable ||
-        target.closest('input, textarea, select, [role="textbox"], [contenteditable="true"], [role="dialog"]')
-      )) return;
-
-      if (event.key.toLowerCase() === 'n') {
-        event.preventDefault();
-        setWizardOpen(true);
-      } else if (event.key === '0') {
-        event.preventDefault();
-        window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM));
-      } else if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
-        window.dispatchEvent(new Event(CHART_INTENTS.ZOOM_IN));
-      } else if (event.key === '-') {
-        event.preventDefault();
-        window.dispatchEvent(new Event(CHART_INTENTS.ZOOM_OUT));
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  const openHelp = useCallback(() => setHelpOpen(true), []);
+  const openNewWorkload = useCallback(() => setWizardOpen(true), []);
+  useWorkspaceShortcuts({ onHelp: openHelp, onNewWorkload: openNewWorkload });
 
   const handleComplete = useCallback((referenceDataset: DatasetDescriptor, comparisonDataset: DatasetDescriptor, metrics: ImportMetrics) => {
     if (!referenceDataset || !comparisonDataset) return;
@@ -63,7 +40,7 @@ export function ComparisonWorkspace() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 py-3">
-      <SiteHeader onNewWorkload={() => setWizardOpen(true)} />
+      <SiteHeader onNewWorkload={() => setWizardOpen(true)} helpOpen={helpOpen} onHelpOpenChange={setHelpOpen} />
 
       {canPlot && reference && comparison && overlap ? (
         <div className="w-full min-w-0 max-w-full pb-44 sm:pb-32" data-testid="comparison-results">
