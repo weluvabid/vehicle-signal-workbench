@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { generateWorkload, openWorkspace } from '../support/fixtures';
 
-test('rapid zoom and pan interactions keep chart and worker-backed statistics coherent', async ({ page }) => {
+test('rapid zoom and pan interactions keep chart and worker-backed statistics coherent', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await openWorkspace(page);

@@ -1,6 +1,12 @@
 import Papa from 'papaparse';
 import type { DatasetDescriptor } from '../measurements/model';
-import { buildAllChannelIndexTiers, createTieredChannelIndex, EAGER_INDEX_SAMPLE_THRESHOLD, getTieredIndexBytes, type TieredChannelIndex } from '../measurements/tiered-envelope-index';
+import {
+  buildAllChannelIndexTiers,
+  createTieredChannelIndex,
+  EAGER_INDEX_SAMPLE_THRESHOLD,
+  getTieredIndexBytes,
+  type TieredChannelIndex,
+} from '../measurements/tiered-envelope-index';
 import { MeasurementError } from '../measurements/errors';
 import {
   createChannelId,
@@ -77,7 +83,10 @@ export function importCsv(
     const measurementError =
       error instanceof MeasurementError
         ? error
-        : new MeasurementError('INVALID_CSV', error instanceof Error ? error.message : 'CSV import failed.');
+        : new MeasurementError(
+            'INVALID_CSV',
+            error instanceof Error ? error.message : 'CSV import failed.',
+          );
     activeImports.delete(requestId);
     post({
       type: 'error',
@@ -303,7 +312,11 @@ export function importCsv(
           channels: storedChannels,
         });
         const measuredDescriptor: DatasetDescriptor = {
-          ...descriptor, retainedStorageBytes, timeAxisBytes, channelValueBytes, envelopeIndexBytes,
+          ...descriptor,
+          retainedStorageBytes,
+          timeAxisBytes,
+          channelValueBytes,
+          envelopeIndexBytes,
         };
 
         activeImports.delete(requestId);

@@ -13,9 +13,18 @@ export function getWheelZoomRange(
   anchor: number,
   minimumSpanPercent = MIN_SPAN_PERCENT,
 ): DataZoomPercentRange | null {
-  if (!Number.isFinite(range.start) || !Number.isFinite(range.end) || range.end <= range.start || !Number.isFinite(deltaY)) return null;
+  if (
+    !Number.isFinite(range.start) ||
+    !Number.isFinite(range.end) ||
+    range.end <= range.start ||
+    !Number.isFinite(deltaY)
+  )
+    return null;
   const span = range.end - range.start;
-  const nextSpan = Math.min(100, Math.max(minimumSpanPercent, span * Math.exp(deltaY * ZOOM_SENSITIVITY)));
+  const nextSpan = Math.min(
+    100,
+    Math.max(minimumSpanPercent, span * Math.exp(deltaY * ZOOM_SENSITIVITY)),
+  );
   if (Math.abs(nextSpan - span) < 1e-9) return null;
   const boundedAnchor = Math.min(1, Math.max(0, anchor));
   const anchorPercent = range.start + span * boundedAnchor;

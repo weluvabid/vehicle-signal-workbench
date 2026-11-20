@@ -6,19 +6,10 @@
     "timestampEncoding": "unix-seconds"
   },
   "comparison": {
-    "referenceIntervalSeconds": [
-      0,
-      12
-    ],
-    "comparisonIntervalSeconds": [
-      2,
-      9
-    ],
+    "referenceIntervalSeconds": [0, 12],
+    "comparisonIntervalSeconds": [2, 9],
     "comparisonOffsetSeconds": 2,
-    "expectedOverlapSeconds": [
-      2,
-      9
-    ]
+    "expectedOverlapSeconds": [2, 9]
   },
   "assertions": [
     "Both runs import successfully.",

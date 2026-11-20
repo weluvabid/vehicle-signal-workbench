@@ -1,7 +1,7 @@
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { SignalPanelResult } from '@/features/comparison/signal-panel-mapper';
 import type { SignalSelection } from '@/features/comparison/types';
-import { buildSignalPoints, type ComparisonPlotData } from '@/features/measurements/plot-data';
+import type { ComparisonPlotData } from '@/features/measurements/plot-data';
 
 const SERIES_COLORS = ['#a78bfa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'] as const;
 const EMPTY_DATA: ComparisonPlotData = { reference: [], comparison: [] };

@@ -26,13 +26,18 @@ export function calculateComparisonPerformanceMetrics(
   ingestion: IngestionMetrics | null,
 ): ComparisonPerformanceMetrics {
   const datasets = [reference, comparison];
-  const retainedBytes = datasets.reduce((total, dataset) => total + (dataset.retainedStorageBytes ?? 0), 0);
+  const retainedBytes = datasets.reduce(
+    (total, dataset) => total + (dataset.retainedStorageBytes ?? 0),
+    0,
+  );
   const totalRows = datasets.reduce((total, dataset) => total + dataset.sampleCount, 0);
   const validChannelSamples = datasets.reduce(
-    (total, dataset) => total + dataset.channels.reduce(
-      (channelTotal, channel) => channelTotal + channel.sampleCount - channel.missingSampleCount,
-      0,
-    ),
+    (total, dataset) =>
+      total +
+      dataset.channels.reduce(
+        (channelTotal, channel) => channelTotal + channel.sampleCount - channel.missingSampleCount,
+        0,
+      ),
     0,
   );
   const ingestionSeconds = Math.max(0, ingestion?.ingestionDurationMs ?? 0) / 1_000;
@@ -42,9 +47,10 @@ export function calculateComparisonPerformanceMetrics(
     totalRows,
     validChannelSamples,
     ingestionSeconds,
-    throughput: ingestionSeconds > 0
-      ? `${formatRate(totalRows / ingestionSeconds)} rows/s · ${formatRate(validChannelSamples / ingestionSeconds)} samples/s`
-      : '—',
+    throughput:
+      ingestionSeconds > 0
+        ? `${formatRate(totalRows / ingestionSeconds)} rows/s · ${formatRate(validChannelSamples / ingestionSeconds)} samples/s`
+        : '—',
     ingestion: ingestion ? `${ingestionSeconds.toFixed(2)} s` : '—',
     memory: retainedBytes > 0 ? `${(retainedBytes / 1_048_576).toFixed(1)} MiB` : '—',
     rows: totalRows.toLocaleString(),

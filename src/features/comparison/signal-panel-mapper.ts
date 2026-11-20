@@ -28,7 +28,8 @@ export function mapComparisonPanels(
   return panels.map((panel, index) => {
     const selection = selections[index];
     const channel = reference.channels.find((item) => item.id === selection.referenceChannelId);
-    if (!channel) throw new Error(`Reference channel ${selection.referenceChannelId} is unavailable.`);
+    if (!channel)
+      throw new Error(`Reference channel ${selection.referenceChannelId} is unavailable.`);
     return {
       id: selection.referenceChannelId,
       label: channel.label,

@@ -81,9 +81,19 @@
 }
 
 @layer base {
-  * { @apply border-border outline-ring/50; }
-  html { min-height: 100%; }
-  body { @apply min-h-dvh bg-background text-foreground antialiased; font-family: 'Atkinson Hyperlegible', Arial, 'Helvetica Neue', sans-serif; }
-  button, input, select { font: inherit; }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    min-height: 100%;
+  }
+  body {
+    @apply min-h-dvh bg-background text-foreground antialiased;
+    font-family: 'Atkinson Hyperlegible', Arial, 'Helvetica Neue', sans-serif;
+  }
+  button,
+  input,
+  select {
+    font: inherit;
+  }
 }
-

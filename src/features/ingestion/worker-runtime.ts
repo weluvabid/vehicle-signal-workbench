@@ -14,7 +14,11 @@ export function createWorkerRuntimeContext(): WorkerRuntimeContext {
     datasets: new Map(),
     activeImports: new Map(),
     activeQueries: new Set(),
-    post(message) { self.postMessage(message); },
-    postTransfer(message, options) { self.postMessage(message, options); },
+    post(message) {
+      self.postMessage(message);
+    },
+    postTransfer(message, options) {
+      self.postMessage(message, options);
+    },
   };
 }

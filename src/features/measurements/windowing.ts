@@ -1,6 +1,10 @@
 import type { ChannelStatistics, ChannelWindow } from './model';
 
-export { buildChannelEnvelopeIndex, queryChannelEnvelopeTimeWindow, queryChannelTimeStatistics } from './envelope-index.ts';
+export {
+  buildChannelEnvelopeIndex,
+  queryChannelEnvelopeTimeWindow,
+  queryChannelTimeStatistics,
+} from './envelope-index.ts';
 export type { ChannelEnvelopeIndex } from './envelope-index.ts';
 
 export interface ChannelBuffers {
@@ -35,8 +39,13 @@ export function calculateChannelStatistics(
   startIndex: number,
   endIndex: number,
 ): ChannelStatistics {
-  if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) ||
-      startIndex < 0 || endIndex < startIndex || endIndex > values.length) {
+  if (
+    !Number.isInteger(startIndex) ||
+    !Number.isInteger(endIndex) ||
+    startIndex < 0 ||
+    endIndex < startIndex ||
+    endIndex > values.length
+  ) {
     throw new RangeError('Invalid channel statistics range.');
   }
 
@@ -73,17 +82,11 @@ export function calculateChannelStatistics(
     min: validCount === 0 ? null : min,
     max: validCount === 0 ? null : max,
     mean: validCount === 0 ? null : mean,
-    standardDeviation: validCount === 0
-      ? null
-      : Math.sqrt(sumSquaredDeviation / validCount),
+    standardDeviation: validCount === 0 ? null : Math.sqrt(sumSquaredDeviation / validCount),
   };
 }
 
-function validateRange(
-  buffers: ChannelBuffers,
-  startIndex: number,
-  endIndex: number,
-): void {
+function validateRange(buffers: ChannelBuffers, startIndex: number, endIndex: number): void {
   if (
     buffers.timeSeconds.length !== buffers.values.length ||
     !Number.isInteger(startIndex) ||

@@ -28,7 +28,11 @@ interface ChartControllerOptions {
   readonly domainEndSeconds: number;
   readonly initialVisibleFraction: number;
   readonly onViewportChange: (startSeconds: number, endSeconds: number, pixelWidth: number) => void;
-  readonly onMetricsViewportChange: (startSeconds: number, endSeconds: number, isInitial: boolean) => void;
+  readonly onMetricsViewportChange: (
+    startSeconds: number,
+    endSeconds: number,
+    isInitial: boolean,
+  ) => void;
   readonly hasPanels: boolean;
 }
 
@@ -43,9 +47,18 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
   const chartWidth = useRef(1);
   const [measuredSize, setMeasuredSize] = useState<ObservedSize>({ width: 0, height: 0 });
   const { width: measuredWidth, height: chartHeight } = measuredSize;
+  const {
+    hasPanels,
+    domainStartSeconds,
+    domainEndSeconds,
+    initialVisibleFraction,
+    onMetricsViewportChange,
+  } = options;
   const latestProps = useRef(options);
 
-  useEffect(() => { latestProps.current = options; }, [options]);
+  useEffect(() => {
+    latestProps.current = options;
+  }, [options]);
 
   const dispatchViewport = useCallback((viewport: PendingViewport) => {
     lastViewport.current = viewport;
@@ -55,9 +68,12 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
       animationFrame.current = null;
       const pending = pendingViewport.current;
       pendingViewport.current = null;
-      if (pending) latestProps.current.onViewportChange(
-        pending.startSeconds, pending.endSeconds, pending.pixelWidth,
-      );
+      if (pending)
+        latestProps.current.onViewportChange(
+          pending.startSeconds,
+          pending.endSeconds,
+          pending.pixelWidth,
+        );
     });
   }, []);
 
@@ -88,17 +104,31 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     resizeChartToContainer();
   }, [measuredSize, resizeChartToContainer]);
 
-  const registerChart = useCallback((chart: ResizableChart) => {
-    chartInstance.current = chart;
-    resizeChartToContainer();
-  }, [resizeChartToContainer]);
+  const registerChart = useCallback(
+    (chart: ResizableChart) => {
+      chartInstance.current = chart;
+      resizeChartToContainer();
+    },
+    [resizeChartToContainer],
+  );
 
   useEffect(() => {
-    if (!options.hasPanels) return;
-    const initial = getInitialViewport(options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction);
+    if (!hasPanels) return;
+    const initial = getInitialViewport(
+      domainStartSeconds,
+      domainEndSeconds,
+      initialVisibleFraction,
+    );
     dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
-    options.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
-  }, [options.hasPanels, options.domainStartSeconds, options.domainEndSeconds, options.initialVisibleFraction, dispatchViewport, options.onMetricsViewportChange]);
+    onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
+  }, [
+    hasPanels,
+    domainStartSeconds,
+    domainEndSeconds,
+    initialVisibleFraction,
+    dispatchViewport,
+    onMetricsViewportChange,
+  ]);
 
   useEffect(() => {
     const element = container.current;
@@ -117,9 +147,9 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
       previousWidth = width;
       previousHeight = height;
-      setMeasuredSize((current) => current.width === width && current.height === height
-        ? current
-        : { width, height });
+      setMeasuredSize((current) =>
+        current.width === width && current.height === height ? current : { width, height },
+      );
       resizeChartToContainer();
 
       if (widthChanged) {
@@ -134,35 +164,60 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
     };
   }, [dispatchViewport, resizeChartToContainer]);
 
-  useEffect(() => () => {
-    if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
-    if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
-    chartInstance.current = null;
-  }, []);
+  useEffect(
+    () => () => {
+      if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+      if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
+      chartInstance.current = null;
+    },
+    [],
+  );
 
-  const requestInitialViewport = useCallback((chart: { getWidth: () => number }) => {
-    chartWidth.current = Math.max(1, Math.floor(chart.getWidth()));
-    const initial = getInitialViewport(
-      latestProps.current.domainStartSeconds,
-      latestProps.current.domainEndSeconds,
-      latestProps.current.initialVisibleFraction,
-    );
-    dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
-    latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
-  }, [dispatchViewport]);
+  const requestInitialViewport = useCallback(
+    (chart: { getWidth: () => number }) => {
+      chartWidth.current = Math.max(1, Math.floor(chart.getWidth()));
+      const initial = getInitialViewport(
+        latestProps.current.domainStartSeconds,
+        latestProps.current.domainEndSeconds,
+        latestProps.current.initialVisibleFraction,
+      );
+      dispatchViewport({ ...initial, pixelWidth: chartWidth.current });
+      latestProps.current.onMetricsViewportChange(initial.startSeconds, initial.endSeconds, true);
+    },
+    [dispatchViewport],
+  );
 
-  const handleDataZoom = useCallback((event: DataZoomRangeEvent) => {
-    const zoomEvents = event.batch?.length ? event.batch : [event];
-    if (zoomEvents.every((item) => item.dataZoomId?.startsWith(CHART_DATA_ZOOM_IDS.verticalInsidePrefix))) return;
-    const viewport = resolveDataZoomViewport(
-      event,
-      latestProps.current.domainStartSeconds,
-      latestProps.current.domainEndSeconds,
-    );
-    if (!viewport) return;
-    dispatchViewport({ ...viewport, pixelWidth: chartWidth.current });
-    latestProps.current.onMetricsViewportChange(viewport.startSeconds, viewport.endSeconds, false);
-  }, [dispatchViewport]);
+  const handleDataZoom = useCallback(
+    (event: DataZoomRangeEvent) => {
+      const zoomEvents = event.batch?.length ? event.batch : [event];
+      if (
+        zoomEvents.every((item) =>
+          item.dataZoomId?.startsWith(CHART_DATA_ZOOM_IDS.verticalInsidePrefix),
+        )
+      )
+        return;
+      const viewport = resolveDataZoomViewport(
+        event,
+        latestProps.current.domainStartSeconds,
+        latestProps.current.domainEndSeconds,
+      );
+      if (!viewport) return;
+      dispatchViewport({ ...viewport, pixelWidth: chartWidth.current });
+      latestProps.current.onMetricsViewportChange(
+        viewport.startSeconds,
+        viewport.endSeconds,
+        false,
+      );
+    },
+    [dispatchViewport],
+  );
 
-  return { container, chartHeight, measuredWidth, registerChart, requestInitialViewport, handleDataZoom };
+  return {
+    container,
+    chartHeight,
+    measuredWidth,
+    registerChart,
+    requestInitialViewport,
+    handleDataZoom,
+  };
 }

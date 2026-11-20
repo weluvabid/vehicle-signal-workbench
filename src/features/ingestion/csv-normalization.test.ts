@@ -10,10 +10,7 @@ import {
 import { MeasurementError } from '../measurements/errors.ts';
 
 test('parses ISO timestamps into epoch seconds', () => {
-  assert.equal(
-    parseTimestamp('2026-01-01T00:00:01.500Z', 'iso-8601', 2),
-    1_767_225_601.5,
-  );
+  assert.equal(parseTimestamp('2026-01-01T00:00:01.500Z', 'iso-8601', 2), 1_767_225_601.5);
 });
 
 test('requires ISO timestamps to include an explicit timezone', () => {

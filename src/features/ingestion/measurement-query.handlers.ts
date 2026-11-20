@@ -9,11 +9,12 @@ export async function handleComparisonQuery(
   request: Extract<IngestionRequest, { type: 'query-comparison-batch' }>,
   context: WorkerRuntimeContext,
 ): Promise<void> {
-
   const { requestId } = request;
   context.activeQueries.add(requestId);
   const cancelFlag = request.cancelBuffer ? new Int32Array(request.cancelBuffer) : null;
-  const isCancelled = () => !context.activeQueries.has(requestId) || (cancelFlag !== null && Atomics.load(cancelFlag, 0) !== 0);
+  const isCancelled = () =>
+    !context.activeQueries.has(requestId) ||
+    (cancelFlag !== null && Atomics.load(cancelFlag, 0) !== 0);
   const cancelIfRequested = () => {
     if (isCancelled()) throw new DOMException('Viewport query superseded.', 'AbortError');
   };
@@ -24,16 +25,24 @@ export async function handleComparisonQuery(
     if (!referenceDataset || !comparisonDataset) {
       throw new Error('One or both datasets are unavailable in this worker session.');
     }
-    if (!Number.isInteger(request.pixelWidth) || request.pixelWidth < 1 || request.pixelWidth > 8_192 ||
-        !Number.isFinite(request.startSeconds) || !Number.isFinite(request.endSeconds) ||
-        request.endSeconds <= request.startSeconds || !Number.isFinite(request.comparisonOffsetSeconds) ||
-        request.panels.length === 0) {
+    if (
+      !Number.isInteger(request.pixelWidth) ||
+      request.pixelWidth < 1 ||
+      request.pixelWidth > 8_192 ||
+      !Number.isFinite(request.startSeconds) ||
+      !Number.isFinite(request.endSeconds) ||
+      request.endSeconds <= request.startSeconds ||
+      !Number.isFinite(request.comparisonOffsetSeconds) ||
+      request.panels.length === 0
+    ) {
       throw new RangeError('Invalid batched comparison viewport query.');
     }
 
     const results: ComparisonPanelQueryResult[] = [];
     let indexBuildMs = 0;
-    const recordIndexBuild = (durationMs: number) => { indexBuildMs += durationMs; };
+    const recordIndexBuild = (durationMs: number) => {
+      indexBuildMs += durationMs;
+    };
     for (const selection of request.panels) {
       // Yield between panels so the worker can receive and process a cancel message.
       await yieldToWorker();
@@ -42,22 +51,44 @@ export async function handleComparisonQuery(
       const referenceChannel = referenceDataset.channels.get(selection.referenceChannelId);
       const comparisonChannel = comparisonDataset.channels.get(selection.comparisonChannelId);
       if (!referenceChannel || !comparisonChannel) {
-        throw new Error(`Comparison channel pair is unavailable: ${selection.referenceChannelId}/${selection.comparisonChannelId}.`);
+        throw new Error(
+          `Comparison channel pair is unavailable: ${selection.referenceChannelId}/${selection.comparisonChannelId}.`,
+        );
       }
 
-      const referenceBuffers = { timeSeconds: referenceDataset.timeSeconds, values: referenceChannel.values };
-      const comparisonBuffers = { timeSeconds: comparisonDataset.timeSeconds, values: comparisonChannel.values };
+      const referenceBuffers = {
+        timeSeconds: referenceDataset.timeSeconds,
+        values: referenceChannel.values,
+      };
+      const comparisonBuffers = {
+        timeSeconds: comparisonDataset.timeSeconds,
+        values: comparisonChannel.values,
+      };
       const comparisonStart = request.startSeconds - request.comparisonOffsetSeconds;
       const comparisonEnd = request.endSeconds - request.comparisonOffsetSeconds;
 
       const referenceWindow = queryTieredChannelEnvelope(
-        request.referenceDatasetId, selection.referenceChannelId, referenceBuffers,
-        referenceChannel.envelopeIndex, request.startSeconds, request.endSeconds, request.pixelWidth, isCancelled, recordIndexBuild,
+        request.referenceDatasetId,
+        selection.referenceChannelId,
+        referenceBuffers,
+        referenceChannel.envelopeIndex,
+        request.startSeconds,
+        request.endSeconds,
+        request.pixelWidth,
+        isCancelled,
+        recordIndexBuild,
       );
 
       const comparisonWindow = queryTieredChannelEnvelope(
-        request.comparisonDatasetId, selection.comparisonChannelId, comparisonBuffers,
-        comparisonChannel.envelopeIndex, comparisonStart, comparisonEnd, request.pixelWidth, isCancelled, recordIndexBuild,
+        request.comparisonDatasetId,
+        selection.comparisonChannelId,
+        comparisonBuffers,
+        comparisonChannel.envelopeIndex,
+        comparisonStart,
+        comparisonEnd,
+        request.pixelWidth,
+        isCancelled,
+        recordIndexBuild,
       );
       results.push({ referenceWindow, comparisonWindow });
     }
@@ -70,8 +101,10 @@ export async function handleComparisonQuery(
     const transfer: Transferable[] = [];
     for (const panel of results) {
       transfer.push(
-        panel.referenceWindow.timeSeconds.buffer, panel.referenceWindow.values.buffer,
-        panel.comparisonWindow.timeSeconds.buffer, panel.comparisonWindow.values.buffer,
+        panel.referenceWindow.timeSeconds.buffer,
+        panel.referenceWindow.values.buffer,
+        panel.comparisonWindow.timeSeconds.buffer,
+        panel.comparisonWindow.values.buffer,
       );
     }
     context.postTransfer({ type: 'comparison-batch', requestId, result }, { transfer });
@@ -79,12 +112,14 @@ export async function handleComparisonQuery(
     if (error instanceof DOMException && error.name === 'AbortError') {
       context.post({ type: 'cancelled', requestId });
     } else {
-      context.post({ type: 'error', requestId, code: 'INVALID_QUERY',
-        message: error instanceof Error ? error.message : 'Unable to query comparison viewport.' });
+      context.post({
+        type: 'error',
+        requestId,
+        code: 'INVALID_QUERY',
+        message: error instanceof Error ? error.message : 'Unable to query comparison viewport.',
+      });
     }
   } finally {
     context.activeQueries.delete(requestId);
   }
 }
-
-

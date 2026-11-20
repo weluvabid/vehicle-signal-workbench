@@ -26,8 +26,16 @@ export function queryChannelTimeStatistics(
   const sampleCount = endIndex - startIndex;
   if (sampleCount === 0) {
     return {
-      datasetId, channelId, startIndex, endIndex, sampleCount: 0,
-      validCount: 0, missingCount: 0, min: null, max: null, mean: null,
+      datasetId,
+      channelId,
+      startIndex,
+      endIndex,
+      sampleCount: 0,
+      validCount: 0,
+      missingCount: 0,
+      min: null,
+      max: null,
+      mean: null,
       standardDeviation: null,
     };
   }
@@ -55,7 +63,10 @@ export function queryChannelTimeStatistics(
 
   aggregate = mergeStatistics(aggregate, scan(startIndex, prefixEnd));
   if (hasFullBlocks) {
-    aggregate = mergeStatistics(aggregate, queryStatisticsBlocks(index, firstFullBlock, endFullBlock));
+    aggregate = mergeStatistics(
+      aggregate,
+      queryStatisticsBlocks(index, firstFullBlock, endFullBlock),
+    );
   }
   aggregate = mergeStatistics(aggregate, scan(suffixStart, endIndex));
 
@@ -243,7 +254,13 @@ export function queryChannelEnvelopeTimeWindow(
   if (startIndex >= endIndex) {
     return output
       ? null
-      : { datasetId, channelId, startIndex, timeSeconds: new Float64Array(0), values: new Float64Array(0) };
+      : {
+          datasetId,
+          channelId,
+          startIndex,
+          timeSeconds: new Float64Array(0),
+          values: new Float64Array(0),
+        };
   }
 
   const bucketCount = Math.max(1, Math.min(pixelWidth, MAX_BUCKETS));
@@ -260,9 +277,10 @@ export function queryChannelEnvelopeTimeWindow(
       throw new DOMException('Viewport query superseded.', 'AbortError');
     }
     const bucketStart = startSeconds + duration * (bucket / bucketCount);
-    const bucketEnd = bucket === bucketCount - 1
-      ? endSeconds
-      : startSeconds + duration * ((bucket + 1) / bucketCount);
+    const bucketEnd =
+      bucket === bucketCount - 1
+        ? endSeconds
+        : startSeconds + duration * ((bucket + 1) / bucketCount);
 
     while (cursor < endIndex && buffers.timeSeconds[cursor] < bucketStart) {
       if (((cursor - startIndex) & 4_095) === 0 && shouldAbort?.()) {
@@ -290,8 +308,14 @@ export function queryChannelEnvelopeTimeWindow(
 
     if (summary.missingCount === 0) {
       appendUniqueSortedFour(
-        outputTimes, outputValues, buffers.timeSeconds, buffers.values,
-        bucketSampleStart, bucketSampleEnd - 1, summary.minIndex, summary.maxIndex,
+        outputTimes,
+        outputValues,
+        buffers.timeSeconds,
+        buffers.values,
+        bucketSampleStart,
+        bucketSampleEnd - 1,
+        summary.minIndex,
+        summary.maxIndex,
       );
       continue;
     }
@@ -350,11 +374,31 @@ function appendUniqueSortedFour(
   let b = second;
   let c = third;
   let d = fourth;
-  if (b < a) { const swap = a; a = b; b = swap; }
-  if (d < c) { const swap = c; c = d; d = swap; }
-  if (c < a) { const swap = a; a = c; c = swap; }
-  if (d < b) { const swap = b; b = d; d = swap; }
-  if (c < b) { const swap = b; b = c; c = swap; }
+  if (b < a) {
+    const swap = a;
+    a = b;
+    b = swap;
+  }
+  if (d < c) {
+    const swap = c;
+    c = d;
+    d = swap;
+  }
+  if (c < a) {
+    const swap = a;
+    a = c;
+    c = swap;
+  }
+  if (d < b) {
+    const swap = b;
+    b = d;
+    d = swap;
+  }
+  if (c < b) {
+    const swap = b;
+    b = c;
+    c = swap;
+  }
 
   let previous = -1;
   if (a >= 0) {
@@ -377,7 +421,6 @@ function appendUniqueSortedFour(
     outputValues.push(values[d]);
   }
 }
-
 
 function appendGap(
   outputTimes: Float64BufferBuilder,
@@ -573,8 +616,12 @@ function chooseIndex(
   if (candidate < 0) return current;
   if (current < 0) return candidate;
   return mode === 'min'
-    ? (values[candidate] < values[current] ? candidate : current)
-    : (values[candidate] > values[current] ? candidate : current);
+    ? values[candidate] < values[current]
+      ? candidate
+      : current
+    : values[candidate] > values[current]
+      ? candidate
+      : current;
 }
 
 function uniqueSorted(indices: number[]): number[] {
@@ -590,12 +637,7 @@ function uniqueSorted(indices: number[]): number[] {
   return indices;
 }
 
-
-function validateRange(
-  buffers: ChannelBuffers,
-  startIndex: number,
-  endIndex: number,
-): void {
+function validateRange(buffers: ChannelBuffers, startIndex: number, endIndex: number): void {
   if (
     buffers.timeSeconds.length !== buffers.values.length ||
     !Number.isInteger(startIndex) ||

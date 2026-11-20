@@ -9,10 +9,7 @@
     "referenceStartSeconds": 0,
     "comparisonStartSeconds": 2,
     "comparisonOffsetSeconds": 2,
-    "expectedOverlapSeconds": [
-      2,
-      10
-    ]
+    "expectedOverlapSeconds": [2, 10]
   },
   "assertions": [
     "Both runs import successfully.",

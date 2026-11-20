@@ -1,6 +1,11 @@
 import type { CsvImportOptions, DatasetDescriptor } from '../measurements/model';
 import type {
-  ComparisonBatchQueryResult, ComparisonPanelQuery, MetricsPanelQuery, MetricsQueryResult, IngestionRequest, IngestionResponse,
+  ComparisonBatchQueryResult,
+  ComparisonPanelQuery,
+  MetricsPanelQuery,
+  MetricsQueryResult,
+  IngestionRequest,
+  IngestionResponse,
 } from './worker-protocol';
 
 type WorkerOperationRequest = Extract<IngestionRequest, { readonly requestId: number }>;
@@ -26,14 +31,21 @@ export interface MetricsQueryHandle {
   cancel(): void;
 }
 
-
 export class MeasurementWorkerClient {
   private worker: Worker | null = null;
   private nextRequestId = 1;
   private pending = new Map<number, PendingOperation>();
 
-  import(file: File, options: CsvImportOptions, onProgress?: (fraction: number) => void): Promise<DatasetDescriptor> {
-    return this.dispatch<DatasetDescriptor>({ type: 'import', file, options }, 'import', onProgress);
+  import(
+    file: File,
+    options: CsvImportOptions,
+    onProgress?: (fraction: number) => void,
+  ): Promise<DatasetDescriptor> {
+    return this.dispatch<DatasetDescriptor>(
+      { type: 'import', file, options },
+      'import',
+      onProgress,
+    );
   }
 
   queryComparisonBatch(
@@ -45,30 +57,51 @@ export class MeasurementWorkerClient {
     comparisonOffsetSeconds: number,
     pixelWidth: number,
   ): ComparisonQueryHandle {
-    const cancelBuffer = typeof SharedArrayBuffer !== 'undefined' && globalThis.crossOriginIsolated
-      ? new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT) : undefined;
+    const cancelBuffer =
+      typeof SharedArrayBuffer !== 'undefined' && globalThis.crossOriginIsolated
+        ? new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)
+        : undefined;
     const cancelFlag = cancelBuffer ? new Int32Array(cancelBuffer) : null;
     const request = {
-      type: 'query-comparison-batch' as const, referenceDatasetId, comparisonDatasetId,
-      panels, cancelBuffer, startSeconds, endSeconds, comparisonOffsetSeconds, pixelWidth,
+      type: 'query-comparison-batch' as const,
+      referenceDatasetId,
+      comparisonDatasetId,
+      panels,
+      cancelBuffer,
+      startSeconds,
+      endSeconds,
+      comparisonOffsetSeconds,
+      pixelWidth,
     };
     const requestId = this.nextRequestId++;
     let worker: Worker;
     try {
       worker = this.getWorker();
     } catch (cause) {
-      return { requestId, promise: Promise.reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.')), cancel() {} };
+      return {
+        requestId,
+        promise: Promise.reject(
+          cause instanceof Error ? cause : new Error('Unable to create measurement worker.'),
+        ),
+        cancel() {},
+      };
     }
 
     const promise = new Promise<ComparisonBatchQueryResult>((resolve, reject) => {
       this.pending.set(requestId, {
-        kind: 'comparison-batch', resolve: (value) => resolve(value as ComparisonBatchQueryResult), reject,
+        kind: 'comparison-batch',
+        resolve: (value) => resolve(value as ComparisonBatchQueryResult),
+        reject,
       });
       try {
         worker.postMessage({ ...request, requestId } satisfies IngestionRequest);
       } catch (cause) {
         this.pending.delete(requestId);
-        reject(cause instanceof Error ? cause : new Error('Unable to dispatch comparison viewport query.'));
+        reject(
+          cause instanceof Error
+            ? cause
+            : new Error('Unable to dispatch comparison viewport query.'),
+        );
       }
     });
 
@@ -86,32 +119,65 @@ export class MeasurementWorkerClient {
   }
 
   queryMetrics(
-    referenceDatasetId: string, comparisonDatasetId: string, panels: readonly MetricsPanelQuery[],
-    startSeconds: number, endSeconds: number, comparisonOffsetSeconds: number,
+    referenceDatasetId: string,
+    comparisonDatasetId: string,
+    panels: readonly MetricsPanelQuery[],
+    startSeconds: number,
+    endSeconds: number,
+    comparisonOffsetSeconds: number,
   ): MetricsQueryHandle {
     const requestId = this.nextRequestId++;
-    const cancelBuffer = typeof SharedArrayBuffer !== 'undefined' && globalThis.crossOriginIsolated
-      ? new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT) : undefined;
+    const cancelBuffer =
+      typeof SharedArrayBuffer !== 'undefined' && globalThis.crossOriginIsolated
+        ? new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)
+        : undefined;
     const cancelFlag = cancelBuffer ? new Int32Array(cancelBuffer) : null;
     let worker: Worker;
-    try { worker = this.getWorker(); }
-    catch (cause) {
-      return { requestId, promise: Promise.reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.')), cancel() {} };
+    try {
+      worker = this.getWorker();
+    } catch (cause) {
+      return {
+        requestId,
+        promise: Promise.reject(
+          cause instanceof Error ? cause : new Error('Unable to create measurement worker.'),
+        ),
+        cancel() {},
+      };
     }
     const promise = new Promise<MetricsQueryResult>((resolve, reject) => {
-      this.pending.set(requestId, { kind: 'metrics', resolve: (value) => resolve(value as MetricsQueryResult), reject });
+      this.pending.set(requestId, {
+        kind: 'metrics',
+        resolve: (value) => resolve(value as MetricsQueryResult),
+        reject,
+      });
       try {
-        worker.postMessage({ type: 'query-metrics', requestId, referenceDatasetId, comparisonDatasetId, panels,
-          cancelBuffer, startSeconds, endSeconds, comparisonOffsetSeconds } satisfies IngestionRequest);
-      } catch (cause) { this.pending.delete(requestId); reject(cause instanceof Error ? cause : new Error('Unable to dispatch metrics query.')); }
+        worker.postMessage({
+          type: 'query-metrics',
+          requestId,
+          referenceDatasetId,
+          comparisonDatasetId,
+          panels,
+          cancelBuffer,
+          startSeconds,
+          endSeconds,
+          comparisonOffsetSeconds,
+        } satisfies IngestionRequest);
+      } catch (cause) {
+        this.pending.delete(requestId);
+        reject(cause instanceof Error ? cause : new Error('Unable to dispatch metrics query.'));
+      }
     });
     let cancelled = false;
-    return { requestId, promise, cancel: () => {
-      if (cancelled || !this.pending.has(requestId)) return;
-      cancelled = true;
-      if (cancelFlag) Atomics.store(cancelFlag, 0, 1);
-      this.worker?.postMessage({ type: 'cancel', requestId } satisfies IngestionRequest);
-    } };
+    return {
+      requestId,
+      promise,
+      cancel: () => {
+        if (cancelled || !this.pending.has(requestId)) return;
+        cancelled = true;
+        if (cancelFlag) Atomics.store(cancelFlag, 0, 1);
+        this.worker?.postMessage({ type: 'cancel', requestId } satisfies IngestionRequest);
+      },
+    };
   }
 
   releaseDataset(datasetId: string): void {
@@ -121,25 +187,40 @@ export class MeasurementWorkerClient {
   dispose(): void {
     this.worker?.terminate();
     this.worker = null;
-    for (const operation of this.pending.values()) operation.reject(new Error('Measurement worker was disposed.'));
+    for (const operation of this.pending.values())
+      operation.reject(new Error('Measurement worker was disposed.'));
     this.pending.clear();
   }
 
-  private dispatch<T>(request: WithoutRequestId<WorkerOperationRequest>, kind: OperationKind,
-    onProgress?: (fraction: number) => void): Promise<T> {
+  private dispatch<T>(
+    request: WithoutRequestId<WorkerOperationRequest>,
+    kind: OperationKind,
+    onProgress?: (fraction: number) => void,
+  ): Promise<T> {
     const requestId = this.nextRequestId++;
     return new Promise<T>((resolve, reject) => {
       let worker: Worker;
-      try { worker = this.getWorker(); }
-      catch (cause) {
+      try {
+        worker = this.getWorker();
+      } catch (cause) {
         reject(cause instanceof Error ? cause : new Error('Unable to create measurement worker.'));
         return;
       }
-      this.pending.set(requestId, { kind, resolve: (value) => resolve(value as T), reject, onProgress });
-      try { worker.postMessage({ ...request, requestId } as IngestionRequest); }
-      catch (cause) {
+      this.pending.set(requestId, {
+        kind,
+        resolve: (value) => resolve(value as T),
+        reject,
+        onProgress,
+      });
+      try {
+        worker.postMessage({ ...request, requestId } as IngestionRequest);
+      } catch (cause) {
         this.pending.delete(requestId);
-        reject(cause instanceof Error ? cause : new Error('Unable to dispatch measurement worker request.'));
+        reject(
+          cause instanceof Error
+            ? cause
+            : new Error('Unable to dispatch measurement worker request.'),
+        );
       }
     });
   }
@@ -147,7 +228,8 @@ export class MeasurementWorkerClient {
   private getWorker(): Worker {
     if (this.worker) return this.worker;
     this.worker = new Worker(new URL('./csv-ingestion.worker.ts', import.meta.url), {
-      type: 'module', name: 'vsw-measurement-worker',
+      type: 'module',
+      name: 'vsw-measurement-worker',
     });
     this.worker.onmessage = (event: MessageEvent<IngestionResponse>) => {
       const message = event.data;

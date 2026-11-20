@@ -6,10 +6,7 @@
     "timestampEncoding": "unix-seconds"
   },
   "comparison": {
-    "expectedOverlapSeconds": [
-      0,
-      10
-    ],
+    "expectedOverlapSeconds": [0, 10],
     "expectedMatchedReferenceSamples": 1001
   },
   "assertions": [

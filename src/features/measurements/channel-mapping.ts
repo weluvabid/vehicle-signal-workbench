@@ -60,9 +60,10 @@ export function suggestChannelMappings(
         left,
         right: null,
         compatibility: MAPPING_COMPATIBILITY.UNMATCHED,
-        reason: ambiguousLeft || candidates.length > 1
-          ? 'Multiple channels share this label; automatic matching is ambiguous.'
-          : 'No exact channel-name match found.',
+        reason:
+          ambiguousLeft || candidates.length > 1
+            ? 'Multiple channels share this label; automatic matching is ambiguous.'
+            : 'No exact channel-name match found.',
       };
     }
 

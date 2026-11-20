@@ -27,11 +27,16 @@ export function resolveDataZoomViewport(
   domainStart: number,
   domainEnd: number,
 ): TimeViewport | null {
-  if (!Number.isFinite(domainStart) || !Number.isFinite(domainEnd) || domainEnd <= domainStart) return null;
+  if (!Number.isFinite(domainStart) || !Number.isFinite(domainEnd) || domainEnd <= domainStart)
+    return null;
   const events = rawEvent.batch?.length ? [...rawEvent.batch].reverse() : [rawEvent];
   const event = events.find((candidate) => {
-    const hasValues = parseFiniteChartNumber(candidate.startValue) !== null && parseFiniteChartNumber(candidate.endValue) !== null;
-    const hasPercentages = parseFiniteChartNumber(candidate.start) !== null && parseFiniteChartNumber(candidate.end) !== null;
+    const hasValues =
+      parseFiniteChartNumber(candidate.startValue) !== null &&
+      parseFiniteChartNumber(candidate.endValue) !== null;
+    const hasPercentages =
+      parseFiniteChartNumber(candidate.start) !== null &&
+      parseFiniteChartNumber(candidate.end) !== null;
     return hasValues || hasPercentages;
   });
   if (!event) return null;
@@ -41,8 +46,10 @@ export function resolveDataZoomViewport(
   const endValue = parseFiniteChartNumber(event.endValue);
   const startPercent = parseFiniteChartNumber(event.start);
   const endPercent = parseFiniteChartNumber(event.end);
-  const start = startValue ?? (startPercent === null ? null : domainStart + duration * startPercent / 100);
-  const end = endValue ?? (endPercent === null ? null : domainStart + duration * endPercent / 100);
+  const start =
+    startValue ?? (startPercent === null ? null : domainStart + (duration * startPercent) / 100);
+  const end =
+    endValue ?? (endPercent === null ? null : domainStart + (duration * endPercent) / 100);
   if (start === null || end === null || end <= start) return null;
   const boundedStart = Math.max(domainStart, start);
   const boundedEnd = Math.min(domainEnd, end);

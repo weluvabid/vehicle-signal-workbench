@@ -67,7 +67,7 @@ export const COMPARISON_LABELS = {
   shortcutDrag: 'Pan the timeline.',
   shortcutZoomControls: 'Choose a zoom preset or fit the full timeline.',
   shortcutAltScroll: 'Zoom the signal vertically around the pointer.',
-  unableQuerySignalData: 'Unable to query signal data.', 
+  unableQuerySignalData: 'Unable to query signal data.',
 } as const;
 
 export const INGESTION_LABELS = {
@@ -84,9 +84,11 @@ export const WORKSPACE_LABELS = {
   noCompatibleChannels: 'No compatible channels were found between these runs.',
   eyebrow: 'VSW · Vehicle measurement analysis',
   title: 'Explore vehicle measurements at scale.',
-  description: 'Generate a realistic pair of vehicle recordings and compare millions of timestamped samples entirely in your browser.',
+  description:
+    'Generate a realistic pair of vehicle recordings and compare millions of timestamped samples entirely in your browser.',
   startTitle: 'Start with a generated drive cycle',
-  startDescription: 'Choose a workload from 1 MB to 400 MB per recording. No files to find or upload.',
+  startDescription:
+    'Choose a workload from 1 MB to 400 MB per recording. No files to find or upload.',
   chooseWorkload: 'Choose workload',
   browserGenerated: 'Browser-generated data',
   workerIngestion: 'Worker-based ingestion',
@@ -95,7 +97,8 @@ export const WORKSPACE_LABELS = {
 
 export const INGESTION_COPY = {
   dialogTitle: 'Choose a measurement workload',
-  dialogDescription: 'Generate two correlated vehicle recordings locally, then ingest them through the measurement worker.',
+  dialogDescription:
+    'Generate two correlated vehicle recordings locally, then ingest them through the measurement worker.',
   workloadSize: 'Workload size',
   perRecording: 'Per recording · Reference and Comparison',
   mixedDriveCycle: 'Mixed drive cycle',
@@ -106,7 +109,8 @@ export const INGESTION_COPY = {
   referenceDrive: 'Baseline drive',
   referenceDescription: 'Nominal sensor readings with deterministic measurement noise.',
   comparisonDrive: 'Candidate drive',
-  comparisonDescription: 'Same drive cycle with small sensor bias, response offset and independent noise.',
+  comparisonDescription:
+    'Same drive cycle with small sensor bias, response offset and independent noise.',
   generatedInBrowser: 'Generated in browser',
   workerBased: 'Worker-based ingestion',
   noBackend: 'No upload or backend',

@@ -28,9 +28,17 @@ export function SignalChartCard({
   cursorTime,
   onToggleSeries,
 }: SignalChartCardProps) {
-  const visibleStart = domainStartSeconds + (domainEndSeconds - domainStartSeconds) * visibleStartPercent / 100;
-  const visibleEnd = domainStartSeconds + (domainEndSeconds - domainStartSeconds) * visibleEndPercent / 100;
-  const summary = getSignalSummary(panel.reference, panel.comparison, cursorTime, visibleStart, visibleEnd);
+  const visibleStart =
+    domainStartSeconds + ((domainEndSeconds - domainStartSeconds) * visibleStartPercent) / 100;
+  const visibleEnd =
+    domainStartSeconds + ((domainEndSeconds - domainStartSeconds) * visibleEndPercent) / 100;
+  const summary = getSignalSummary(
+    panel.reference,
+    panel.comparison,
+    cursorTime,
+    visibleStart,
+    visibleEnd,
+  );
   const summaryItems = [
     [LABELS.currentValue, summary.current],
     [LABELS.maximumValue, summary.maximum],
@@ -50,9 +58,17 @@ export function SignalChartCard({
       >
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="size-2 shrink-0 rounded-full ring-2 ring-background" style={{ backgroundColor: panel.color }} aria-hidden="true" />
-            <CardTitle className="truncate text-sm font-semibold tracking-tight">{panel.label}</CardTitle>
-            <span className="shrink-0 rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{panel.unit ?? LABELS.unitUnspecified}</span>
+            <span
+              className="size-2 shrink-0 rounded-full ring-2 ring-background"
+              style={{ backgroundColor: panel.color }}
+              aria-hidden="true"
+            />
+            <CardTitle className="truncate text-sm font-semibold tracking-tight">
+              {panel.label}
+            </CardTitle>
+            <span className="shrink-0 rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {panel.unit ?? LABELS.unitUnspecified}
+            </span>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3 pl-4 text-[10px] leading-tight sm:max-w-md sm:gap-6 sm:pl-5">
@@ -60,7 +76,9 @@ export function SignalChartCard({
             <div key={label} className="min-w-0">
               <div className="truncate uppercase tracking-wide text-muted-foreground">{label}</div>
               <div className="truncate font-mono text-xs font-medium tabular-nums text-foreground">
-                {typeof value === 'number' ? `${label === LABELS.differenceValue && value > 0 ? '+' : ''}${formatChartValue(value)}` : '—'}
+                {typeof value === 'number'
+                  ? `${label === LABELS.differenceValue && value > 0 ? '+' : ''}${formatChartValue(value)}`
+                  : '—'}
               </div>
             </div>
           ))}
@@ -79,7 +97,8 @@ export function SignalChartCard({
           className={`h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.referenceVisible === false ? 'opacity-40' : 'opacity-100'}`}
           title={`${LABELS.referenceSeries}: ${panel.label}`}
         >
-          <span className="w-4 border-t border-dashed border-foreground/70" />{LABELS.referenceSeries}
+          <span className="w-4 border-t border-dashed border-foreground/70" />
+          {LABELS.referenceSeries}
         </Button>
         <Button
           type="button"
@@ -90,7 +109,8 @@ export function SignalChartCard({
           className={`h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.comparisonVisible === false ? 'opacity-40' : 'opacity-100'}`}
           title={`${LABELS.comparisonSeries}: ${panel.label}`}
         >
-          <span className="w-4 border-t-2" style={{ borderColor: panel.color }} />{LABELS.comparisonSeries}
+          <span className="w-4 border-t-2" style={{ borderColor: panel.color }} />
+          {LABELS.comparisonSeries}
         </Button>
       </CardFooter>
     </>

@@ -9,7 +9,9 @@ function Popover(props: PopoverPrimitive.Root.Props) {
 }
 
 function PopoverTrigger({ className, ...props }: PopoverPrimitive.Trigger.Props) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" className={cn(className)} {...props} />;
+  return (
+    <PopoverPrimitive.Trigger data-slot="popover-trigger" className={cn(className)} {...props} />
+  );
 }
 
 function PopoverContent({
@@ -25,7 +27,12 @@ function PopoverContent({
 }) {
   return (
     <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Positioner className="z-50 outline-none" align={align} side={side} sideOffset={sideOffset}>
+      <PopoverPrimitive.Positioner
+        className="z-50 outline-none"
+        align={align}
+        side={side}
+        sideOffset={sideOffset}
+      >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(

@@ -41,17 +41,25 @@ export function getSignalSummary(
   rangeStart: number,
   rangeEnd: number,
 ): SignalSummary {
-  const latestComparisonTime = cursorTime === null
-    ? comparison.reduce((latest, point) => point[0] >= rangeStart && point[0] <= rangeEnd && point[1] !== null ? Math.max(latest, point[0]) : latest, Number.NEGATIVE_INFINITY)
-    : cursorTime;
+  const latestComparisonTime =
+    cursorTime === null
+      ? comparison.reduce(
+          (latest, point) =>
+            point[0] >= rangeStart && point[0] <= rangeEnd && point[1] !== null
+              ? Math.max(latest, point[0])
+              : latest,
+          Number.NEGATIVE_INFINITY,
+        )
+      : cursorTime;
   const activeTime = Number.isFinite(latestComparisonTime) ? latestComparisonTime : null;
   const referenceCurrent = valueAt(reference, activeTime);
   const comparisonCurrent = valueAt(comparison, activeTime);
   return {
     current: comparisonCurrent,
     maximum: maximumInRange(comparison, rangeStart, rangeEnd),
-    difference: referenceCurrent !== null && comparisonCurrent !== null
-      ? referenceCurrent - comparisonCurrent
-      : null,
+    difference:
+      referenceCurrent !== null && comparisonCurrent !== null
+        ? referenceCurrent - comparisonCurrent
+        : null,
   };
 }

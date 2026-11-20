@@ -12,13 +12,7 @@ import {
 test('returns an isolated sample window with matching time values', () => {
   const times = Float64Array.from([0, 0.1, 0.2, 0.3, 0.4]);
   const values = Float64Array.from([10, 11, 12, 13, 14]);
-  const window = queryChannelWindow(
-    'dataset-a',
-    'rpm',
-    { timeSeconds: times, values },
-    1,
-    4,
-  );
+  const window = queryChannelWindow('dataset-a', 'rpm', { timeSeconds: times, values }, 1, 4);
 
   assert.deepEqual([...window.timeSeconds], [0.1, 0.2, 0.3]);
   assert.deepEqual([...window.values], [11, 12, 13]);
@@ -36,10 +30,17 @@ test('rejects out-of-bounds or mismatched buffers', () => {
     RangeError,
   );
   assert.throws(
-    () => queryChannelWindow('d', 'c', {
-      timeSeconds: times,
-      values: Float64Array.from([1]),
-    }, 0, 1),
+    () =>
+      queryChannelWindow(
+        'd',
+        'c',
+        {
+          timeSeconds: times,
+          values: Float64Array.from([1]),
+        },
+        0,
+        1,
+      ),
     RangeError,
   );
 });
@@ -75,19 +76,29 @@ test('rejects invalid statistics ranges', () => {
   );
 });
 
-
 test('queries a half-open time window with binary-searched sample bounds', () => {
-  const result = queryChannelTimeWindow('dataset', 'channel', {
-    timeSeconds: new Float64Array([0, 0.5, 1, 1.5, 2]),
-    values: new Float64Array([10, 20, 30, 40, 50]),
-  }, 0.5, 2);
+  const result = queryChannelTimeWindow(
+    'dataset',
+    'channel',
+    {
+      timeSeconds: new Float64Array([0, 0.5, 1, 1.5, 2]),
+      values: new Float64Array([10, 20, 30, 40, 50]),
+    },
+    0.5,
+    2,
+  );
   assert.equal(result.startIndex, 1);
   assert.deepEqual([...result.timeSeconds], [0.5, 1, 1.5]);
   assert.deepEqual([...result.values], [20, 30, 40]);
 });
 
-
-function envelopeQuery(times: number[], values: number[], start: number, end: number, width: number) {
+function envelopeQuery(
+  times: number[],
+  values: number[],
+  start: number,
+  end: number,
+  width: number,
+) {
   const timeSeconds = Float64Array.from(times);
   const channelValues = Float64Array.from(values);
   return queryChannelEnvelopeTimeWindow(
@@ -133,11 +144,15 @@ test('envelope preserves a small missing-data gap instead of connecting across i
     1,
   );
   assert.ok([...result.values].some(Number.isNaN));
-  assert.equal(result.values.length, 3, 'retain the outer valid samples and one explicit gap marker');
+  assert.equal(
+    result.values.length,
+    3,
+    'retain the outer valid samples and one explicit gap marker',
+  );
 });
 
 test('pathological missing transitions collapse to a bounded explicit gap', () => {
-  const values = Array.from({ length: 128 }, (_, index) => index % 2 ? Number.NaN : index);
+  const values = Array.from({ length: 128 }, (_, index) => (index % 2 ? Number.NaN : index));
   const result = envelopeQuery(
     Array.from({ length: values.length }, (_, index) => index),
     values,
@@ -153,8 +168,14 @@ test('envelope query rejects invalid pixel widths and time ranges', () => {
   const times = Float64Array.from([0, 1]);
   const values = Float64Array.from([1, 2]);
   const index = buildChannelEnvelopeIndex(values);
-  assert.throws(() => queryChannelEnvelopeTimeWindow('d', 'c', { timeSeconds: times, values }, index, 0, 1, 0), RangeError);
-  assert.throws(() => queryChannelEnvelopeTimeWindow('d', 'c', { timeSeconds: times, values }, index, 2, 1, 10), RangeError);
+  assert.throws(
+    () => queryChannelEnvelopeTimeWindow('d', 'c', { timeSeconds: times, values }, index, 0, 1, 0),
+    RangeError,
+  );
+  assert.throws(
+    () => queryChannelEnvelopeTimeWindow('d', 'c', { timeSeconds: times, values }, index, 2, 1, 10),
+    RangeError,
+  );
 });
 
 test('one-million-sample envelope stays bounded by viewport width and retains isolated extrema', () => {
@@ -184,7 +205,6 @@ test('one-million-sample envelope stays bounded by viewport width and retains is
   assert.ok(result.values.length <= 800 * 4);
 });
 
-
 test('large buckets containing missing samples collapse to a bounded gap without scanning raw samples', () => {
   const sampleCount = 100_000;
   const times = Float64Array.from({ length: sampleCount }, (_, index) => index);
@@ -192,12 +212,17 @@ test('large buckets containing missing samples collapse to a bounded gap without
   values[50_000] = Number.NaN;
   const index = buildChannelEnvelopeIndex(values);
   const result = queryChannelEnvelopeTimeWindow(
-    'dataset', 'channel', { timeSeconds: times, values }, index, 0, sampleCount, 1,
+    'dataset',
+    'channel',
+    { timeSeconds: times, values },
+    index,
+    0,
+    sampleCount,
+    1,
   );
   assert.equal(result.values.length, 2);
   assert.ok([...result.values].every(Number.isNaN));
 });
-
 
 test('computes statistics over a half-open time interval without including the end sample', () => {
   const buffers = {
@@ -205,7 +230,12 @@ test('computes statistics over a half-open time interval without including the e
     values: new Float64Array([10, 20, Number.NaN, 40, 50]),
   };
   const statistics = queryChannelTimeStatistics(
-    'd', 'c', buffers, buildChannelEnvelopeIndex(buffers.values), 0.5, 2,
+    'd',
+    'c',
+    buffers,
+    buildChannelEnvelopeIndex(buffers.values),
+    0.5,
+    2,
   );
 
   assert.equal(statistics.startIndex, 1);
@@ -224,7 +254,12 @@ test('returns empty statistics when a visible time interval contains no samples'
     values: new Float64Array([10, 20, 30]),
   };
   const statistics = queryChannelTimeStatistics(
-    'd', 'c', buffers, buildChannelEnvelopeIndex(buffers.values), 0.25, 0.75,
+    'd',
+    'c',
+    buffers,
+    buildChannelEnvelopeIndex(buffers.values),
+    0.25,
+    0.75,
   );
 
   assert.equal(statistics.sampleCount, 0);
@@ -236,11 +271,25 @@ test('returns empty statistics when a visible time interval contains no samples'
 
 test('rejects malformed time axes and invalid statistics intervals', () => {
   const malformed = { timeSeconds: new Float64Array([0, 1]), values: new Float64Array([1]) };
-  assert.throws(() => queryChannelTimeStatistics('d', 'c', malformed, buildChannelEnvelopeIndex(malformed.values), 0, 1), RangeError);
+  assert.throws(
+    () =>
+      queryChannelTimeStatistics(
+        'd',
+        'c',
+        malformed,
+        buildChannelEnvelopeIndex(malformed.values),
+        0,
+        1,
+      ),
+    RangeError,
+  );
   const valid = { timeSeconds: new Float64Array([0, 1]), values: new Float64Array([1, 2]) };
-  assert.throws(() => queryChannelTimeStatistics('d', 'c', valid, buildChannelEnvelopeIndex(valid.values), 2, 1), RangeError);
+  assert.throws(
+    () =>
+      queryChannelTimeStatistics('d', 'c', valid, buildChannelEnvelopeIndex(valid.values), 2, 1),
+    RangeError,
+  );
 });
-
 
 test('indexed visible-window statistics match a direct Welford scan across block boundaries', () => {
   const sampleCount = 25_003;
@@ -254,9 +303,20 @@ test('indexed visible-window statistics match a direct Welford scan across block
   const buffers = { timeSeconds, values };
   const index = buildChannelEnvelopeIndex(values);
 
-  for (const [start, end] of [[0, 0.64], [0.01, 1.27], [15.35, 190.42], [210, 250.02]] as const) {
+  for (const [start, end] of [
+    [0, 0.64],
+    [0.01, 1.27],
+    [15.35, 190.42],
+    [210, 250.02],
+  ] as const) {
     const actual = queryChannelTimeStatistics('d', 'c', buffers, index, start, end);
-    const expected = calculateChannelStatistics('d', 'c', values, actual.startIndex, actual.endIndex);
+    const expected = calculateChannelStatistics(
+      'd',
+      'c',
+      values,
+      actual.startIndex,
+      actual.endIndex,
+    );
     assert.equal(actual.sampleCount, expected.sampleCount);
     assert.equal(actual.validCount, expected.validCount);
     assert.equal(actual.missingCount, expected.missingCount);

@@ -18,17 +18,50 @@ if (!Number.isSafeInteger(rows) || rows < 1 || rows > 10_000_000) {
 
 const epochStart = 1_735_689_600;
 const chunkRows = 12_000;
-const header = 'Timestamp,Vehicle Speed [km/h],Engine RPM [rpm],Throttle Position [%],Brake Pressure [bar],Steering Angle [deg]\n';
+const header =
+  'Timestamp,Vehicle Speed [km/h],Engine RPM [rpm],Throttle Position [%],Brake Pressure [bar],Steering Angle [deg]\n';
 
-function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
 const DRIVE_CYCLE_SECONDS = 3_600;
 const SPEED_PROFILE = [
-  [0, 0], [18, 0], [38, 32], [105, 32], [128, 0], [158, 0],
-  [190, 48], [340, 48], [370, 22], [405, 22], [430, 0], [455, 0],
-  [495, 58], [720, 58], [760, 82], [1_100, 82], [1_145, 96], [1_650, 96],
-  [1_690, 72], [1_820, 72], [1_855, 0], [1_900, 0], [1_940, 45], [2_180, 45],
-  [2_220, 65], [2_470, 65], [2_510, 35], [2_650, 35], [2_690, 0], [2_735, 0],
-  [2_780, 52], [3_030, 52], [3_070, 88], [3_350, 88], [3_390, 0], [3_600, 0],
+  [0, 0],
+  [18, 0],
+  [38, 32],
+  [105, 32],
+  [128, 0],
+  [158, 0],
+  [190, 48],
+  [340, 48],
+  [370, 22],
+  [405, 22],
+  [430, 0],
+  [455, 0],
+  [495, 58],
+  [720, 58],
+  [760, 82],
+  [1_100, 82],
+  [1_145, 96],
+  [1_650, 96],
+  [1_690, 72],
+  [1_820, 72],
+  [1_855, 0],
+  [1_900, 0],
+  [1_940, 45],
+  [2_180, 45],
+  [2_220, 65],
+  [2_470, 65],
+  [2_510, 35],
+  [2_650, 35],
+  [2_690, 0],
+  [2_735, 0],
+  [2_780, 52],
+  [3_030, 52],
+  [3_070, 88],
+  [3_350, 88],
+  [3_390, 0],
+  [3_600, 0],
 ];
 const GEAR_RATIOS = [3.6, 2.19, 1.41, 1.0, 0.83, 0.69];
 const FINAL_DRIVE = 3.55;
@@ -58,20 +91,33 @@ function driveState(seconds) {
   const acceleration = (profileSpeed(seconds + 0.05) - profileSpeed(seconds - 0.05)) / 0.1;
   const grade = 0.35 * Math.sin(seconds / 173) + 0.18 * Math.sin(seconds / 47);
   const throttle = clamp(
-    acceleration > 0.12 ? 7 + acceleration * 8.5 + grade : speed > 1 ? 7 + speed * 0.105 + Math.max(0, grade) * 4 : 0,
+    acceleration > 0.12
+      ? 7 + acceleration * 8.5 + grade
+      : speed > 1
+        ? 7 + speed * 0.105 + Math.max(0, grade) * 4
+        : 0,
     0,
     100,
   );
-  const brake = acceleration < -0.35
-    ? clamp(((-acceleration / 3.6) - 0.1) * 18 + Math.max(0, -grade) * 2, 0, 85)
-    : 0;
+  const brake =
+    acceleration < -0.35
+      ? clamp((-acceleration / 3.6 - 0.1) * 18 + Math.max(0, -grade) * 2, 0, 85)
+      : 0;
 
-  const gear = speed < 1 ? 0
-    : speed < 15 ? 0
-      : speed < 29 ? 1
-        : speed < 47 ? 2
-          : speed < 67 ? 3
-            : speed < 91 ? 4 : 5;
+  const gear =
+    speed < 1
+      ? 0
+      : speed < 15
+        ? 0
+        : speed < 29
+          ? 1
+          : speed < 47
+            ? 2
+            : speed < 67
+              ? 3
+              : speed < 91
+                ? 4
+                : 5;
   const wheelRpm = (speed / 3.6 / TYRE_CIRCUMFERENCE_METRES) * 60;
   const rpm = speed < 1 ? 850 : Math.max(850, wheelRpm * GEAR_RATIOS[gear] * FINAL_DRIVE);
   return { speed, acceleration, throttle, brake, rpm, gear };
@@ -90,9 +136,13 @@ function steeringAt(seconds) {
     return Math.abs(normalized) >= 1 ? 0 : amplitude * Math.sin(Math.PI * normalized) ** 2;
   };
   return clamp(
-    3.5 * Math.sin(seconds / 53) + 2.2 * Math.sin(seconds / 17)
-      + turn(285, 34, 90) - turn(815, 48, 120) + turn(1_325, 42, 65)
-      - turn(2_030, 38, 105) + turn(2_890, 55, 80),
+    3.5 * Math.sin(seconds / 53) +
+      2.2 * Math.sin(seconds / 17) +
+      turn(285, 34, 90) -
+      turn(815, 48, 120) +
+      turn(1_325, 42, 65) -
+      turn(2_030, 38, 105) +
+      turn(2_890, 55, 80),
     -540,
     540,
   );
@@ -102,21 +152,32 @@ function sampleAt(index, role) {
   const comparison = role === 'comparison';
   const seconds = index * 0.01 + (comparison ? 0.035 : 0);
   const state = driveState(seconds);
-  const noise = (salt, amplitude) => deterministicNoise(index, salt + (comparison ? 101 : 0)) * amplitude;
-  const speed = clamp(state.speed + (comparison && state.speed > 1 ? 0.18 : 0) + noise(1, 0.12), 0, 130);
+  const noise = (salt, amplitude) =>
+    deterministicNoise(index, salt + (comparison ? 101 : 0)) * amplitude;
+  const speed = clamp(
+    state.speed + (comparison && state.speed > 1 ? 0.18 : 0) + noise(1, 0.12),
+    0,
+    130,
+  );
   const rpm = clamp(state.rpm + (comparison ? 12 : 0) + noise(2, 7), 700, 6_500);
   // Keep sensor noise and comparison bias proportional to an active command.
   // An inactive actuator must remain at zero rather than acquiring a phantom demand.
-  const throttle = state.throttle > 0
-    ? clamp(state.throttle + (comparison ? 0.35 : 0) + noise(3, 0.45), 0, 100)
-    : 0;
-  const brake = state.brake > 0
-    ? clamp(state.brake + (comparison ? 0.08 : 0) + noise(4, 0.08), 0, 100)
-    : 0;
-  const steering = clamp(steeringAt(seconds % DRIVE_CYCLE_SECONDS) + (comparison ? 0.6 : 0) + noise(5, 0.7), -540, 540);
+  const throttle =
+    state.throttle > 0
+      ? clamp(state.throttle + (comparison ? 0.35 : 0) + noise(3, 0.45), 0, 100)
+      : 0;
+  const brake =
+    state.brake > 0 ? clamp(state.brake + (comparison ? 0.08 : 0) + noise(4, 0.08), 0, 100) : 0;
+  const steering = clamp(
+    steeringAt(seconds % DRIVE_CYCLE_SECONDS) + (comparison ? 0.6 : 0) + noise(5, 0.7),
+    -540,
+    540,
+  );
   const cyclePosition = seconds % DRIVE_CYCLE_SECONDS;
-  const dropout = comparison && ((cyclePosition >= 450 && cyclePosition < 450.2)
-    || (cyclePosition >= 2_412 && cyclePosition < 2_412.15));
+  const dropout =
+    comparison &&
+    ((cyclePosition >= 450 && cyclePosition < 450.2) ||
+      (cyclePosition >= 2_412 && cyclePosition < 2_412.15));
   return { seconds, speed, rpm, throttle, brake, steering, dropout };
 }
 

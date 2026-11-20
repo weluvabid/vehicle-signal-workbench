@@ -6,10 +6,7 @@
     "timestampEncoding": "unix-seconds"
   },
   "comparison": {
-    "missingIntervalSeconds": [
-      3,
-      5
-    ]
+    "missingIntervalSeconds": [3, 5]
   },
   "assertions": [
     "Long NaN intervals remain gaps.",

@@ -20,8 +20,13 @@ export function createSignalChartOption(
   getPointerTime: () => number | null = () => null,
 ): EChartsOption {
   const axisIndexes = panels.map((_, index) => index);
-  const lastVisibleIndex = panels.reduce((last, panel, index) => panel.visible ? index : last, -1);
-  const series = panels.flatMap((panel, index) => panel.visible ? createPanelSeries(panel, index) : []);
+  const lastVisibleIndex = panels.reduce(
+    (last, panel, index) => (panel.visible ? index : last),
+    -1,
+  );
+  const series = panels.flatMap((panel, index) =>
+    panel.visible ? createPanelSeries(panel, index) : [],
+  );
   const sliderReserve = 42;
   const outerInset = 8;
   const cardGap = 14;
@@ -88,7 +93,10 @@ export function createSignalChartOption(
           formatter: (value: number) => formatChartValue(value),
         },
         splitNumber: xAxisSplitNumber,
-        splitLine: { show: panel.visible, lineStyle: { color: GRID_COLOR, type: 'dashed' as const } },
+        splitLine: {
+          show: panel.visible,
+          lineStyle: { color: GRID_COLOR, type: 'dashed' as const },
+        },
         nameTextStyle: { color: LABEL_COLOR, fontSize: isNarrow ? 9 : 10 },
       };
     }),
@@ -176,4 +184,3 @@ export function createSignalChartOption(
     aria: { enabled: true },
   };
 }
-

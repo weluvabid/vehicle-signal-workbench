@@ -16,7 +16,10 @@ function applyZoom(factor: number) {
 }
 
 function getAdjacentZoom(factor: number, direction: -1 | 1): number {
-  if (direction > 0) return ZOOM_LEVELS.find((level) => level > factor + 1e-6) ?? ZOOM_LEVELS[ZOOM_LEVELS.length - 1];
+  if (direction > 0)
+    return (
+      ZOOM_LEVELS.find((level) => level > factor + 1e-6) ?? ZOOM_LEVELS[ZOOM_LEVELS.length - 1]
+    );
   return [...ZOOM_LEVELS].reverse().find((level) => level < factor - 1e-6) ?? ZOOM_LEVELS[0];
 }
 
@@ -64,31 +67,78 @@ export function TimelineZoomControls() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-8 items-center gap-0.5 rounded-md border border-border/70 bg-background/95 px-1 shadow-sm backdrop-blur" role="group" aria-label={LABELS.timelineControls}>
+      <div
+        className="flex h-8 items-center gap-0.5 rounded-md border border-border/70 bg-background/95 px-1 shadow-sm backdrop-blur"
+        role="group"
+        aria-label={LABELS.timelineControls}
+      >
         <Tooltip>
-          <TooltipTrigger render={<Button type="button" size="icon-xs" variant="ghost" aria-label={LABELS.zoomOut} aria-keyshortcuts="-" disabled={factor <= 1} onClick={() => set(getAdjacentZoom(factor, -1))} />}>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label={LABELS.zoomOut}
+                aria-keyshortcuts="-"
+                disabled={factor <= 1}
+                onClick={() => set(getAdjacentZoom(factor, -1))}
+              />
+            }
+          >
             <Minus />
           </TooltipTrigger>
           <TooltipContent>{LABELS.zoomOut}</TooltipContent>
         </Tooltip>
         <Popover>
-          <PopoverTrigger className="h-7 min-w-11 rounded px-1.5 font-mono text-xs tabular-nums text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${LABELS.zoomLevel}: ${ZOOM_FORMATTER.format(factor)}×`}>
+          <PopoverTrigger
+            className="h-7 min-w-11 rounded px-1.5 font-mono text-xs tabular-nums text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`${LABELS.zoomLevel}: ${ZOOM_FORMATTER.format(factor)}×`}
+          >
             {ZOOM_FORMATTER.format(factor)}×
           </PopoverTrigger>
           <PopoverContent className="w-44 p-2" side="top" align="end">
-            <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">{LABELS.zoomLevel}</p>
+            <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">
+              {LABELS.zoomLevel}
+            </p>
             <div className="grid grid-cols-3 gap-1">
               {ZOOM_LEVELS.map((level) => (
-                <Button key={level} type="button" size="sm" variant={Math.abs(factor - level) < 1e-6 ? 'secondary' : 'ghost'} onClick={() => set(level)}>
+                <Button
+                  key={level}
+                  type="button"
+                  size="sm"
+                  variant={Math.abs(factor - level) < 1e-6 ? 'secondary' : 'ghost'}
+                  onClick={() => set(level)}
+                >
                   {ZOOM_FORMATTER.format(level)}×
                 </Button>
               ))}
             </div>
-            <Button className="mt-1 w-full" type="button" size="sm" variant="outline" onClick={() => set(1)}>{LABELS.fitAll}</Button>
+            <Button
+              className="mt-1 w-full"
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => set(1)}
+            >
+              {LABELS.fitAll}
+            </Button>
           </PopoverContent>
         </Popover>
         <Tooltip>
-          <TooltipTrigger render={<Button type="button" size="icon-xs" variant="ghost" aria-label={LABELS.zoomIn} aria-keyshortcuts="+ =" disabled={factor >= 20} onClick={() => set(getAdjacentZoom(factor, 1))} />}>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label={LABELS.zoomIn}
+                aria-keyshortcuts="+ ="
+                disabled={factor >= 20}
+                onClick={() => set(getAdjacentZoom(factor, 1))}
+              />
+            }
+          >
             <Plus />
           </TooltipTrigger>
           <TooltipContent>{LABELS.zoomIn}</TooltipContent>

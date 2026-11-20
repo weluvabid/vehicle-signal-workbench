@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openWorkspace } from '../support/fixtures';
 
-test('worker startup failure is surfaced and a subsequent generated workload can recover', async ({ page }) => {
+test('worker startup failure is surfaced and a subsequent generated workload can recover', async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     const NativeWorker = window.Worker;
     let failNextWorker = true;

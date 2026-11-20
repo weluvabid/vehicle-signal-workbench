@@ -16,11 +16,15 @@ export function calculateTimelineOverlap(
   comparisonOffsetSeconds: number,
 ): TimelineOverlap {
   if (
-    !Number.isFinite(referenceDurationSeconds) || referenceDurationSeconds < 0 ||
-    !Number.isFinite(comparisonDurationSeconds) || comparisonDurationSeconds < 0 ||
+    !Number.isFinite(referenceDurationSeconds) ||
+    referenceDurationSeconds < 0 ||
+    !Number.isFinite(comparisonDurationSeconds) ||
+    comparisonDurationSeconds < 0 ||
     !Number.isFinite(comparisonOffsetSeconds)
   ) {
-    throw new RangeError('Timeline durations and offset must be finite; durations cannot be negative.');
+    throw new RangeError(
+      'Timeline durations and offset must be finite; durations cannot be negative.',
+    );
   }
 
   const startSeconds = Math.max(0, comparisonOffsetSeconds);

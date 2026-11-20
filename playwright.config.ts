@@ -33,11 +33,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     ...(process.env.VSW_CROSS_BROWSER === '1'
-      ? [{
-          name: 'webkit',
-          testIgnore: '**/performance.spec.ts',
-          use: { ...devices['Desktop Safari'] },
-        }]
+      ? [
+          {
+            name: 'webkit',
+            testIgnore: '**/performance.spec.ts',
+            use: { ...devices['Desktop Safari'] },
+          },
+        ]
       : []),
   ],
   webServer: {

@@ -16,13 +16,24 @@ test('keeps native samples in independent series without interpolation', () => {
     window([0, 0.5, 1.5], [20, 21, 22]),
     0,
   );
-  assert.deepEqual(result.reference, [[0, 10], [1, 11], [2, 12]]);
-  assert.deepEqual(result.comparison, [[0, 20], [0.5, 21], [1.5, 22]]);
+  assert.deepEqual(result.reference, [
+    [0, 10],
+    [1, 11],
+    [2, 12],
+  ]);
+  assert.deepEqual(result.comparison, [
+    [0, 20],
+    [0.5, 21],
+    [1.5, 22],
+  ]);
 });
 
 test('applies the comparison offset before plotting', () => {
   const result = buildComparisonPlotData(window([1], [1]), window([0, 1], [2, 3]), 1);
-  assert.deepEqual(result.comparison, [[1, 2], [2, 3]]);
+  assert.deepEqual(result.comparison, [
+    [1, 2],
+    [2, 3],
+  ]);
 });
 
 test('converts missing and non-finite values to chart gaps', () => {
@@ -31,8 +42,15 @@ test('converts missing and non-finite values to chart gaps', () => {
     window([0, 1], [Number.NEGATIVE_INFINITY, 4]),
     0,
   );
-  assert.deepEqual(result.reference, [[0, null], [1, null], [2, 3]]);
-  assert.deepEqual(result.comparison, [[0, null], [1, 4]]);
+  assert.deepEqual(result.reference, [
+    [0, null],
+    [1, null],
+    [2, 3],
+  ]);
+  assert.deepEqual(result.comparison, [
+    [0, null],
+    [1, 4],
+  ]);
 });
 
 test('rejects non-finite offsets and malformed windows', () => {
@@ -48,7 +66,8 @@ test('rejects non-finite offsets and malformed windows', () => {
 
 test('rejects aligned timestamp overflow', () => {
   assert.throws(
-    () => buildComparisonPlotData(window([0], [1]), window([Number.MAX_VALUE], [2]), Number.MAX_VALUE),
+    () =>
+      buildComparisonPlotData(window([0], [1]), window([Number.MAX_VALUE], [2]), Number.MAX_VALUE),
     /Aligned comparison timestamps must be finite/,
   );
 });

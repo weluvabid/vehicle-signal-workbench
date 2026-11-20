@@ -27,13 +27,19 @@ interface MetricsViewportOptions {
 function summarizeWorkerSamples(samples: readonly number[]): WorkerComputeStatistics | null {
   if (samples.length === 0) return null;
   const sorted = [...samples].sort((left, right) => left - right);
-  const percentile = (p: number) => sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
+  const percentile = (p: number) =>
+    sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
   return { medianMs: percentile(0.5), p95Ms: percentile(0.95), count: samples.length };
 }
 
 /** Debounces the same range used by Channel analysis and consumes timings returned by that worker query. */
 export function useMetricsViewport(options: MetricsViewportOptions) {
-  const [viewport, setViewport] = useState<{ start: number; end: number; identity: string; isInitial: boolean } | null>(null);
+  const [viewport, setViewport] = useState<{
+    start: number;
+    end: number;
+    identity: string;
+    isInitial: boolean;
+  } | null>(null);
   const [result, setResult] = useState<MetricsQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,14 +64,29 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
     setError(null);
   }, [identity]);
 
-  const setViewportRange = useCallback((start: number, end: number, isInitial = false) => {
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
-    setViewport((current) => current?.start === start && current?.end === end && current.identity === identity && current.isInitial === isInitial
-      ? current : { start, end, identity, isInitial });
-  }, [identity]);
+  const setViewportRange = useCallback(
+    (start: number, end: number, isInitial = false) => {
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+      setViewport((current) =>
+        current?.start === start &&
+        current?.end === end &&
+        current.identity === identity &&
+        current.isInitial === isInitial
+          ? current
+          : { start, end, identity, isInitial },
+      );
+    },
+    [identity],
+  );
 
   useEffect(() => {
-    if (!viewport || viewport.identity !== identity || panels.length === 0 || currentIdentity.current !== identity) return;
+    if (
+      !viewport ||
+      viewport.identity !== identity ||
+      panels.length === 0 ||
+      currentIdentity.current !== identity
+    )
+      return;
     let current = true;
     let request: ReturnType<MeasurementWorkerClient['queryMetrics']> | null = null;
     const timer = setTimeout(() => {
@@ -73,8 +94,12 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
       setLoading(true);
       setError(null);
       request = options.client.queryMetrics(
-        options.reference.id, options.comparison.id, panels,
-        viewport.start, viewport.end, options.offsetSeconds,
+        options.reference.id,
+        options.comparison.id,
+        panels,
+        viewport.start,
+        viewport.end,
+        options.offsetSeconds,
       );
       void request.promise
         .then((next) => {
@@ -84,7 +109,12 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
           // contribute, even if the initial query was superseded before completion.
           if (viewport.isInitial) return;
           const workerComputeMs = next.timings?.workerComputeMs;
-          if (!Number.isFinite(workerComputeMs) || workerComputeMs === undefined || workerComputeMs < 0) return;
+          if (
+            !Number.isFinite(workerComputeMs) ||
+            workerComputeMs === undefined ||
+            workerComputeMs < 0
+          )
+            return;
           const nextSamples = samples.current;
           nextSamples.push(workerComputeMs);
           if (nextSamples.length > MAX_WORKER_SAMPLES) nextSamples.shift();
@@ -104,10 +134,22 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
       clearTimeout(timer);
       request?.cancel();
     };
-  }, [options.client, options.reference.id, options.comparison.id, panels, options.offsetSeconds, viewport, identity]);
+  }, [
+    options.client,
+    options.reference.id,
+    options.comparison.id,
+    panels,
+    options.offsetSeconds,
+    viewport,
+    identity,
+  ]);
 
   return {
     viewport: viewport ? { start: viewport.start, end: viewport.end } : null,
-    setViewportRange, result, loading, error, workerCompute,
+    setViewportRange,
+    result,
+    loading,
+    error,
+    workerCompute,
   };
 }

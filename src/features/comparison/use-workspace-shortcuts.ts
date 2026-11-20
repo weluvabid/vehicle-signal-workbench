@@ -12,12 +12,17 @@ interface WorkspaceShortcutOptions {
 export function useWorkspaceShortcuts({ onHelp, onNewWorkload }: WorkspaceShortcutOptions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || (event.shiftKey && event.key !== '+')) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || (event.shiftKey && event.key !== '+'))
+        return;
       const target = event.target;
-      if (target instanceof HTMLElement && (
-        target.isContentEditable ||
-        target.closest('input, textarea, select, [role="textbox"], [contenteditable="true"], [role="dialog"]')
-      )) return;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest(
+            'input, textarea, select, [role="textbox"], [contenteditable="true"], [role="dialog"]',
+          ))
+      )
+        return;
 
       if (event.key === '?') {
         event.preventDefault();

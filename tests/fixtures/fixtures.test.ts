@@ -11,7 +11,7 @@ async function findExpectedFiles(directory: string): Promise<string[]> {
 
   for (const entry of entries) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await findExpectedFiles(path));
+    if (entry.isDirectory()) files.push(...(await findExpectedFiles(path)));
     else if (entry.name === 'expected.json') files.push(path);
   }
 
@@ -37,18 +37,32 @@ test('CSV regression fixture corpus has complete and valid scenario metadata', a
     );
 
     if (metadata.variants) {
-      assert.deepEqual([...metadata.variants].sort(), ['iso-8601', 'unix-milliseconds', 'unix-seconds']);
+      assert.deepEqual([...metadata.variants].sort(), [
+        'iso-8601',
+        'unix-milliseconds',
+        'unix-seconds',
+      ]);
       continue;
     }
 
-    assert.ok(['accepted', 'rejected'].includes(metadata.import?.status ?? ''), `${scenarioDirectory}: import status`);
-    assert.equal(metadata.import?.timestampColumn, 'Timestamp', `${scenarioDirectory}: timestamp column`);
+    assert.ok(
+      ['accepted', 'rejected'].includes(metadata.import?.status ?? ''),
+      `${scenarioDirectory}: import status`,
+    );
+    assert.equal(
+      metadata.import?.timestampColumn,
+      'Timestamp',
+      `${scenarioDirectory}: timestamp column`,
+    );
     assert.ok(metadata.import?.timestampEncoding, `${scenarioDirectory}: timestamp encoding`);
 
     for (const filename of ['reference.csv', 'comparison.csv']) {
       const filePath = join(fixtureRoot, scenarioDirectory, filename);
       const fileStats = await stat(filePath);
-      assert.ok(fileStats.isFile() && fileStats.size > 0, `${scenarioDirectory}: ${filename} exists and is non-empty`);
+      assert.ok(
+        fileStats.isFile() && fileStats.size > 0,
+        `${scenarioDirectory}: ${filename} exists and is non-empty`,
+      );
     }
   }
 });

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseFiniteChartNumber, resolveDataZoomRange, resolveDataZoomViewport } from './viewport.ts';
+import {
+  parseFiniteChartNumber,
+  resolveDataZoomRange,
+  resolveDataZoomViewport,
+} from './viewport.ts';
 
 test('resolves percentage ranges against the complete recording domain', () => {
   assert.deepEqual(resolveDataZoomRange({ start: 25, end: 75 }, 100, 200), {
@@ -10,11 +14,14 @@ test('resolves percentage ranges against the complete recording domain', () => {
 });
 
 test('prefers the last complete range in a linked-axis batch', () => {
-  assert.deepEqual(resolveDataZoomRange({ batch: [
-    { start: 10, end: 90 },
-    { start: 20, end: 60 },
-    { start: 30 },
-  ] }, 0, 1_000), { startSeconds: 200, endSeconds: 600 });
+  assert.deepEqual(
+    resolveDataZoomRange(
+      { batch: [{ start: 10, end: 90 }, { start: 20, end: 60 }, { start: 30 }] },
+      0,
+      1_000,
+    ),
+    { startSeconds: 200, endSeconds: 600 },
+  );
 });
 
 test('clamps ranges to the available recording domain', () => {

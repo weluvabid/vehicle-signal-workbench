@@ -13,14 +13,16 @@ function dataset(overrides: Partial<DatasetDescriptor> = {}): DatasetDescriptor 
     durationSeconds: 10,
     timeOriginEpochSeconds: 0,
     timestampEncoding: 'unix-seconds',
-    channels: [{
-      id: 'speed',
-      sourceColumn: 'Speed',
-      label: 'Speed',
-      unit: 'km/h',
-      sampleCount: 100,
-      missingSampleCount: 10,
-    }],
+    channels: [
+      {
+        id: 'speed',
+        sourceColumn: 'Speed',
+        label: 'Speed',
+        unit: 'km/h',
+        sampleCount: 100,
+        missingSampleCount: 10,
+      },
+    ],
     retainedStorageBytes: 1024,
     ...overrides,
   };
@@ -28,7 +30,8 @@ function dataset(overrides: Partial<DatasetDescriptor> = {}): DatasetDescriptor 
 
 test('calculates aggregate rows, samples, memory and ingestion throughput', () => {
   const result = calculateComparisonPerformanceMetrics(dataset(), dataset({ id: 'other' }), {
-    ingestionDurationMs: 2_000, totalBytes: 400,
+    ingestionDurationMs: 2_000,
+    totalBytes: 400,
   });
   assert.equal(result.totalRows, 200);
   assert.equal(result.validChannelSamples, 180);
@@ -38,7 +41,11 @@ test('calculates aggregate rows, samples, memory and ingestion throughput', () =
 });
 
 test('handles missing ingestion metrics and storage sizes', () => {
-  const result = calculateComparisonPerformanceMetrics(dataset({ retainedStorageBytes: undefined }), dataset({ retainedStorageBytes: undefined }), null);
+  const result = calculateComparisonPerformanceMetrics(
+    dataset({ retainedStorageBytes: undefined }),
+    dataset({ retainedStorageBytes: undefined }),
+    null,
+  );
   assert.equal(result.ingestion, '—');
   assert.equal(result.memory, '—');
   assert.equal(result.throughput, '—');

@@ -6,8 +6,6 @@
     "timestampEncoding": "unix-seconds"
   },
   "comparison": null,
-  "assertions": [
-    "Channels map by normalized label and compatible unit, not CSV column position."
-  ],
+  "assertions": ["Channels map by normalized label and compatible unit, not CSV column position."],
   "notes": []
 }

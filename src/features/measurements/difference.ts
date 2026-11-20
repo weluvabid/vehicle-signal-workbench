@@ -1,7 +1,10 @@
 import { lowerBoundFloat64 } from './sorted-search.ts';
 import type { ChannelWindow } from './model';
 
-export { downsampleDifferenceEnvelope, selectDifferenceEnvelopeIndexes } from './difference-envelope.ts';
+export {
+  downsampleDifferenceEnvelope,
+  selectDifferenceEnvelopeIndexes,
+} from './difference-envelope.ts';
 import { selectDifferenceEnvelopeIndexes } from './difference-envelope.ts';
 
 /**
@@ -66,7 +69,9 @@ export function calculateSignalDifferenceInTimeRange(
   shouldAbort?: () => boolean,
 ): DifferenceStatistics {
   if (
-    !Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds < startSeconds ||
+    !Number.isFinite(startSeconds) ||
+    !Number.isFinite(endSeconds) ||
+    endSeconds < startSeconds ||
     !Number.isFinite(comparisonOffsetSeconds) ||
     referenceSource.timeSeconds.length !== referenceSource.values.length ||
     comparisonSource.timeSeconds.length !== comparisonSource.values.length
@@ -81,7 +86,10 @@ export function calculateSignalDifferenceInTimeRange(
   if (!Number.isFinite(comparisonStartTime) || !Number.isFinite(comparisonEndTime)) {
     throw new RangeError('Aligned comparison time range must be finite.');
   }
-  const comparisonStart = Math.max(0, lowerBoundFloat64(comparisonSource.timeSeconds, comparisonStartTime) - 1);
+  const comparisonStart = Math.max(
+    0,
+    lowerBoundFloat64(comparisonSource.timeSeconds, comparisonStartTime) - 1,
+  );
   const comparisonEnd = Math.min(
     comparisonSource.timeSeconds.length,
     lowerBoundFloat64(comparisonSource.timeSeconds, comparisonEndTime) + 1,
@@ -122,7 +130,9 @@ export function calculateSignalDifferenceSeriesInTimeRange(
   nominalSampleIntervalSeconds?: number | null,
 ): DifferenceResult {
   if (
-    !Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds < startSeconds ||
+    !Number.isFinite(startSeconds) ||
+    !Number.isFinite(endSeconds) ||
+    endSeconds < startSeconds ||
     !Number.isFinite(comparisonOffsetSeconds) ||
     referenceSource.timeSeconds.length !== referenceSource.values.length ||
     comparisonSource.timeSeconds.length !== comparisonSource.values.length
@@ -136,27 +146,41 @@ export function calculateSignalDifferenceSeriesInTimeRange(
   if (!Number.isFinite(comparisonStartTime) || !Number.isFinite(comparisonEndTime)) {
     throw new RangeError('Aligned comparison time range must be finite.');
   }
-  const comparisonStart = Math.max(0, lowerBoundFloat64(comparisonSource.timeSeconds, comparisonStartTime) - 1);
-  const comparisonEnd = Math.min(comparisonSource.timeSeconds.length, lowerBoundFloat64(comparisonSource.timeSeconds, comparisonEndTime) + 1);
+  const comparisonStart = Math.max(
+    0,
+    lowerBoundFloat64(comparisonSource.timeSeconds, comparisonStartTime) - 1,
+  );
+  const comparisonEnd = Math.min(
+    comparisonSource.timeSeconds.length,
+    lowerBoundFloat64(comparisonSource.timeSeconds, comparisonEndTime) + 1,
+  );
   const referenceWindow: ChannelWindow = {
-    datasetId: referenceSource.datasetId, channelId: referenceSource.channelId,
+    datasetId: referenceSource.datasetId,
+    channelId: referenceSource.channelId,
     startIndex: referenceStart,
     timeSeconds: referenceSource.timeSeconds.subarray(referenceStart, referenceEnd),
     values: referenceSource.values.subarray(referenceStart, referenceEnd),
   };
   const comparisonWindow: ChannelWindow = {
-    datasetId: comparisonSource.datasetId, channelId: comparisonSource.channelId,
+    datasetId: comparisonSource.datasetId,
+    channelId: comparisonSource.channelId,
     startIndex: comparisonStart,
     timeSeconds: comparisonSource.timeSeconds.subarray(comparisonStart, comparisonEnd),
     values: comparisonSource.values.subarray(comparisonStart, comparisonEnd),
   };
-  const fullRunCadence = nominalSampleIntervalSeconds === undefined
-    ? medianSampleInterval({
-      timeSeconds: comparisonSource.timeSeconds,
-      values: comparisonSource.values,
-    })
-    : nominalSampleIntervalSeconds;
-  return calculateSignalDifference(referenceWindow, comparisonWindow, comparisonOffsetSeconds, fullRunCadence);
+  const fullRunCadence =
+    nominalSampleIntervalSeconds === undefined
+      ? medianSampleInterval({
+          timeSeconds: comparisonSource.timeSeconds,
+          values: comparisonSource.values,
+        })
+      : nominalSampleIntervalSeconds;
+  return calculateSignalDifference(
+    referenceWindow,
+    comparisonWindow,
+    comparisonOffsetSeconds,
+    fullRunCadence,
+  );
 }
 
 /**
@@ -176,8 +200,15 @@ export function calculateSignalDifferenceEnvelopeInTimeRange(
   comparisonOffsetSeconds: number,
   pixelWidth: number,
 ): DifferenceResult {
-  return calculateDifferenceEnvelope(referenceSource, comparisonSource, startSeconds, endSeconds,
-    comparisonOffsetSeconds, pixelWidth, true) as DifferenceResult;
+  return calculateDifferenceEnvelope(
+    referenceSource,
+    comparisonSource,
+    startSeconds,
+    endSeconds,
+    comparisonOffsetSeconds,
+    pixelWidth,
+    true,
+  ) as DifferenceResult;
 }
 
 /** Build a chart-only envelope without allocating unused interpolated value arrays. */
@@ -190,8 +221,16 @@ export function calculateSignalDifferencePlotEnvelopeInTimeRange(
   pixelWidth: number,
   shouldAbort?: () => boolean,
 ): DifferencePlotResult {
-  return calculateDifferenceEnvelope(referenceSource, comparisonSource, startSeconds, endSeconds,
-    comparisonOffsetSeconds, pixelWidth, false, shouldAbort) as DifferencePlotResult;
+  return calculateDifferenceEnvelope(
+    referenceSource,
+    comparisonSource,
+    startSeconds,
+    endSeconds,
+    comparisonOffsetSeconds,
+    pixelWidth,
+    false,
+    shouldAbort,
+  ) as DifferencePlotResult;
 }
 
 function calculateDifferenceEnvelope(
@@ -207,17 +246,28 @@ function calculateDifferenceEnvelope(
   if (!Number.isInteger(pixelWidth) || pixelWidth < 1 || pixelWidth > 8_192) {
     throw new RangeError('Difference envelope pixel width must be between 1 and 8192.');
   }
-  validateDifferenceSources(referenceSource, comparisonSource, startSeconds, endSeconds, comparisonOffsetSeconds);
+  validateDifferenceSources(
+    referenceSource,
+    comparisonSource,
+    startSeconds,
+    endSeconds,
+    comparisonOffsetSeconds,
+  );
 
   const referenceStart = lowerBoundFloat64(referenceSource.timeSeconds, startSeconds);
   const referenceEnd = lowerBoundFloat64(referenceSource.timeSeconds, endSeconds);
   const sampleCount = referenceEnd - referenceStart;
-  const comparisonStart = Math.max(0, lowerBoundFloat64(comparisonSource.timeSeconds,
-    startSeconds - comparisonOffsetSeconds) - 1);
-  const comparisonEnd = Math.min(comparisonSource.timeSeconds.length,
-    lowerBoundFloat64(comparisonSource.timeSeconds, endSeconds - comparisonOffsetSeconds) + 1);
+  const comparisonStart = Math.max(
+    0,
+    lowerBoundFloat64(comparisonSource.timeSeconds, startSeconds - comparisonOffsetSeconds) - 1,
+  );
+  const comparisonEnd = Math.min(
+    comparisonSource.timeSeconds.length,
+    lowerBoundFloat64(comparisonSource.timeSeconds, endSeconds - comparisonOffsetSeconds) + 1,
+  );
   const comparisonWindow: ChannelWindow = {
-    datasetId: comparisonSource.datasetId, channelId: comparisonSource.channelId,
+    datasetId: comparisonSource.datasetId,
+    channelId: comparisonSource.channelId,
     startIndex: comparisonStart,
     timeSeconds: comparisonSource.timeSeconds.subarray(comparisonStart, comparisonEnd),
     values: comparisonSource.values.subarray(comparisonStart, comparisonEnd),
@@ -242,11 +292,19 @@ function calculateDifferenceEnvelope(
     const referenceValue = referenceSource.values[index];
     if (!Number.isFinite(referenceValue)) continue;
     const target = referenceSource.timeSeconds[index] - comparisonOffsetSeconds;
-    while (comparisonCursor < comparisonWindow.timeSeconds.length &&
-      comparisonWindow.timeSeconds[comparisonCursor] < target - DIFFERENCE_POLICY.exactMatchToleranceSeconds) {
+    while (
+      comparisonCursor < comparisonWindow.timeSeconds.length &&
+      comparisonWindow.timeSeconds[comparisonCursor] <
+        target - DIFFERENCE_POLICY.exactMatchToleranceSeconds
+    ) {
       comparisonCursor++;
     }
-    const comparisonValue = interpolateWithoutCrossingGaps(comparisonWindow, target, maxGap, comparisonCursor);
+    const comparisonValue = interpolateWithoutCrossingGaps(
+      comparisonWindow,
+      target,
+      maxGap,
+      comparisonCursor,
+    );
     if (comparisonValue === null) continue;
     const difference = referenceValue - comparisonValue;
     if (!Number.isFinite(difference)) continue;
@@ -275,11 +333,12 @@ function calculateDifferenceEnvelope(
     unavailableCount: sampleCount - matchedCount,
     bias: matchedCount === 0 ? null : bias,
     meanAbsoluteError: matchedCount === 0 ? null : meanAbsoluteError,
-    rootMeanSquareError: matchedCount === 0
-      ? null
-      : squaredErrorScale === 0
-        ? 0
-        : squaredErrorScale * Math.sqrt(scaledSquaredErrorSum / matchedCount),
+    rootMeanSquareError:
+      matchedCount === 0
+        ? null
+        : squaredErrorScale === 0
+          ? 0
+          : squaredErrorScale * Math.sqrt(scaledSquaredErrorSum / matchedCount),
     maximumAbsoluteError: matchedCount === 0 ? null : maximumAbsoluteError,
     maxInterpolationGapSeconds: maxGap,
   };
@@ -312,13 +371,16 @@ function calculateDifferenceEnvelope(
     }
     if (!comparisonValues) continue;
     const target = timeSeconds[outputIndex] - comparisonOffsetSeconds;
-    while (outputComparisonCursor < comparisonWindow.timeSeconds.length &&
-      comparisonWindow.timeSeconds[outputComparisonCursor] < target - DIFFERENCE_POLICY.exactMatchToleranceSeconds) {
+    while (
+      outputComparisonCursor < comparisonWindow.timeSeconds.length &&
+      comparisonWindow.timeSeconds[outputComparisonCursor] <
+        target - DIFFERENCE_POLICY.exactMatchToleranceSeconds
+    ) {
       outputComparisonCursor++;
     }
-    comparisonValues[outputIndex] = interpolateWithoutCrossingGaps(
-      comparisonWindow, target, maxGap, outputComparisonCursor,
-    ) ?? Number.NaN;
+    comparisonValues[outputIndex] =
+      interpolateWithoutCrossingGaps(comparisonWindow, target, maxGap, outputComparisonCursor) ??
+      Number.NaN;
   }
   return referenceValues && comparisonValues
     ? { timeSeconds, referenceValues, comparisonValues, delta: outputDelta, statistics }
@@ -326,17 +388,28 @@ function calculateDifferenceEnvelope(
 }
 
 function validateDifferenceSources(
-  reference: DifferenceSource, comparison: DifferenceSource, start: number, end: number, offset: number,
+  reference: DifferenceSource,
+  comparison: DifferenceSource,
+  start: number,
+  end: number,
+  offset: number,
 ): void {
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || !Number.isFinite(offset) ||
-      reference.timeSeconds.length !== reference.values.length ||
-      comparison.timeSeconds.length !== comparison.values.length) {
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    end < start ||
+    !Number.isFinite(offset) ||
+    reference.timeSeconds.length !== reference.values.length ||
+    comparison.timeSeconds.length !== comparison.values.length
+  ) {
     throw new RangeError('Invalid difference source or visible time range.');
   }
 }
 
 /** Returns a bounded-sample median of positive adjacent timestamp intervals. */
-export function medianSampleInterval(window: Pick<ChannelWindow, 'timeSeconds' | 'values'>): number | null {
+export function medianSampleInterval(
+  window: Pick<ChannelWindow, 'timeSeconds' | 'values'>,
+): number | null {
   if (window.timeSeconds.length !== window.values.length) {
     throw new RangeError('Cadence input time and value arrays must have equal lengths.');
   }
@@ -357,9 +430,10 @@ export function medianSampleInterval(window: Pick<ChannelWindow, 'timeSeconds' |
   }
   intervals.sort((a, b) => a - b);
   const middle = Math.floor(intervals.length / 2);
-  const cadence = intervals.length % 2 === 0
-    ? (intervals[middle - 1] + intervals[middle]) / 2
-    : intervals[middle];
+  const cadence =
+    intervals.length % 2 === 0
+      ? (intervals[middle - 1] + intervals[middle]) / 2
+      : intervals[middle];
   cadenceCache.set(window.timeSeconds, cadence);
   return cadence;
 }
@@ -404,15 +478,19 @@ function calculateDifference(
 ): InternalDifferenceResult {
   validateWindow(reference);
   validateWindow(comparison);
-  if (!Number.isFinite(comparisonOffsetSeconds)) throw new RangeError('Comparison offset must be finite.');
+  if (!Number.isFinite(comparisonOffsetSeconds))
+    throw new RangeError('Comparison offset must be finite.');
 
-  if (nominalSampleIntervalSeconds !== null &&
-      (!Number.isFinite(nominalSampleIntervalSeconds) || nominalSampleIntervalSeconds <= 0)) {
+  if (
+    nominalSampleIntervalSeconds !== null &&
+    (!Number.isFinite(nominalSampleIntervalSeconds) || nominalSampleIntervalSeconds <= 0)
+  ) {
     throw new RangeError('Nominal sample interval must be positive and finite.');
   }
-  const maxGap = nominalSampleIntervalSeconds === null
-    ? null
-    : nominalSampleIntervalSeconds * DIFFERENCE_POLICY.maxInterpolationGapFactor;
+  const maxGap =
+    nominalSampleIntervalSeconds === null
+      ? null
+      : nominalSampleIntervalSeconds * DIFFERENCE_POLICY.maxInterpolationGapFactor;
   // Series responses are transferred to the UI. These copies isolate the
   // response buffers from worker-owned dataset storage and its subarray views.
   const timeSeconds = includeSeries ? reference.timeSeconds.slice() : null;
@@ -438,8 +516,11 @@ function calculateDifference(
     if (!Number.isFinite(referenceValue)) continue;
 
     const comparisonTime = reference.timeSeconds[index] - comparisonOffsetSeconds;
-    while (comparisonCursor < comparison.timeSeconds.length &&
-        comparison.timeSeconds[comparisonCursor] < comparisonTime - DIFFERENCE_POLICY.exactMatchToleranceSeconds) {
+    while (
+      comparisonCursor < comparison.timeSeconds.length &&
+      comparison.timeSeconds[comparisonCursor] <
+        comparisonTime - DIFFERENCE_POLICY.exactMatchToleranceSeconds
+    ) {
       comparisonCursor += 1;
     }
     const comparisonValue = interpolateWithoutCrossingGaps(
@@ -479,11 +560,12 @@ function calculateDifference(
     unavailableCount: sampleCount - matchedCount,
     bias: matchedCount === 0 ? null : bias,
     meanAbsoluteError: matchedCount === 0 ? null : meanAbsoluteError,
-    rootMeanSquareError: matchedCount === 0
-      ? null
-      : squaredErrorScale === 0
-        ? 0
-        : squaredErrorScale * Math.sqrt(scaledSquaredErrorSum / matchedCount),
+    rootMeanSquareError:
+      matchedCount === 0
+        ? null
+        : squaredErrorScale === 0
+          ? 0
+          : squaredErrorScale * Math.sqrt(scaledSquaredErrorSum / matchedCount),
     maximumAbsoluteError: matchedCount === 0 ? null : maximumAbsoluteError,
     maxInterpolationGapSeconds: maxGap,
   };
@@ -517,7 +599,6 @@ function interpolateWithoutCrossingGaps(
   if (ratio < 0 || ratio > 1) return null;
   return leftValue + (rightValue - leftValue) * ratio;
 }
-
 
 function validateWindow(window: ChannelWindow): void {
   if (window.timeSeconds.length !== window.values.length) {

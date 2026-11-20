@@ -8,10 +8,7 @@
   "comparison": {
     "referenceRateHz": 100,
     "comparisonRateHz": 50,
-    "expectedOverlapSeconds": [
-      0,
-      10
-    ]
+    "expectedOverlapSeconds": [0, 10]
   },
   "assertions": [
     "Both runs import successfully.",

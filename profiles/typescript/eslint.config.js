@@ -16,13 +16,7 @@ const paddingLineBetweenStatements = [
 
 export default tseslint.config(
   {
-    ignores: [
-      '**/node_modules/**',
-      '**/coverage/**',
-      '**/dist/**',
-      '**/build/**',
-      '**/target/**',
-    ],
+    ignores: ['**/node_modules/**', '**/coverage/**', '**/dist/**', '**/build/**', '**/target/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

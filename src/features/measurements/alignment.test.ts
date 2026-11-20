@@ -4,25 +4,33 @@ import { calculateTimelineOverlap } from './alignment.ts';
 
 test('computes overlap when comparison starts later', () => {
   assert.deepEqual(calculateTimelineOverlap(100, 80, 20), {
-    startSeconds: 20, endSeconds: 100, durationSeconds: 80,
+    startSeconds: 20,
+    endSeconds: 100,
+    durationSeconds: 80,
   });
 });
 
 test('computes overlap when comparison starts earlier', () => {
   assert.deepEqual(calculateTimelineOverlap(100, 80, -20), {
-    startSeconds: 0, endSeconds: 60, durationSeconds: 60,
+    startSeconds: 0,
+    endSeconds: 60,
+    durationSeconds: 60,
   });
 });
 
 test('returns an empty interval for disjoint runs', () => {
   assert.deepEqual(calculateTimelineOverlap(10, 5, 20), {
-    startSeconds: 10, endSeconds: 10, durationSeconds: 0,
+    startSeconds: 10,
+    endSeconds: 10,
+    durationSeconds: 0,
   });
 });
 
 test('handles touching boundaries as zero overlap', () => {
   assert.deepEqual(calculateTimelineOverlap(10, 5, -5), {
-    startSeconds: 0, endSeconds: 0, durationSeconds: 0,
+    startSeconds: 0,
+    endSeconds: 0,
+    durationSeconds: 0,
   });
 });
 

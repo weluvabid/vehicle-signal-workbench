@@ -4,9 +4,19 @@ import { createTooltipFormatter } from './chart-tooltip.ts';
 import type { SignalChartPanel } from './signal-chart-types';
 
 const panel: SignalChartPanel = {
-  id: 'speed', label: '<Speed>', unit: 'km/h', color: '#60a5fa', visible: true,
-  reference: [[0, 0], [10, 100]],
-  comparison: [[0, 10], [10, 90]],
+  id: 'speed',
+  label: '<Speed>',
+  unit: 'km/h',
+  color: '#60a5fa',
+  visible: true,
+  reference: [
+    [0, 0],
+    [10, 100],
+  ],
+  comparison: [
+    [0, 10],
+    [10, 90],
+  ],
 };
 
 test('tooltip interpolates at the unsnapped pointer time and escapes channel labels', () => {

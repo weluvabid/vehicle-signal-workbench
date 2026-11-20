@@ -12,19 +12,24 @@ export function selectDifferenceEnvelopeIndexes(
   pixelWidth: number,
   shouldAbort?: () => boolean,
 ): DifferenceEnvelopeSelection {
-  if (!Number.isInteger(pixelWidth) || pixelWidth < 1 ||
-      timeSeconds.length !== delta.length) {
+  if (!Number.isInteger(pixelWidth) || pixelWidth < 1 || timeSeconds.length !== delta.length) {
     throw new RangeError('Invalid difference envelope input or pixel width.');
   }
   const count = timeSeconds.length;
   if (count <= pixelWidth * 4) {
-    return { indexes: Array.from({ length: count }, (_, index) => index), forcedGapIndexes: new Set() };
+    return {
+      indexes: Array.from({ length: count }, (_, index) => index),
+      forcedGapIndexes: new Set(),
+    };
   }
   const firstTime = timeSeconds[0];
   const lastTime = timeSeconds[count - 1];
   const duration = lastTime - firstTime;
   if (!(duration > 0)) {
-    return { indexes: Array.from({ length: count }, (_, index) => index), forcedGapIndexes: new Set() };
+    return {
+      indexes: Array.from({ length: count }, (_, index) => index),
+      forcedGapIndexes: new Set(),
+    };
   }
 
   const indexes: number[] = [];
@@ -34,9 +39,18 @@ export function selectDifferenceEnvelopeIndexes(
     if ((cursor & 4_095) === 0 && shouldAbort?.()) {
       throw new DOMException('Viewport query superseded.', 'AbortError');
     }
-    const bucket = Math.min(pixelWidth - 1, Math.floor(((timeSeconds[cursor] - firstTime) / duration) * pixelWidth));
+    const bucket = Math.min(
+      pixelWidth - 1,
+      Math.floor(((timeSeconds[cursor] - firstTime) / duration) * pixelWidth),
+    );
     let end = cursor + 1;
-    while (end < count && Math.min(pixelWidth - 1, Math.floor(((timeSeconds[end] - firstTime) / duration) * pixelWidth)) === bucket) {
+    while (
+      end < count &&
+      Math.min(
+        pixelWidth - 1,
+        Math.floor(((timeSeconds[end] - firstTime) / duration) * pixelWidth),
+      ) === bucket
+    ) {
       if ((end & 4_095) === 0 && shouldAbort?.()) {
         throw new DOMException('Viewport query superseded.', 'AbortError');
       }
@@ -51,7 +65,7 @@ export function selectDifferenceEnvelopeIndexes(
     while (segmentStart < end) {
       const isMissing = !Number.isFinite(delta[segmentStart]);
       let segmentEnd = segmentStart + 1;
-      while (segmentEnd < end && (!Number.isFinite(delta[segmentEnd])) === isMissing) {
+      while (segmentEnd < end && !Number.isFinite(delta[segmentEnd]) === isMissing) {
         if ((segmentEnd & 4_095) === 0 && shouldAbort?.()) {
           throw new DOMException('Viewport query superseded.', 'AbortError');
         }
@@ -93,19 +107,29 @@ export function selectDifferenceEnvelopeIndexes(
 }
 
 /** Min/max envelope for delta traces; retains extrema and chronological order per pixel bucket. */
-export function downsampleDifferenceEnvelope(result: DifferenceResult, pixelWidth: number): DifferenceResult {
-  if (!Number.isInteger(pixelWidth) || pixelWidth < 1 ||
-      result.timeSeconds.length !== result.delta.length ||
-      result.timeSeconds.length !== result.referenceValues.length ||
-      result.timeSeconds.length !== result.comparisonValues.length) {
+export function downsampleDifferenceEnvelope(
+  result: DifferenceResult,
+  pixelWidth: number,
+): DifferenceResult {
+  if (
+    !Number.isInteger(pixelWidth) ||
+    pixelWidth < 1 ||
+    result.timeSeconds.length !== result.delta.length ||
+    result.timeSeconds.length !== result.referenceValues.length ||
+    result.timeSeconds.length !== result.comparisonValues.length
+  ) {
     throw new RangeError('Invalid difference envelope input or pixel width.');
   }
   if (result.timeSeconds.length <= pixelWidth * 4) return result;
-  const { indexes, forcedGapIndexes } = selectDifferenceEnvelopeIndexes(result.timeSeconds, result.delta, pixelWidth);
-  const pick = (source: Float64Array, missingForced = false) => Float64Array.from(
-    indexes,
-    (index) => forcedGapIndexes.has(index) && missingForced ? Number.NaN : source[index],
+  const { indexes, forcedGapIndexes } = selectDifferenceEnvelopeIndexes(
+    result.timeSeconds,
+    result.delta,
+    pixelWidth,
   );
+  const pick = (source: Float64Array, missingForced = false) =>
+    Float64Array.from(indexes, (index) =>
+      forcedGapIndexes.has(index) && missingForced ? Number.NaN : source[index],
+    );
   return {
     timeSeconds: pick(result.timeSeconds),
     referenceValues: pick(result.referenceValues, true),

@@ -39,16 +39,23 @@ test('chart resize and workspace teardown do not produce browser exceptions', as
 
   const chart = page.getByTestId('signal-chart');
   const canvas = chart.locator('canvas').first();
-  for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 960 }]) {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 960 },
+  ]) {
     await page.setViewportSize(viewport);
     await expect(chart).toBeVisible();
-    await expect.poll(async () => {
-      const chartBounds = await chart.boundingBox();
-      const canvasBounds = await canvas.boundingBox();
-      if (!chartBounds || !canvasBounds) return Number.POSITIVE_INFINITY;
-      return Math.abs(chartBounds.width - canvasBounds.width)
-        + Math.abs(chartBounds.height - canvasBounds.height);
-    }).toBeLessThan(2);
+    await expect
+      .poll(async () => {
+        const chartBounds = await chart.boundingBox();
+        const canvasBounds = await canvas.boundingBox();
+        if (!chartBounds || !canvasBounds) return Number.POSITIVE_INFINITY;
+        return (
+          Math.abs(chartBounds.width - canvasBounds.width) +
+          Math.abs(chartBounds.height - canvasBounds.height)
+        );
+      })
+      .toBeLessThan(2);
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     );

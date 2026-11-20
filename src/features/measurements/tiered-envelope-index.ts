@@ -19,9 +19,10 @@ export interface TieredChannelIndex {
 }
 
 export function createTieredChannelIndex(sampleCount: number): TieredChannelIndex {
-  const tierSize = sampleCount <= EAGER_INDEX_SAMPLE_THRESHOLD
-    ? Math.max(1, sampleCount)
-    : Math.max(1, Math.ceil(sampleCount * INDEX_TIER_FRACTION));
+  const tierSize =
+    sampleCount <= EAGER_INDEX_SAMPLE_THRESHOLD
+      ? Math.max(1, sampleCount)
+      : Math.max(1, Math.ceil(sampleCount * INDEX_TIER_FRACTION));
   return { sampleCount, tierSize, indexes: new Map() };
 }
 
@@ -73,7 +74,13 @@ export function queryTieredChannelEnvelope(
 ): ChannelWindow {
   const range = overlappingTiers(buffers.timeSeconds, startSeconds, endSeconds, state.tierSize);
   if (range.lastTier < range.firstTier) {
-    return { datasetId, channelId, startIndex: range.first, timeSeconds: new Float64Array(0), values: new Float64Array(0) };
+    return {
+      datasetId,
+      channelId,
+      startIndex: range.first,
+      timeSeconds: new Float64Array(0),
+      values: new Float64Array(0),
+    };
   }
 
   const tierCount = range.lastTier - range.firstTier + 1;
@@ -87,17 +94,26 @@ export function queryTieredChannelEnvelope(
     const endIndex = Math.min(state.sampleCount, startIndex + state.tierSize);
     const index = ensureTier(state, buffers.values, tier, onIndexBuild);
     queryChannelEnvelopeTimeWindow(
-      datasetId, channelId,
+      datasetId,
+      channelId,
       {
         timeSeconds: buffers.timeSeconds.subarray(startIndex, endIndex),
         values: buffers.values.subarray(startIndex, endIndex),
       },
-      index, startSeconds, endSeconds, Math.max(1, Math.ceil(pixelWidth / tierCount)), shouldAbort, output,
+      index,
+      startSeconds,
+      endSeconds,
+      Math.max(1, Math.ceil(pixelWidth / tierCount)),
+      shouldAbort,
+      output,
     );
   }
   return {
-    datasetId, channelId, startIndex: range.first,
-    timeSeconds: outputTimes.finish(), values: outputValues.finish(),
+    datasetId,
+    channelId,
+    startIndex: range.first,
+    timeSeconds: outputTimes.finish(),
+    values: outputValues.finish(),
   };
 }
 
@@ -113,8 +129,19 @@ export function queryTieredChannelStatistics(
 ): ChannelStatistics {
   const range = overlappingTiers(buffers.timeSeconds, startSeconds, endSeconds, state.tierSize);
   if (range.lastTier < range.firstTier) {
-    return { datasetId, channelId, startIndex: range.first, endIndex: range.afterLast, sampleCount: 0,
-      validCount: 0, missingCount: 0, min: null, max: null, mean: null, standardDeviation: null };
+    return {
+      datasetId,
+      channelId,
+      startIndex: range.first,
+      endIndex: range.afterLast,
+      sampleCount: 0,
+      validCount: 0,
+      missingCount: 0,
+      min: null,
+      max: null,
+      mean: null,
+      standardDeviation: null,
+    };
   }
 
   let count = 0;
@@ -128,22 +155,28 @@ export function queryTieredChannelStatistics(
     const endIndex = Math.min(state.sampleCount, startIndex + state.tierSize);
     const index = ensureTier(state, buffers.values, tier, onIndexBuild);
     const stats = queryChannelTimeStatistics(
-      datasetId, channelId,
+      datasetId,
+      channelId,
       {
         timeSeconds: buffers.timeSeconds.subarray(startIndex, endIndex),
         values: buffers.values.subarray(startIndex, endIndex),
       },
-      index, startSeconds, endSeconds, shouldAbort,
+      index,
+      startSeconds,
+      endSeconds,
+      shouldAbort,
     );
     if (stats.validCount === 0) continue;
     const nextM2 = (stats.standardDeviation ?? 0) ** 2 * stats.validCount;
     if (count === 0) {
-      count = stats.validCount; mean = stats.mean ?? 0; m2 = nextM2;
+      count = stats.validCount;
+      mean = stats.mean ?? 0;
+      m2 = nextM2;
     } else {
       const combined = count + stats.validCount;
       const delta = (stats.mean ?? 0) - mean;
-      m2 += nextM2 + delta * delta * count * stats.validCount / combined;
-      mean += delta * stats.validCount / combined;
+      m2 += nextM2 + (delta * delta * count * stats.validCount) / combined;
+      mean += (delta * stats.validCount) / combined;
       count = combined;
     }
     min = Math.min(min, stats.min ?? Number.POSITIVE_INFINITY);
@@ -151,9 +184,15 @@ export function queryTieredChannelStatistics(
   }
   const sampleCount = range.afterLast - range.first;
   return {
-    datasetId, channelId, startIndex: range.first, endIndex: range.afterLast,
-    sampleCount, validCount: count, missingCount: sampleCount - count,
-    min: count === 0 ? null : min, max: count === 0 ? null : max,
+    datasetId,
+    channelId,
+    startIndex: range.first,
+    endIndex: range.afterLast,
+    sampleCount,
+    validCount: count,
+    missingCount: sampleCount - count,
+    min: count === 0 ? null : min,
+    max: count === 0 ? null : max,
     mean: count === 0 ? null : mean,
     standardDeviation: count === 0 ? null : Math.sqrt(m2 / count),
   };
@@ -162,8 +201,13 @@ export function queryTieredChannelStatistics(
 export function getTieredIndexBytes(state: TieredChannelIndex): number {
   let bytes = 0;
   for (const index of state.indexes.values()) {
-    bytes += index.minIndex.byteLength + index.maxIndex.byteLength + index.missingCount.byteLength +
-      index.validCount.byteLength + index.mean.byteLength + index.sumSquaredDeviation.byteLength;
+    bytes +=
+      index.minIndex.byteLength +
+      index.maxIndex.byteLength +
+      index.missingCount.byteLength +
+      index.validCount.byteLength +
+      index.mean.byteLength +
+      index.sumSquaredDeviation.byteLength;
   }
   return bytes;
 }

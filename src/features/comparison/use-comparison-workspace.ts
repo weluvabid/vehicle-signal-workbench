@@ -33,19 +33,30 @@ export function useComparisonWorkspace() {
     );
   }, [reference, comparison]);
 
-  const selectedSignals = useMemo(() => compatibleMappings
-    .slice(0, MAX_VISIBLE_SIGNALS)
-    .flatMap((mapping) => mapping.right ? [{
-      referenceChannelId: mapping.left.id,
-      comparisonChannelId: mapping.right.id,
-    }] : []), [compatibleMappings]);
+  const selectedSignals = useMemo(
+    () =>
+      compatibleMappings.slice(0, MAX_VISIBLE_SIGNALS).flatMap((mapping) =>
+        mapping.right
+          ? [
+              {
+                referenceChannelId: mapping.left.id,
+                comparisonChannelId: mapping.right.id,
+              },
+            ]
+          : [],
+      ),
+    [compatibleMappings],
+  );
 
-  const setRun = useCallback((role: 'reference' | 'comparison', dataset: DatasetDescriptor | null) => {
-    const previous = role === 'reference' ? reference : comparison;
-    if (previous && previous.id !== dataset?.id) client.releaseDataset(previous.id);
-    if (role === 'reference') setReference(dataset);
-    else setComparison(dataset);
-  }, [client, comparison, reference]);
+  const setRun = useCallback(
+    (role: 'reference' | 'comparison', dataset: DatasetDescriptor | null) => {
+      const previous = role === 'reference' ? reference : comparison;
+      if (previous && previous.id !== dataset?.id) client.releaseDataset(previous.id);
+      if (role === 'reference') setReference(dataset);
+      else setComparison(dataset);
+    },
+    [client, comparison, reference],
+  );
 
   return {
     client,
