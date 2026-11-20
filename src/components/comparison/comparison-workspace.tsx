@@ -66,7 +66,7 @@ export function ComparisonWorkspace() {
       <SiteHeader onNewWorkload={() => setWizardOpen(true)} />
 
       {canPlot && reference && comparison && overlap ? (
-        <div className="min-w-0 pb-44 sm:pb-32" data-testid="comparison-results">
+        <div className="w-full min-w-0 max-w-full pb-44 sm:pb-32" data-testid="comparison-results">
           {selectedSignals.length > 0 ? (
             <SignalComparisonPlot
               key={`${reference.id}:${comparison.id}:${selectedSignals.map((item) => item.referenceChannelId).join(',')}`}

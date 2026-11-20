@@ -18,7 +18,7 @@ export function LivePerformanceDock({ fps, ingestion, throughput, memory, rows }
   ];
 
   return (
-    <section className="fixed inset-x-0 bottom-0 z-40 box-border w-full max-w-full overflow-x-clip border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_rgb(0_0_0/0.18)] backdrop-blur-xl" aria-label={LABELS.livePerformance} data-testid="live-performance-dock">
+    <section className="fixed inset-x-0 bottom-0 z-40 box-border w-auto min-w-0 max-w-none overflow-x-clip border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_rgb(0_0_0/0.18)] backdrop-blur-xl" aria-label={LABELS.livePerformance} data-testid="live-performance-dock">
       <div className="mx-auto box-border w-full min-w-0 max-w-[1800px] px-3 py-3 sm:px-5 sm:py-4 lg:px-6">
         <h2 className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{LABELS.livePerformance}</h2>
         <div className="grid w-full min-w-0 grid-cols-[repeat(2,minmax(0,1fr))] items-start gap-x-4 gap-y-3 md:grid-cols-[repeat(4,minmax(0,1fr))] md:gap-6 lg:gap-10">

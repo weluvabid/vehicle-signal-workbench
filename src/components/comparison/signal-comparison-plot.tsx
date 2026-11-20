@@ -64,7 +64,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   }, [props.selections.length]);
 
   return (
-    <div className="flex min-h-0 min-w-0 w-full flex-col gap-4 overflow-x-clip pb-2" data-testid="plot-workspace">
+    <div className="flex min-h-0 min-w-0 w-full max-w-full flex-col gap-4 overflow-x-clip pb-2" data-testid="plot-workspace">
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       {!error && !loading && results.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{LABELS.noSamplesInInterval}</p>}
 
@@ -89,7 +89,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       </div>
 
       <section
-        className="relative h-[calc(var(--signal-panel-count)*280px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*320px+58px)] lg:h-[calc(var(--signal-panel-count)*340px+58px)]"
+        className="relative w-full min-w-0 h-[calc(var(--signal-panel-count)*280px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*320px+58px)] lg:h-[calc(var(--signal-panel-count)*340px+58px)]"
         style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
         aria-label={LABELS.chartGroupLabel}
       >
