@@ -1,76 +1,101 @@
-# OSS Repository Template
+# Vehicle Signal Workbench
 
-A small, reusable baseline for independent open-source repositories.
+Vehicle Signal Workbench (VSW) is an in-browser engineering prototype for exploring and comparing vehicle measurement recordings. It generates deterministic reference and comparison drives, ingests them in workers, and presents synchronized signal charts and channel analysis.
 
-This repository contains language-agnostic repository hygiene plus optional tooling profiles.
+The prototype is intended for HR and engineering reviewers to exercise a realistic measurement workflow without needing to provide their own vehicle data.
 
-## What's included
+## What it demonstrates
 
-### Core
-- EditorConfig defaults.
-- General-purpose Git ignore rules.
-- Conventional Commit message validation.
-- A Git hook installer that respects an existing `core.hooksPath`.
-- Pull request and contribution templates.
-- Guidance for branch protection and repository setup.
+- **Generated workloads:** deterministic reference/comparison recordings with a shared 10 ms sampling cadence and a 35 ms comparison phase offset.
+- **Five correlated signals:** Vehicle Speed, Engine RPM, Throttle Position, Brake Pressure, and Steering Angle.
+- **Worker-based ingestion and querying:** CSV parsing, normalization, indexing, and viewport queries run outside the UI thread.
+- **Signal comparison:** synchronized time axes, zoom and pan, channel visibility, and channel-level analysis.
+- **Scale testing:** selectable generated workloads up to 10 million samples per recording.
 
-### Optional profiles
-- `profiles/node-pnpm/` — Node.js + pnpm CI, formatting, linting, and hook conventions.
-- `profiles/typescript/` — ESLint flat config and Prettier defaults for JS/TS projects.
+The generated comparison drive includes deterministic sensor bias, noise, and speed-sensor dropouts. The signals share one timestamp row so their relationships can be explored together.
 
-Profiles are reference files. Copy only the files a project actually needs; do not blindly install every profile.
+## Architecture
 
-## Create a repository from this template
+The application is a Next.js/React frontend with ECharts for chart rendering. The UI communicates with dedicated workers through typed request/response protocols. Ingestion and measurement data structures are kept in feature modules; the UI does not own the full measurement registry.
 
-1. Create a public GitHub repository named `oss-template`.
-2. Push the contents of this repository to its `main` branch.
-3. Open **Settings → General → Template repository** and enable **Template repository**.
-4. For a new project, select **Use this template → Create a new repository**.
-5. Choose the owner, repository name, visibility, and create it.
+The CSV parser and normalization code are internal ingestion infrastructure. The prototype does not expose a CSV upload workflow, but generated recordings still pass through the CSV ingestion pipeline.
 
-A repository created from a GitHub template gets its own history. It does not retrofit existing repositories.
+## Requirements
 
-## Adopt the core hooks
+- Node.js `>=26.13.0`
+- pnpm `>=12.0.0`
 
-The core hook installer is a shell script and does not require Node.js:
+Install dependencies:
 
 ```sh
-sh scripts/install-hooks.sh
+pnpm install
 ```
 
-It configures Git to use `.githooks/`.
+Start the development server:
 
-The `commit-msg` hook enforces this Conventional Commit subject format:
-
-```text
-type(scope): imperative description
+```sh
+pnpm dev
 ```
 
-Examples:
+Build and run the production app:
 
-```text
-feat(cache): add weighted eviction
-fix(shell): preserve focus after navigation
-docs: explain local development
-chore: update repository tooling
+```sh
+pnpm build
+pnpm start
 ```
 
-Allowed types are `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and `revert`.
+## Development checks
 
-## Adopt an optional profile
+```sh
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm test
+```
 
-Read the profile's `README.md` before copying files. Each profile documents:
-- Which files to copy.
-- Required development dependencies.
-- Required package scripts.
-- What is intentionally excluded.
+Run the complete browser E2E suite:
 
-## Repository setup after creation
+```sh
+pnpm test:e2e
+```
 
-Recommended baseline:
-- Protect `main`; require pull requests and passing CI before merge.
-- Require branches to be up to date if the project benefits from strict merge validation.
-- Enable Dependabot only for ecosystems the project actually uses.
-- Keep Actions permissions read-only by default; grant write permissions per job.
-- Pin third-party GitHub Actions to full commit SHAs and retain a version comment.
-- Keep release and deployment workflows out of the baseline unless the project needs them.
+Run the generated-workload performance scenarios:
+
+```sh
+pnpm test:e2e:performance
+pnpm test:e2e:performance:10m
+```
+
+The performance scenarios exercise two generated recordings at 1M and 10M samples per recording respectively. They are opt-in because they are intentionally heavier than the normal E2E suite.
+
+## Measurement regression fixtures
+
+`tests/fixtures/` contains 18 functional CSV regression scenarios, including sampling differences, partial/no overlap, irregular and duplicate timestamps, missing values, extreme values, ambiguous channel names, incompatible units, malformed CSV, timestamp encodings, and mixed metadata/columns.
+
+These fixtures are retained as an ingestion QA corpus; they are not the current browser workflow. The fixture generator can recreate them:
+
+```sh
+pnpm fixtures:generate
+```
+
+The fixture corpus has a structural integrity test included in `pnpm test`. It checks that every leaf scenario has its expected metadata and reference/comparison CSV pair. Scenario expectations in `expected.json` document the intended behavior for future ingestion-level regression tests.
+
+## Standalone sample generation
+
+To generate downloadable sample CSVs outside the application:
+
+```sh
+pnpm samples:generate -- --rows 100000
+```
+
+By default, the generator writes reference and comparison files under `data/samples/generated/`. Use `--output-dir` to select another destination.
+
+The offline generator is checked against the in-app generator to prevent the two implementations from drifting.
+
+## Repository tooling profiles
+
+The `profiles/` directory retains the generic Node/pnpm and TypeScript profiles used by the OSS repository baseline. They are repository tooling references, not part of the VSW runtime or build. The application itself is configured by the root package, TypeScript, ESLint, Prettier, and Next.js configuration.
+
+## Performance notes
+
+Record performance claims against the optimized production build and document the hardware/browser, workload size, and measurement procedure alongside any published numbers. Development-server timings are not production benchmark results.
