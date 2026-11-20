@@ -9,7 +9,6 @@ import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 const AXIS_COLOR = '#454b55';
 const GRID_COLOR = '#25292f';
 const LABEL_COLOR = '#858b95';
-const MIN_VIEWPORT_SPAN_SECONDS = 0.1;
 
 export function createSignalChartOption(
   panels: readonly SignalChartPanel[],
@@ -29,13 +28,13 @@ export function createSignalChartOption(
   const panelSlot = (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, panels.length);
   const cardTop = (index: number) => outerInset + index * panelSlot;
   const isNarrow = chartWidth < 640;
-  const plotTop = 42;
+  const plotTop = 64;
   const leftGutter = 10;
   const rightGutter = 10;
   const axisLabelFontSize = 10;
   const xAxisSplitNumber = 10;
   const cardHeight = panelSlot - cardGap;
-  const plotHeight = Math.max(58, cardHeight - 64);
+  const plotHeight = Math.max(48, cardHeight - 86);
   const yAxisSplitNumber = Math.max(2, Math.min(isNarrow ? 4 : 5, Math.floor(plotHeight / 34)));
 
   return {
@@ -126,7 +125,7 @@ export function createSignalChartOption(
         end: 100,
         xAxisIndex: axisIndexes,
         filterMode: 'none',
-        minValueSpan: MIN_VIEWPORT_SPAN_SECONDS,
+        minSpan: 5,
         zoomOnMouseWheel: false,
         moveOnMouseMove: true,
         moveOnMouseWheel: false,
@@ -139,12 +138,12 @@ export function createSignalChartOption(
         start: (1 - initialVisibleFraction) * 100,
         end: 100,
         xAxisIndex: axisIndexes,
-        minValueSpan: MIN_VIEWPORT_SPAN_SECONDS,
+        minSpan: 5,
         left: '4%',
         right: '4%',
-        height: 14,
-        handleSize: 10,
-        moveHandleSize: 8,
+        height: 16,
+        handleSize: 14,
+        moveHandleSize: 10,
         bottom: 10,
         borderRadius: 7,
         borderColor: '#30343b',
@@ -158,7 +157,7 @@ export function createSignalChartOption(
         },
         textStyle: { color: LABEL_COLOR },
         showDataShadow: false,
-        showDetail: false,
+        showDetail: true,
         brushSelect: false,
         throttle: 80,
       },

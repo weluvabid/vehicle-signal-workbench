@@ -16,6 +16,7 @@ import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChannelAnalysisCard } from '@/components/comparison/analysis/channel-analysis-card';
+import { TimelineZoomControls } from '@/components/comparison/timeline-zoom-controls';
 import { LivePerformanceMonitor } from '@/components/comparison/performance/live-performance-dock';
 
 const EChartsSignalChart = dynamic(
@@ -66,8 +67,12 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       {!error && !loading && results.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{LABELS.noSamplesInInterval}</p>}
 
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/30 px-3 py-1.5">
+        <span className="text-xs text-muted-foreground">{LABELS.elapsedTime}</span>
+        <TimelineZoomControls />
+      </div>
       <section
-        className="h-[calc(var(--signal-panel-count)*260px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*300px+58px)] lg:h-[calc(var(--signal-panel-count)*320px+58px)]"
+        className="h-[calc(var(--signal-panel-count)*280px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*320px+58px)] lg:h-[calc(var(--signal-panel-count)*340px+58px)]"
         style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
         aria-label={LABELS.chartGroupLabel}
       >

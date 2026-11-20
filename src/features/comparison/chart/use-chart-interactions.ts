@@ -48,7 +48,7 @@ export function useChartInteractions({ domainStartSeconds, domainEndSeconds, pan
       const plotLeft = 56;
       const plotRight = 20;
       const anchor = Math.min(1, Math.max(0, (event.clientX - bounds.left - plotLeft) / Math.max(1, bounds.width - plotLeft - plotRight)));
-      const minimumSpan = 0.1 / Math.max(0.1, domainEndSeconds - domainStartSeconds) * 100;
+      const minimumSpan = 5;
       const next = getWheelZoomRange({ start: horizontal.start, end: horizontal.end }, delta, anchor, minimumSpan);
       if (next) chart.dispatchAction({ type: 'dataZoom', dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside, start: next.start, end: next.end });
       return;
@@ -62,16 +62,39 @@ export function useChartInteractions({ domainStartSeconds, domainEndSeconds, pan
     }
 
     const bounds = chart.getDom().getBoundingClientRect();
-    const panelSlot = (bounds.height - 50 - 16) / Math.max(1, panelCount);
+    const panelSlot = (bounds.height - 42 - 16) / Math.max(1, panelCount);
     const index = Math.max(0, Math.min(panelCount - 1, Math.floor((event.clientY - bounds.top - 8) / panelSlot)));
     const id = getVerticalZoomId(index);
     const current = zooms.find((item) => item.id === id);
     const start = current?.start ?? 0;
     const end = current?.end ?? 100;
-    const nextSpan = Math.max(2, Math.min(100, (end - start) * Math.exp(delta * 0.002)));
-    const nextStart = Math.max(0, Math.min(100 - nextSpan, (start + end) / 2 - nextSpan / 2));
+    const panelTop = bounds.top + 8 + index * panelSlot + 64;
+    const panelHeight = Math.max(1, panelSlot - 100);
+    const anchor = Math.min(1, Math.max(0, 1 - (event.clientY - panelTop) / panelHeight));
+    const span = end - start;
+    const nextSpan = Math.max(2, Math.min(100, span * Math.exp(delta * 0.002)));
+    const anchorValue = start + span * anchor;
+    const nextStart = Math.max(0, Math.min(100 - nextSpan, anchorValue - nextSpan * anchor));
     chart.dispatchAction({ type: 'dataZoom', dataZoomId: id, start: nextStart, end: nextStart + nextSpan });
   }, [domainEndSeconds, domainStartSeconds, panelCount]);
+
+  const setHorizontalZoom = useCallback((event: Event) => {
+    const chart = chartRef.current;
+    if (!chart || chart.isDisposed()) return;
+    const factor = (event as CustomEvent<{ factor?: number }>).detail?.factor;
+    if (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 1) {
+      chart.dispatchAction({ type: 'dataZoom', dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside, start: 0, end: 100 });
+      return;
+    }
+    const boundedFactor = Math.min(20, Math.max(1, factor));
+    const span = 100 / boundedFactor;
+    const current = getZoomRanges(chart).find((item) => item.id === CHART_DATA_ZOOM_IDS.horizontalInside);
+    const center = typeof current?.start === 'number' && typeof current.end === 'number'
+      ? (current.start + current.end) / 2
+      : 50;
+    const start = Math.max(0, Math.min(100 - span, center - span / 2));
+    chart.dispatchAction({ type: 'dataZoom', dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside, start, end: start + span });
+  }, []);
 
   const attachChart = useCallback((chart: echarts.EChartsType) => {
     if (targetRef.current && handlerRef.current) targetRef.current.removeEventListener('wheel', handlerRef.current, true);
@@ -93,8 +116,9 @@ export function useChartInteractions({ domainStartSeconds, domainEndSeconds, pan
 
   useEffect(() => {
     window.addEventListener(CHART_INTENTS.RESET_ZOOM, resetAllZoom);
-    return () => window.removeEventListener(CHART_INTENTS.RESET_ZOOM, resetAllZoom);
-  }, [resetAllZoom]);
+    window.addEventListener(CHART_INTENTS.SET_HORIZONTAL_ZOOM, setHorizontalZoom);
+    return () => { window.removeEventListener(CHART_INTENTS.RESET_ZOOM, resetAllZoom); window.removeEventListener(CHART_INTENTS.SET_HORIZONTAL_ZOOM, setHorizontalZoom); };
+  }, [resetAllZoom, setHorizontalZoom]);
 
   useEffect(() => () => {
     if (targetRef.current && handlerRef.current) targetRef.current.removeEventListener('wheel', handlerRef.current, true);

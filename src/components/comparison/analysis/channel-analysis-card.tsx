@@ -42,7 +42,7 @@ export function ChannelAnalysisCard({ selection, index, label, unit, panel }: Ch
     <Card key={`${selection.referenceChannelId}:${selection.comparisonChannelId}`} size="sm" className="min-w-0 bg-card/40">
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'][index % 6] }} />
+          <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'][index % 6] }} />
           <CardTitle className="truncate text-sm">{label}</CardTitle>
           <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{unit ?? '—'}</span>
         </div>

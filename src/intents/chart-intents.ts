@@ -1,5 +1,7 @@
 export const CHART_INTENTS = {
   RESET_ZOOM: 'vsw:reset-chart-zoom',
+  SET_HORIZONTAL_ZOOM: 'vsw:set-horizontal-zoom',
+  HORIZONTAL_ZOOM_CHANGED: 'vsw:horizontal-zoom-changed',
 } as const;
 
 export const CHART_DATA_ZOOM_IDS = {

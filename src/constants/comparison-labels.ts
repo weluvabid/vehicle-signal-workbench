@@ -43,6 +43,14 @@ export const COMPARISON_LABELS = {
   difference: 'Difference (Ref − Comp)',
   time: 'Time',
   elapsedTime: 'Elapsed time (s)',
+  currentValue: 'Current',
+  maximumValue: 'Max (range)',
+  differenceValue: 'Difference',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  zoomLevel: 'Zoom level',
+  fitAll: 'Fit all',
+  timelineControls: 'Timeline zoom controls',
 } as const;
 
 export const INGESTION_LABELS = {
