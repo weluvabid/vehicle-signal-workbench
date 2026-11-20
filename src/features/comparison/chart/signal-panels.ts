@@ -1,5 +1,5 @@
 import type { DatasetDescriptor } from '@/features/measurements/model';
-import type { SignalPanelResult } from '@/features/comparison/use-signal-viewport';
+import type { SignalPanelResult } from '@/features/comparison/signal-panel-mapper';
 import type { SignalSelection } from '@/features/comparison/types';
 import { buildSignalPoints, type ComparisonPlotData } from '@/features/measurements/plot-data';
 

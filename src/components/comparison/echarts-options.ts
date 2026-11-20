@@ -151,6 +151,7 @@ export function createSignalChartOption(
         handleStyle: { color: '#a1a1aa', borderColor: '#d4d4d8', borderWidth: 1 },
         moveHandleStyle: { color: '#71717a', borderColor: '#a1a1aa' },
         emphasis: {
+          handleLabel: { show: false },
           handleStyle: { color: '#e4e4e7', borderColor: '#f4f4f5' },
           moveHandleStyle: { color: '#a1a1aa', borderColor: '#d4d4d8' },
         },

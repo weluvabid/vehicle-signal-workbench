@@ -61,7 +61,7 @@ export function importCsv(
 
   let headers: string[] | null = null;
   let timestampIndex = -1;
-  let timeValues = new Float64Array(INITIAL_CAPACITY);
+  let timeValues: Float64Array<ArrayBufferLike> = new Float64Array(INITIAL_CAPACITY);
   let channels: ChannelBuffer[] = [];
   let sampleCount = 0;
   let bufferCapacity = INITIAL_CAPACITY;
@@ -111,7 +111,7 @@ export function importCsv(
           throw new MeasurementError(
             'INVALID_CSV',
             `CSV syntax error: ${firstError.message}`,
-            firstError.row + 1,
+            firstError.row === undefined ? undefined : firstError.row + 1,
           );
         }
 

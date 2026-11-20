@@ -14,7 +14,7 @@ import {
   TitleComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import type { SignalChartPanel } from './signal-chart-types';
 import { createSignalChartOption } from './echarts-options';
 import { useEChartsSignalChart } from '@/features/comparison/chart/use-echarts-signal-chart';
@@ -112,9 +112,15 @@ function EChartsSignalChartComponent({
     [handleDataZoomWithSummary, handleAxisPointer, clearPointerTime],
   );
 
-  const handleChartReady = useCallback((chart: echarts.EChartsType) => {
+  type EChartsReactInstance = Parameters<
+    NonNullable<ComponentProps<typeof ReactEChartsCore>['onChartReady']>
+  >[0];
+
+  const handleChartReady = useCallback((chart: EChartsReactInstance) => {
     registerChart(chart);
-    attachChart(chart);
+    // echarts-for-react and echarts/core resolve separate ECharts declarations
+    // in ECharts 6. The runtime instance is shared; adapt at this boundary.
+    attachChart(chart as unknown as echarts.EChartsType);
     requestInitialViewport(chart);
   }, [attachChart, registerChart, requestInitialViewport]);
 
