@@ -118,7 +118,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       </div>
 
       <section
-        className="relative w-full min-w-0 h-[calc(var(--signal-panel-count)*280px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*320px+58px)] lg:h-[calc(var(--signal-panel-count)*340px+58px)]"
+        className="relative w-full min-w-0 h-[calc(var(--signal-panel-count)*360px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*410px+58px)] lg:h-[calc(var(--signal-panel-count)*450px+58px)]"
         style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
         aria-label={LABELS.chartGroupLabel}
       >

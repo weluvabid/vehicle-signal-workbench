@@ -30,17 +30,17 @@ export function createSignalChartOption(
   );
   const sliderReserve = 42;
   const outerInset = 8;
-  const cardGap = 14;
+  const cardGap = 22;
   const panelSlot = (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, panels.length);
   const cardTop = (index: number) => outerInset + index * panelSlot;
   const isNarrow = chartWidth < 640;
-  const plotTop = 64;
-  const leftGutter = 10;
+  const plotTop = 78;
+  const leftGutter = 18;
   const rightGutter = 10;
   const axisLabelFontSize = 10;
   const xAxisSplitNumber = 10;
   const cardHeight = panelSlot - cardGap;
-  const plotHeight = Math.max(48, cardHeight - 92);
+  const plotHeight = Math.max(48, cardHeight - 112);
   const yAxisSplitNumber = Math.max(2, Math.min(isNarrow ? 4 : 5, Math.floor(plotHeight / 34)));
 
   return {

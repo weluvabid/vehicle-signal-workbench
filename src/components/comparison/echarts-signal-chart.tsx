@@ -299,7 +299,7 @@ function EChartsSignalChartComponent({
         chartPanels.map((panel, index) => {
           const sliderReserve = 42;
           const outerInset = 8;
-          const cardGap = 14;
+          const cardGap = 22;
           const panelSlot =
             (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, chartPanels.length);
           const top = outerInset + index * panelSlot;
@@ -327,12 +327,12 @@ function EChartsSignalChartComponent({
           return (
             <Fragment key={panel.id}>
               <Card
-                className="pointer-events-none absolute left-0 right-0 z-0 gap-0 rounded-xl border border-border/70 bg-card/55 p-0 shadow-sm"
+                className="pointer-events-none absolute left-0 right-0 z-0 gap-0 rounded-xl border-2 border-border/80 bg-card/55 p-0 shadow-sm"
                 style={{ top, height }}
                 aria-hidden="true"
               />
               <CardHeader
-                className="pointer-events-none absolute inset-x-0 z-0 flex h-[60px] flex-col items-stretch justify-center gap-1 px-3 py-1.5 sm:px-4"
+                className="pointer-events-none absolute inset-x-0 z-0 flex h-[72px] flex-col items-stretch justify-center gap-2 px-3 py-2 sm:px-4"
                 style={{ top }}
               >
                 <div className="flex min-w-0 items-center justify-between gap-2">

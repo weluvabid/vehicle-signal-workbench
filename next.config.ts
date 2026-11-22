@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     ];
   },
   transpilePackages: ['echarts', 'zrender'],
-  allowedDevOrigins: [],
+  allowedDevOrigins: ['started-top-viewers-effect.trycloudflare.com'],
 };
 
 export default nextConfig;
