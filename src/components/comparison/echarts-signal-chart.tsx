@@ -88,6 +88,7 @@ function EChartsSignalChartComponent({
   const [cursorTime, setCursorTime] = useState<number | null>(null);
   const [horizontalZoomInitialized, setHorizontalZoomInitialized] = useState(false);
   const [visiblePercent, setVisiblePercent] = useState({ start: 0, end: 100 });
+  const horizontalZoomRange = useRef({ start: (1 - initialVisibleFraction) * 100, end: 100 });
   const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
   const cursorFrame = useRef<number | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState<
@@ -192,6 +193,7 @@ function EChartsSignalChartComponent({
           ) ?? candidate;
 
         if (typeof range.start === 'number' && typeof range.end === 'number') {
+          horizontalZoomRange.current = { start: range.start, end: range.end };
           setVisiblePercent({ start: range.start, end: range.end });
           window.dispatchEvent(
             new CustomEvent(CHART_INTENTS.HORIZONTAL_ZOOM_CHANGED, {
@@ -245,6 +247,7 @@ function EChartsSignalChartComponent({
             initialVisibleFraction,
             getPointerTime,
             !horizontalZoomInitialized,
+            horizontalZoomRange.current,
           )
         : null,
     [
@@ -423,7 +426,7 @@ function EChartsSignalChartComponent({
             autoResize={false}
             option={option}
             notMerge={false}
-            replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title']}
+            replaceMerge={['series', 'yAxis', 'xAxis', 'grid', 'title', 'dataZoom']}
             lazyUpdate
             opts={ECHARTS_OPTIONS}
             onChartReady={handleChartReady}

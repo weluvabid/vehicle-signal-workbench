@@ -19,6 +19,7 @@ export function createSignalChartOption(
   initialVisibleFraction = 1,
   getPointerTime: () => number | null = () => null,
   initializeHorizontalZoom = true,
+  horizontalZoomRange: { readonly start: number; readonly end: number } = { start: 0, end: 100 },
 ): EChartsOption {
   const axisIndexes = panels.map((_, index) => index);
   const lastVisibleIndex = panels.reduce(
@@ -42,6 +43,10 @@ export function createSignalChartOption(
   const cardHeight = panelSlot - cardGap;
   const plotHeight = Math.max(48, cardHeight - 112);
   const yAxisSplitNumber = Math.max(2, Math.min(isNarrow ? 4 : 5, Math.floor(plotHeight / 34)));
+  const horizontalStart = initializeHorizontalZoom
+    ? (1 - initialVisibleFraction) * 100
+    : horizontalZoomRange.start;
+  const horizontalEnd = initializeHorizontalZoom ? 100 : horizontalZoomRange.end;
 
   return {
     animation: false,
@@ -129,9 +134,8 @@ export function createSignalChartOption(
       {
         id: CHART_DATA_ZOOM_IDS.horizontalInside,
         type: 'inside',
-        ...(initializeHorizontalZoom
-          ? { start: (1 - initialVisibleFraction) * 100, end: 100 }
-          : {}),
+        start: horizontalStart,
+        end: horizontalEnd,
         xAxisIndex: axisIndexes,
         filterMode: 'none',
         minSpan: 5,
@@ -144,9 +148,8 @@ export function createSignalChartOption(
       {
         id: CHART_DATA_ZOOM_IDS.horizontalSlider,
         type: 'slider',
-        ...(initializeHorizontalZoom
-          ? { start: (1 - initialVisibleFraction) * 100, end: 100 }
-          : {}),
+        start: horizontalStart,
+        end: horizontalEnd,
         xAxisIndex: axisIndexes,
         minSpan: 5,
         left: 0,
