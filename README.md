@@ -10,6 +10,8 @@ How far could I push the browser if I kept the whole thing local? Could it handl
 
 That question became Vehicle Signal Workbench.
 
+[Open the live workbench](https://vehicle-signal-workbench.vercel.app/)
+
 ## The experiments
 
 A lot of the work has been about finding and removing bottlenecks rather than just adding features.
@@ -105,6 +107,12 @@ pnpm samples:generate -- --rows 100000
 ```
 
 By default, the files are written to `data/samples/generated/`. Use `--output-dir` to choose another destination. The offline generator is checked against the in-app generator so the two don't drift apart.
+
+## About the hosted demo
+
+The hosted demo runs on Vercel and uses generated recordings rather than files uploaded by a user. Generating those recordings is part of the demo workflow before they are passed through ingestion and the rest of the workbench. Because this involves synthetic-data generation and communication between the page and its worker, the overall time shown in the hosted demo can occasionally be longer than the ingestion timings documented below.
+
+That end-to-end time should not be read as ingestion time alone. The local ingestion and performance tests are a better way to assess the ingestion pipeline directly. I have left the hosted demo workflow as-is; this timing variation is specific to how the synthetic demo is generated and run.
 
 ## A note on the numbers
 
