@@ -11,6 +11,18 @@ interface ChartInteractionsOptions {
 
 type ZoomRange = { readonly id?: string; readonly start?: number; readonly end?: number };
 
+type TouchGesture = {
+  readonly start: number;
+  readonly end: number;
+  readonly anchorValue: number;
+  readonly initialDistance: number;
+  readonly plotWidth: number;
+};
+
+function getTouchDistance(first: Touch, second: Touch): number {
+  return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+}
+
 function getZoomRanges(chart: echarts.EChartsType): ZoomRange[] {
   const dataZoom = chart.getOption().dataZoom;
   return Array.isArray(dataZoom) ? (dataZoom as ZoomRange[]) : [];
@@ -20,6 +32,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
   const chartRef = useRef<echarts.EChartsType | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const handlerRef = useRef<((event: WheelEvent) => void) | null>(null);
+  const touchGestureRef = useRef<TouchGesture | null>(null);
 
   const handleWheel = useCallback(
     (event: WheelEvent) => {
@@ -122,6 +135,82 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
     [panelCount],
   );
 
+  const handleTouchStart = useCallback((event: TouchEvent) => {
+    if (event.touches.length !== 2) {
+      touchGestureRef.current = null;
+      return;
+    }
+
+    const chart = chartRef.current;
+    if (!chart || chart.isDisposed()) return;
+
+    // Own two-finger gestures before ECharts interprets them as independent touches.
+    event.stopImmediatePropagation();
+    const zoom = getZoomRanges(chart).find(
+      (item) => item.id === CHART_DATA_ZOOM_IDS.horizontalInside,
+    );
+    if (typeof zoom?.start !== 'number' || typeof zoom.end !== 'number') return;
+
+    const bounds = chart.getDom().getBoundingClientRect();
+    const plotLeft = 56;
+    const plotRight = 20;
+    const plotWidth = Math.max(1, bounds.width - plotLeft - plotRight);
+    const first = event.touches[0];
+    const second = event.touches[1];
+    const centerX = (first.clientX + second.clientX) / 2;
+    const anchor = Math.min(1, Math.max(0, (centerX - bounds.left - plotLeft) / plotWidth));
+    const span = zoom.end - zoom.start;
+
+    touchGestureRef.current = {
+      start: zoom.start,
+      end: zoom.end,
+      anchorValue: zoom.start + span * anchor,
+      initialDistance: Math.max(1, getTouchDistance(first, second)),
+      plotWidth,
+    };
+  }, []);
+
+  const handleTouchMove = useCallback((event: TouchEvent) => {
+    if (event.touches.length !== 2) {
+      touchGestureRef.current = null;
+      return;
+    }
+
+    const gesture = touchGestureRef.current;
+    const chart = chartRef.current;
+    if (!gesture || !chart || chart.isDisposed()) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const first = event.touches[0];
+    const second = event.touches[1];
+    const bounds = chart.getDom().getBoundingClientRect();
+    const centerX = (first.clientX + second.clientX) / 2;
+    const plotFraction = Math.min(
+      1,
+      Math.max(0, (centerX - bounds.left - 56) / gesture.plotWidth),
+    );
+    const distance = Math.max(1, getTouchDistance(first, second));
+    const initialSpan = gesture.end - gesture.start;
+    const nextSpan = Math.min(100, Math.max(5, initialSpan * gesture.initialDistance / distance));
+    const nextStart = Math.min(
+      100 - nextSpan,
+      Math.max(0, gesture.anchorValue - nextSpan * plotFraction),
+    );
+
+    chart.dispatchAction({
+      type: 'dataZoom',
+      dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
+      start: nextStart,
+      end: nextStart + nextSpan,
+    });
+  }, []);
+
+  const handleTouchEnd = useCallback((event: TouchEvent) => {
+    if (event.touches.length < 2) touchGestureRef.current = null;
+  }, []);
+
   const setHorizontalZoom = useCallback((event: Event) => {
     const chart = chartRef.current;
 
@@ -159,16 +248,26 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
 
   const attachChart = useCallback(
     (chart: echarts.EChartsType) => {
-      if (targetRef.current && handlerRef.current)
-        targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+      if (targetRef.current) {
+        if (handlerRef.current)
+          targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+        targetRef.current.removeEventListener('touchstart', handleTouchStart, true);
+        targetRef.current.removeEventListener('touchmove', handleTouchMove, true);
+        targetRef.current.removeEventListener('touchend', handleTouchEnd, true);
+        targetRef.current.removeEventListener('touchcancel', handleTouchEnd, true);
+      }
 
       chartRef.current = chart;
       const target = chart.getDom();
       target.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+      target.addEventListener('touchstart', handleTouchStart, { capture: true, passive: true });
+      target.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
+      target.addEventListener('touchend', handleTouchEnd, { capture: true, passive: true });
+      target.addEventListener('touchcancel', handleTouchEnd, { capture: true, passive: true });
       targetRef.current = target;
       handlerRef.current = handleWheel;
     },
-    [handleWheel],
+    [handleTouchEnd, handleTouchMove, handleTouchStart, handleWheel],
   );
 
   const resetAllZoom = useCallback(() => {
@@ -204,12 +303,19 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
 
   useEffect(
     () => () => {
-      if (targetRef.current && handlerRef.current)
-        targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+      if (targetRef.current) {
+        if (handlerRef.current)
+          targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+        targetRef.current.removeEventListener('touchstart', handleTouchStart, true);
+        targetRef.current.removeEventListener('touchmove', handleTouchMove, true);
+        targetRef.current.removeEventListener('touchend', handleTouchEnd, true);
+        targetRef.current.removeEventListener('touchcancel', handleTouchEnd, true);
+      }
 
+      touchGestureRef.current = null;
       chartRef.current = null;
     },
-    [],
+    [handleTouchEnd, handleTouchMove, handleTouchStart],
   );
 
   return { attachChart };

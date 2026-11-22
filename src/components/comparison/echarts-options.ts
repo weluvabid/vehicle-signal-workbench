@@ -139,7 +139,7 @@ export function createSignalChartOption(
         moveOnMouseMove: true,
         moveOnMouseWheel: false,
         preventDefaultMouseMove: true,
-        throttle: 80,
+        throttle: 16,
       },
       {
         id: CHART_DATA_ZOOM_IDS.horizontalSlider,
