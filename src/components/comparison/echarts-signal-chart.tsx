@@ -332,7 +332,7 @@ function EChartsSignalChartComponent({
                 aria-hidden="true"
               />
               <CardHeader
-                className="pointer-events-none absolute inset-x-0 z-0 flex h-[72px] flex-col items-stretch justify-center gap-2 px-3 py-2 sm:px-4"
+                className="pointer-events-none absolute inset-x-0 flex h-[72px] flex-col items-stretch justify-center gap-2 px-3 py-2 sm:px-4"
                 style={{ top }}
               >
                 <div className="flex min-w-0 items-center justify-between gap-2">
@@ -355,7 +355,7 @@ function EChartsSignalChartComponent({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    className="pointer-events-auto size-7 shrink-0 rounded-md"
+                    className="pointer-events-auto relative z-20 size-7 shrink-0 rounded-md"
                     aria-label={
                       expanded
                         ? `Close expanded ${panel.label} chart`
@@ -385,7 +385,7 @@ function EChartsSignalChartComponent({
                 </div>
               </CardHeader>
               <CardFooter
-                className="pointer-events-auto absolute z-0 flex h-6 items-center justify-end gap-3 border-0 bg-transparent px-3 py-0 sm:px-4"
+                className="pointer-events-auto absolute flex h-6 items-center justify-end gap-3 border-0 bg-transparent px-3 py-0 sm:px-4"
                 style={{ top: top + height - 24, left: 0, right: 0 }}
               >
                 <Button
@@ -394,7 +394,7 @@ function EChartsSignalChartComponent({
                   size="sm"
                   aria-pressed={panel.referenceVisible !== false}
                   onClick={() => handleToggleSeries(panel.id, 'reference')}
-                  className={`h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.referenceVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                  className={`relative z-20 h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.referenceVisible === false ? 'opacity-40' : 'opacity-100'}`}
                   title={`${LABELS.referenceSeries}: ${panel.label}`}
                 >
                   <span className="w-4 border-t border-dashed border-foreground/70" />
@@ -406,7 +406,7 @@ function EChartsSignalChartComponent({
                   size="sm"
                   aria-pressed={panel.comparisonVisible !== false}
                   onClick={() => handleToggleSeries(panel.id, 'comparison')}
-                  className={`h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.comparisonVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                  className={`relative z-20 h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.comparisonVisible === false ? 'opacity-40' : 'opacity-100'}`}
                   title={`${LABELS.comparisonSeries}: ${panel.label}`}
                 >
                   <span className="w-4 border-t-2" style={{ borderColor: panel.color }} />
