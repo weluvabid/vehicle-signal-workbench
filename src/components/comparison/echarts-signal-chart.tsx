@@ -87,8 +87,10 @@ function EChartsSignalChartComponent({
   const pointerTime = useMemo(() => createPointerTimeStore(), []);
   const [cursorTime, setCursorTime] = useState<number | null>(null);
   const [horizontalZoomInitialized, setHorizontalZoomInitialized] = useState(false);
-  const [visiblePercent, setVisiblePercent] = useState({ start: 0, end: 100 });
-  const horizontalZoomRange = useRef({ start: (1 - initialVisibleFraction) * 100, end: 100 });
+  const [visiblePercent, setVisiblePercent] = useState(() => ({
+    start: (1 - initialVisibleFraction) * 100,
+    end: 100,
+  }));
   const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
   const cursorFrame = useRef<number | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState<
@@ -110,24 +112,21 @@ function EChartsSignalChartComponent({
         : visiblePanels.filter((panel) => panel.id === expandedPanelId),
     [expandedPanelId, visiblePanels],
   );
-  const handleToggleSeries = useCallback(
-    (panelId: string, series: 'reference' | 'comparison') => {
-      setSeriesVisibility((current) => ({
-        ...current,
-        [panelId]: {
-          reference:
-            series === 'reference'
-              ? !(current[panelId]?.reference ?? true)
-              : (current[panelId]?.reference ?? true),
-          comparison:
-            series === 'comparison'
-              ? !(current[panelId]?.comparison ?? true)
-              : (current[panelId]?.comparison ?? true),
-        },
-      }));
-    },
-    [],
-  );
+  const handleToggleSeries = useCallback((panelId: string, series: 'reference' | 'comparison') => {
+    setSeriesVisibility((current) => ({
+      ...current,
+      [panelId]: {
+        reference:
+          series === 'reference'
+            ? !(current[panelId]?.reference ?? true)
+            : (current[panelId]?.reference ?? true),
+        comparison:
+          series === 'comparison'
+            ? !(current[panelId]?.comparison ?? true)
+            : (current[panelId]?.comparison ?? true),
+      },
+    }));
+  }, []);
   const getPointerTime = useCallback(() => pointerTime.get(), [pointerTime]);
   const handleAxisPointer = useCallback(
     (event: unknown) => {
@@ -193,7 +192,6 @@ function EChartsSignalChartComponent({
           ) ?? candidate;
 
         if (typeof range.start === 'number' && typeof range.end === 'number') {
-          horizontalZoomRange.current = { start: range.start, end: range.end };
           setVisiblePercent({ start: range.start, end: range.end });
           window.dispatchEvent(
             new CustomEvent(CHART_INTENTS.HORIZONTAL_ZOOM_CHANGED, {
@@ -247,7 +245,7 @@ function EChartsSignalChartComponent({
             initialVisibleFraction,
             getPointerTime,
             !horizontalZoomInitialized,
-            horizontalZoomRange.current,
+            visiblePercent,
           )
         : null,
     [
@@ -258,6 +256,7 @@ function EChartsSignalChartComponent({
       initialVisibleFraction,
       horizontalZoomInitialized,
       measuredWidth,
+      visiblePercent,
       chartPanels,
     ],
   );

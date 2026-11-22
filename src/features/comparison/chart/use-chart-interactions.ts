@@ -142,6 +142,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
     }
 
     const chart = chartRef.current;
+
     if (!chart || chart.isDisposed()) return;
 
     // Own two-finger gestures before ECharts interprets them as independent touches.
@@ -149,6 +150,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
     const zoom = getZoomRanges(chart).find(
       (item) => item.id === CHART_DATA_ZOOM_IDS.horizontalInside,
     );
+
     if (typeof zoom?.start !== 'number' || typeof zoom.end !== 'number') return;
 
     const bounds = chart.getDom().getBoundingClientRect();
@@ -178,6 +180,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
 
     const gesture = touchGestureRef.current;
     const chart = chartRef.current;
+
     if (!gesture || !chart || chart.isDisposed()) return;
 
     event.preventDefault();
@@ -187,13 +190,10 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
     const second = event.touches[1];
     const bounds = chart.getDom().getBoundingClientRect();
     const centerX = (first.clientX + second.clientX) / 2;
-    const plotFraction = Math.min(
-      1,
-      Math.max(0, (centerX - bounds.left - 56) / gesture.plotWidth),
-    );
+    const plotFraction = Math.min(1, Math.max(0, (centerX - bounds.left - 56) / gesture.plotWidth));
     const distance = Math.max(1, getTouchDistance(first, second));
     const initialSpan = gesture.end - gesture.start;
-    const nextSpan = Math.min(100, Math.max(5, initialSpan * gesture.initialDistance / distance));
+    const nextSpan = Math.min(100, Math.max(5, (initialSpan * gesture.initialDistance) / distance));
     const nextStart = Math.min(
       100 - nextSpan,
       Math.max(0, gesture.anchorValue - nextSpan * plotFraction),
@@ -251,6 +251,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       if (targetRef.current) {
         if (handlerRef.current)
           targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+
         targetRef.current.removeEventListener('touchstart', handleTouchStart, true);
         targetRef.current.removeEventListener('touchmove', handleTouchMove, true);
         targetRef.current.removeEventListener('touchend', handleTouchEnd, true);
@@ -306,6 +307,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       if (targetRef.current) {
         if (handlerRef.current)
           targetRef.current.removeEventListener('wheel', handlerRef.current, true);
+
         targetRef.current.removeEventListener('touchstart', handleTouchStart, true);
         targetRef.current.removeEventListener('touchmove', handleTouchMove, true);
         targetRef.current.removeEventListener('touchend', handleTouchEnd, true);
