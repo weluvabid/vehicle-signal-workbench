@@ -387,7 +387,7 @@ function EChartsSignalChartComponent({
                 </div>
               </CardHeader>
               <CardFooter
-                className="pointer-events-auto absolute flex h-6 items-center justify-end gap-3 border-0 bg-transparent px-3 py-0 sm:px-4"
+                className="pointer-events-none absolute z-0 flex h-6 items-center justify-end gap-3 border-0 bg-transparent px-3 py-0 sm:px-4"
                 style={{ top: top + height - 24, left: 0, right: 0 }}
               >
                 <Button
@@ -396,7 +396,9 @@ function EChartsSignalChartComponent({
                   size="sm"
                   aria-pressed={panel.referenceVisible !== false}
                   onClick={() => handleToggleSeries(panel.id, 'reference')}
-                  className={`relative z-20 h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.referenceVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                  className={`pointer-events-none h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.referenceVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                  tabIndex={-1}
+                  aria-hidden="true"
                   title={`${LABELS.referenceSeries}: ${panel.label}`}
                 >
                   <span className="w-4 border-t border-dashed border-foreground/70" />
@@ -408,13 +410,46 @@ function EChartsSignalChartComponent({
                   size="sm"
                   aria-pressed={panel.comparisonVisible !== false}
                   onClick={() => handleToggleSeries(panel.id, 'comparison')}
-                  className={`relative z-20 h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.comparisonVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                  className={`pointer-events-none h-auto rounded-sm px-0 py-0 text-[10px] text-muted-foreground transition-opacity ${panel.comparisonVisible === false ? 'opacity-40' : 'opacity-100'}`}
+                  tabIndex={-1}
+                  aria-hidden="true"
                   title={`${LABELS.comparisonSeries}: ${panel.label}`}
                 >
                   <span className="w-4 border-t-2" style={{ borderColor: panel.color }} />
                   {LABELS.comparisonSeries}
                 </Button>
               </CardFooter>
+              <div
+                className="pointer-events-none absolute z-20 flex h-6 items-center justify-end gap-3 px-3 sm:px-4"
+                style={{ top: top + height - 24, left: 0, right: 0 }}
+                role="group"
+                aria-label={`${panel.label} series visibility`}
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={panel.referenceVisible !== false}
+                  onClick={() => handleToggleSeries(panel.id, 'reference')}
+                  className="pointer-events-auto h-auto rounded-sm px-0 py-0 text-[10px] text-transparent opacity-0 focus-visible:opacity-100 focus-visible:text-foreground"
+                  title={`${LABELS.referenceSeries}: ${panel.label}`}
+                >
+                  <span className="w-4 border-t border-dashed border-foreground/70" />
+                  {LABELS.referenceSeries}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={panel.comparisonVisible !== false}
+                  onClick={() => handleToggleSeries(panel.id, 'comparison')}
+                  className="pointer-events-auto h-auto rounded-sm px-0 py-0 text-[10px] text-transparent opacity-0 focus-visible:opacity-100 focus-visible:text-foreground"
+                  title={`${LABELS.comparisonSeries}: ${panel.label}`}
+                >
+                  <span className="w-4 border-t-2" style={{ borderColor: panel.color }} />
+                  {LABELS.comparisonSeries}
+                </Button>
+              </div>
             </Fragment>
           );
         })}
