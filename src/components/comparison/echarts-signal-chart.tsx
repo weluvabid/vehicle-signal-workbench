@@ -30,7 +30,6 @@ import { useEChartsSignalChart } from '@/features/comparison/chart/use-echarts-s
 import { useChartInteractions } from '@/features/comparison/chart/use-chart-interactions';
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Maximize2, X } from 'lucide-react';
 import { getSignalSummary } from './chart-summary';
 import { formatChartValue } from './chart-value-format';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
@@ -91,7 +90,6 @@ function EChartsSignalChartComponent({
     start: (1 - initialVisibleFraction) * 100,
     end: 100,
   }));
-  const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
   const cursorFrame = useRef<number | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState<
     Record<string, { reference: boolean; comparison: boolean }>
@@ -104,13 +102,6 @@ function EChartsSignalChartComponent({
         comparisonVisible: seriesVisibility[panel.id]?.comparison ?? true,
       })),
     [panels, seriesVisibility],
-  );
-  const chartPanels = useMemo(
-    () =>
-      expandedPanelId === null
-        ? visiblePanels
-        : visiblePanels.filter((panel) => panel.id === expandedPanelId),
-    [expandedPanelId, visiblePanels],
   );
   const handleToggleSeries = useCallback((panelId: string, series: 'reference' | 'comparison') => {
     setSeriesVisibility((current) => ({
@@ -237,7 +228,7 @@ function EChartsSignalChartComponent({
     () =>
       measuredWidth > 0 && chartHeight > 0
         ? createSignalChartOption(
-            chartPanels,
+            visiblePanels,
             domainStartSeconds,
             domainEndSeconds,
             chartHeight,
@@ -257,26 +248,9 @@ function EChartsSignalChartComponent({
       horizontalZoomInitialized,
       measuredWidth,
       visiblePercent,
-      chartPanels,
+      visiblePanels,
     ],
   );
-
-  useEffect(() => {
-    if (expandedPanelId === null) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExpandedPanelId(null);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [expandedPanelId]);
 
   useEffect(
     () => () => {
@@ -288,22 +262,18 @@ function EChartsSignalChartComponent({
   return (
     <div
       ref={container}
-      className={
-        expandedPanelId !== null
-          ? 'fixed inset-2 z-[100] h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-border bg-background shadow-2xl'
-          : 'relative h-full min-h-0 w-full min-w-0 overflow-hidden'
-      }
+      className="relative h-full min-h-0 w-full min-w-0 overflow-hidden"
       data-testid="signal-chart"
       role="group"
       aria-label={`${LABELS.chartGroupLabel}: ${panels.length} signals`}
     >
       {chartHeight > 0 &&
-        chartPanels.map((panel, index) => {
+        visiblePanels.map((panel, index) => {
           const sliderReserve = 42;
           const outerInset = 8;
           const cardGap = 22;
           const panelSlot =
-            (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, chartPanels.length);
+            (chartHeight - sliderReserve - outerInset * 2) / Math.max(1, visiblePanels.length);
           const top = outerInset + index * panelSlot;
           const height = panelSlot - cardGap;
           const visibleStart =
@@ -324,7 +294,6 @@ function EChartsSignalChartComponent({
             [LABELS.maximumValue, summary.maximum],
             [LABELS.differenceValue, summary.difference],
           ] as const;
-          const expanded = expandedPanelId === panel.id;
 
           return (
             <Fragment key={panel.id}>
@@ -353,23 +322,6 @@ function EChartsSignalChartComponent({
                       </span>
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="pointer-events-auto relative z-20 size-7 shrink-0 rounded-md"
-                    aria-label={
-                      expanded
-                        ? `Close expanded ${panel.label} chart`
-                        : `Expand ${panel.label} chart`
-                    }
-                    title={expanded ? 'Close expanded chart' : 'Expand chart'}
-                    onClick={() =>
-                      setExpandedPanelId((current) => (current === panel.id ? null : panel.id))
-                    }
-                  >
-                    {expanded ? <X className="size-4" /> : <Maximize2 className="size-4" />}
-                  </Button>
                 </div>
                 <div className="grid grid-cols-3 gap-3 pl-4 text-[10px] leading-tight sm:max-w-md sm:gap-6 sm:pl-5">
                   {summaryItems.map(([label, value]) => (
