@@ -28,11 +28,19 @@ function getZoomRanges(chart: echarts.EChartsType): ZoomRange[] {
   return Array.isArray(dataZoom) ? (dataZoom as ZoomRange[]) : [];
 }
 
+function dispatchDataZoom(chart: echarts.EChartsType, payload: Record<string, unknown>): void {
+  chart.dispatchAction({ type: 'hideTip' });
+  chart.dispatchAction({ type: 'dataZoom', ...payload } as Parameters<
+    typeof chart.dispatchAction
+  >[0]);
+}
+
 export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
   const chartRef = useRef<echarts.EChartsType | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const handlerRef = useRef<((event: WheelEvent) => void) | null>(null);
   const touchGestureRef = useRef<TouchGesture | null>(null);
+  const zoomListenerRef = useRef<((event?: unknown) => void) | null>(null);
 
   const handleWheel = useCallback(
     (event: WheelEvent) => {
@@ -86,8 +94,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
         );
 
         if (next)
-          chart.dispatchAction({
-            type: 'dataZoom',
+          dispatchDataZoom(chart, {
             dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
             start: next.start,
             end: next.end,
@@ -99,8 +106,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       if (event.shiftKey) {
         const span = horizontal.end - horizontal.start;
         const start = Math.min(100 - span, Math.max(0, horizontal.start + delta * 0.04));
-        chart.dispatchAction({
-          type: 'dataZoom',
+        dispatchDataZoom(chart, {
           dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
           start,
           end: start + span,
@@ -125,8 +131,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       const nextSpan = Math.max(2, Math.min(100, span * Math.exp(delta * 0.002)));
       const anchorValue = start + span * anchor;
       const nextStart = Math.max(0, Math.min(100 - nextSpan, anchorValue - nextSpan * anchor));
-      chart.dispatchAction({
-        type: 'dataZoom',
+      dispatchDataZoom(chart, {
         dataZoomId: id,
         start: nextStart,
         end: nextStart + nextSpan,
@@ -199,8 +204,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       Math.max(0, gesture.anchorValue - nextSpan * plotFraction),
     );
 
-    chart.dispatchAction({
-      type: 'dataZoom',
+    dispatchDataZoom(chart, {
       dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
       start: nextStart,
       end: nextStart + nextSpan,
@@ -219,8 +223,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
     const factor = (event as CustomEvent<{ factor?: number }>).detail?.factor;
 
     if (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 1) {
-      chart.dispatchAction({
-        type: 'dataZoom',
+      dispatchDataZoom(chart, {
         dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
         start: 0,
         end: 100,
@@ -238,8 +241,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
         ? (current.start + current.end) / 2
         : 50;
     const start = Math.max(0, Math.min(100 - span, center - span / 2));
-    chart.dispatchAction({
-      type: 'dataZoom',
+    dispatchDataZoom(chart, {
       dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
       start,
       end: start + span,
@@ -248,6 +250,10 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
 
   const attachChart = useCallback(
     (chart: echarts.EChartsType) => {
+      if (chartRef.current && !chartRef.current.isDisposed() && zoomListenerRef.current) {
+        chartRef.current.off('datazoom', zoomListenerRef.current);
+      }
+
       if (targetRef.current) {
         if (handlerRef.current)
           targetRef.current.removeEventListener('wheel', handlerRef.current, true);
@@ -259,6 +265,11 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       }
 
       chartRef.current = chart;
+      const hideTooltipDuringZoom = () => {
+        if (!chart.isDisposed()) chart.dispatchAction({ type: 'hideTip' });
+      };
+      chart.on('datazoom', hideTooltipDuringZoom);
+      zoomListenerRef.current = hideTooltipDuringZoom;
       const target = chart.getDom();
       target.addEventListener('wheel', handleWheel, { passive: false, capture: true });
       target.addEventListener('touchstart', handleTouchStart, { capture: true, passive: true });
@@ -276,16 +287,14 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
 
     if (!chart || chart.isDisposed()) return;
 
-    chart.dispatchAction({
-      type: 'dataZoom',
+    dispatchDataZoom(chart, {
       dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
       start: 0,
       end: 100,
     });
 
     for (let index = 0; index < panelCount; index += 1) {
-      chart.dispatchAction({
-        type: 'dataZoom',
+      dispatchDataZoom(chart, {
         dataZoomId: getVerticalZoomId(index),
         start: 0,
         end: 100,
@@ -314,6 +323,11 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
         targetRef.current.removeEventListener('touchcancel', handleTouchEnd, true);
       }
 
+      if (chartRef.current && !chartRef.current.isDisposed() && zoomListenerRef.current) {
+        chartRef.current.off('datazoom', zoomListenerRef.current);
+      }
+
+      zoomListenerRef.current = null;
       touchGestureRef.current = null;
       chartRef.current = null;
     },
