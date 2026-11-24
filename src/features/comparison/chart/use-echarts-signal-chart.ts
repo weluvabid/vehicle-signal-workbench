@@ -1,8 +1,11 @@
 'use client';
 
-import { CHART_DATA_ZOOM_IDS } from '@/intents/chart-intents';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { resolveDataZoomViewport, type DataZoomRangeEvent } from './viewport';
+import {
+  getHorizontalDataZoomEvent,
+  resolveDataZoomViewport,
+  type DataZoomRangeEvent,
+} from './viewport';
 import { getInitialViewport } from '@/features/comparison/initial-viewport';
 import { resolveSamplingPixelWidth } from './sampling-budget';
 
@@ -186,17 +189,13 @@ export function useEChartsSignalChart(options: ChartControllerOptions) {
 
   const handleDataZoom = useCallback(
     (event: DataZoomRangeEvent) => {
-      const zoomEvents = event.batch?.length ? event.batch : [event];
+      // Only timeline zoom events may change the worker-backed time viewport.
+      const horizontalEvent = getHorizontalDataZoomEvent(event);
 
-      if (
-        zoomEvents.every((item) =>
-          item.dataZoomId?.startsWith(CHART_DATA_ZOOM_IDS.verticalInsidePrefix),
-        )
-      )
-        return;
+      if (!horizontalEvent) return;
 
       const viewport = resolveDataZoomViewport(
-        event,
+        horizontalEvent,
         latestProps.current.domainStartSeconds,
         latestProps.current.domainEndSeconds,
       );

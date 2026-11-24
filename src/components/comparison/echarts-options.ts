@@ -3,7 +3,7 @@ import type { SignalChartPanel } from './signal-chart-types';
 import { createTooltipFormatter } from './chart-tooltip';
 import { createPanelSeries } from './chart-series';
 import { formatChartValue } from './chart-value-format';
-import { CHART_DATA_ZOOM_IDS, getVerticalZoomId } from '@/intents/chart-intents';
+import { CHART_DATA_ZOOM_IDS } from '@/intents/chart-intents';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 
 const AXIS_COLOR = '#454b55';
@@ -175,16 +175,6 @@ export function createSignalChartOption(
         brushSelect: false,
         throttle: 80,
       },
-      ...panels.map((_, index) => ({
-        id: getVerticalZoomId(index),
-        type: 'inside' as const,
-        orient: 'vertical' as const,
-        yAxisIndex: [index],
-        filterMode: 'none' as const,
-        zoomOnMouseWheel: false,
-        moveOnMouseWheel: false,
-        throttle: 80,
-      })),
     ],
     series,
     aria: { enabled: true },

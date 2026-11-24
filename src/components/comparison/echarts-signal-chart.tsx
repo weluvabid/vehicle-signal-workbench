@@ -33,6 +33,10 @@ import { Button } from '@/components/ui/button';
 import { getSignalSummary } from './chart-summary';
 import { formatChartValue } from './chart-value-format';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
+import {
+  getHorizontalDataZoomEvent,
+  type DataZoomRangeEvent,
+} from '@/features/comparison/chart/viewport';
 import { CHART_INTENTS } from '@/intents/chart-intents';
 
 const ECHARTS_OPTIONS = { renderer: 'canvas' as const };
@@ -148,9 +152,7 @@ function EChartsSignalChartComponent({
       });
   }, [pointerTime]);
 
-  const { attachChart } = useChartInteractions({
-    panelCount: panels.length,
-  });
+  const { attachChart } = useChartInteractions();
 
   const {
     container,
@@ -171,18 +173,9 @@ function EChartsSignalChartComponent({
   const handleDataZoomWithSummary = useCallback(
     (event: unknown) => {
       if (event && typeof event === 'object') {
-        const candidate = event as {
-          start?: number;
-          end?: number;
-          batch?: Array<{ start?: number; end?: number; dataZoomId?: string }>;
-        };
-        const range =
-          candidate.batch?.find(
-            (item) =>
-              item.dataZoomId === 'viewport-inside' || item.dataZoomId === 'viewport-slider',
-          ) ?? candidate;
+        const range = getHorizontalDataZoomEvent(event as DataZoomRangeEvent);
 
-        if (typeof range.start === 'number' && typeof range.end === 'number') {
+        if (range && typeof range.start === 'number' && typeof range.end === 'number') {
           setVisiblePercent({ start: range.start, end: range.end });
           window.dispatchEvent(
             new CustomEvent(CHART_INTENTS.HORIZONTAL_ZOOM_CHANGED, {

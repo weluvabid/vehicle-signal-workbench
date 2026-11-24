@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  getHorizontalDataZoomEvent,
   parseFiniteChartNumber,
   resolveDataZoomRange,
   resolveDataZoomViewport,
@@ -46,4 +47,29 @@ test('parseFiniteChartNumber accepts finite numbers and numeric strings only', (
 
 test('resolveDataZoomViewport rejects invalid domains', () => {
   assert.equal(resolveDataZoomViewport({ start: 10, end: 20 }, 5, 5), null);
+});
+
+test('selects the latest horizontal event from a mixed zoom batch', () => {
+  const horizontal = { dataZoomId: 'viewport-inside', start: 20, end: 70 };
+  const selected = getHorizontalDataZoomEvent({
+    batch: [
+      horizontal,
+      { dataZoomId: 'signal-y-inside-0', start: 40, end: 60 },
+      { dataZoomId: 'viewport-slider', start: 25, end: 65 },
+    ],
+  });
+
+  assert.deepEqual(selected, { dataZoomId: 'viewport-slider', start: 25, end: 65 });
+});
+
+test('ignores vertical and unknown zoom events', () => {
+  assert.equal(
+    getHorizontalDataZoomEvent({
+      dataZoomId: 'signal-y-inside-0',
+      start: 40,
+      end: 60,
+    }),
+    null,
+  );
+  assert.equal(getHorizontalDataZoomEvent({ dataZoomId: 'unknown', start: 10, end: 90 }), null);
 });

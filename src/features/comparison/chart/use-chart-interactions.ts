@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as echarts from 'echarts/core';
 import { getWheelZoomRange } from './wheel-zoom';
-import { CHART_DATA_ZOOM_IDS, CHART_INTENTS, getVerticalZoomId } from '@/intents/chart-intents';
-
-interface ChartInteractionsOptions {
-  readonly panelCount: number;
-}
+import { CHART_DATA_ZOOM_IDS, CHART_INTENTS } from '@/intents/chart-intents';
 
 type ZoomRange = { readonly id?: string; readonly start?: number; readonly end?: number };
 
@@ -35,110 +31,81 @@ function dispatchDataZoom(chart: echarts.EChartsType, payload: Record<string, un
   >[0]);
 }
 
-export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
+export function useChartInteractions() {
   const chartRef = useRef<echarts.EChartsType | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const handlerRef = useRef<((event: WheelEvent) => void) | null>(null);
   const touchGestureRef = useRef<TouchGesture | null>(null);
   const zoomListenerRef = useRef<((event?: unknown) => void) | null>(null);
 
-  const handleWheel = useCallback(
-    (event: WheelEvent) => {
-      const chart = chartRef.current;
+  const handleWheel = useCallback((event: WheelEvent) => {
+    const chart = chartRef.current;
 
-      if (!chart || chart.isDisposed()) return;
+    if (!chart || chart.isDisposed()) return;
 
-      const modifierCount =
-        Number(event.metaKey) +
-        Number(event.ctrlKey) +
-        Number(event.shiftKey) +
-        Number(event.altKey);
+    const modifierCount =
+      Number(event.metaKey) + Number(event.ctrlKey) + Number(event.shiftKey) + Number(event.altKey);
 
-      if (modifierCount === 0) {
-        event.stopImmediatePropagation();
-        return;
-      }
-
-      if (modifierCount !== 1) return;
-
-      const zooms = getZoomRanges(chart);
-      const horizontal = zooms.find((item) => item.id === CHART_DATA_ZOOM_IDS.horizontalInside);
-
-      if (typeof horizontal?.start !== 'number' || typeof horizontal.end !== 'number') return;
-
-      const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
-
-      if (!Number.isFinite(delta) || delta === 0) return;
-
-      event.preventDefault();
+    if (modifierCount === 0) {
       event.stopImmediatePropagation();
+      return;
+    }
 
-      if (event.metaKey || event.ctrlKey) {
-        const bounds = chart.getDom().getBoundingClientRect();
-        const plotLeft = 56;
-        const plotRight = 20;
-        const anchor = Math.min(
-          1,
-          Math.max(
-            0,
-            (event.clientX - bounds.left - plotLeft) /
-              Math.max(1, bounds.width - plotLeft - plotRight),
-          ),
-        );
-        const minimumSpan = 5;
-        const next = getWheelZoomRange(
-          { start: horizontal.start, end: horizontal.end },
-          delta,
-          anchor,
-          minimumSpan,
-        );
+    if (modifierCount !== 1 || event.altKey) return;
 
-        if (next)
-          dispatchDataZoom(chart, {
-            dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
-            start: next.start,
-            end: next.end,
-          });
+    const zooms = getZoomRanges(chart);
+    const horizontal = zooms.find((item) => item.id === CHART_DATA_ZOOM_IDS.horizontalInside);
 
-        return;
-      }
+    if (typeof horizontal?.start !== 'number' || typeof horizontal.end !== 'number') return;
 
-      if (event.shiftKey) {
-        const span = horizontal.end - horizontal.start;
-        const start = Math.min(100 - span, Math.max(0, horizontal.start + delta * 0.04));
+    const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+
+    if (!Number.isFinite(delta) || delta === 0) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if (event.metaKey || event.ctrlKey) {
+      const bounds = chart.getDom().getBoundingClientRect();
+      const plotLeft = 56;
+      const plotRight = 20;
+      const anchor = Math.min(
+        1,
+        Math.max(
+          0,
+          (event.clientX - bounds.left - plotLeft) /
+            Math.max(1, bounds.width - plotLeft - plotRight),
+        ),
+      );
+      const minimumSpan = 5;
+      const next = getWheelZoomRange(
+        { start: horizontal.start, end: horizontal.end },
+        delta,
+        anchor,
+        minimumSpan,
+      );
+
+      if (next)
         dispatchDataZoom(chart, {
           dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
-          start,
-          end: start + span,
+          start: next.start,
+          end: next.end,
         });
-        return;
-      }
 
-      const bounds = chart.getDom().getBoundingClientRect();
-      const panelSlot = (bounds.height - 42 - 16) / Math.max(1, panelCount);
-      const index = Math.max(
-        0,
-        Math.min(panelCount - 1, Math.floor((event.clientY - bounds.top - 8) / panelSlot)),
-      );
-      const id = getVerticalZoomId(index);
-      const current = zooms.find((item) => item.id === id);
-      const start = current?.start ?? 0;
-      const end = current?.end ?? 100;
-      const panelTop = bounds.top + 8 + index * panelSlot + 64;
-      const panelHeight = Math.max(1, panelSlot - 100);
-      const anchor = Math.min(1, Math.max(0, 1 - (event.clientY - panelTop) / panelHeight));
-      const span = end - start;
-      const nextSpan = Math.max(2, Math.min(100, span * Math.exp(delta * 0.002)));
-      const anchorValue = start + span * anchor;
-      const nextStart = Math.max(0, Math.min(100 - nextSpan, anchorValue - nextSpan * anchor));
+      return;
+    }
+
+    if (event.shiftKey) {
+      const span = horizontal.end - horizontal.start;
+      const start = Math.min(100 - span, Math.max(0, horizontal.start + delta * 0.04));
       dispatchDataZoom(chart, {
-        dataZoomId: id,
-        start: nextStart,
-        end: nextStart + nextSpan,
+        dataZoomId: CHART_DATA_ZOOM_IDS.horizontalInside,
+        start,
+        end: start + span,
       });
-    },
-    [panelCount],
-  );
+      return;
+    }
+  }, []);
 
   const handleTouchStart = useCallback((event: TouchEvent) => {
     if (event.touches.length !== 2) {
@@ -292,15 +259,7 @@ export function useChartInteractions({ panelCount }: ChartInteractionsOptions) {
       start: 0,
       end: 100,
     });
-
-    for (let index = 0; index < panelCount; index += 1) {
-      dispatchDataZoom(chart, {
-        dataZoomId: getVerticalZoomId(index),
-        start: 0,
-        end: 100,
-      });
-    }
-  }, [panelCount]);
+  }, []);
 
   useEffect(() => {
     window.addEventListener(CHART_INTENTS.RESET_ZOOM, resetAllZoom);
