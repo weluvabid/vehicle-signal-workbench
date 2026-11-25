@@ -19,12 +19,67 @@ export function createNavigationPlugin(
         (u) => {
           const over = u.over;
           let drag: { pointerId: number; x: number; min: number; max: number } | null = null;
+          const touchPointers = new Map<
+            number,
+            { x: number; y: number; startX: number; startY: number }
+          >();
+          let touchGesture: {
+            min: number;
+            max: number;
+            distance: number;
+            anchorTime: number;
+            moved: boolean;
+          } | null = null;
           let frame = 0;
           let pending: ChartViewport | null = null;
           let inspectFrame = 0;
           let pendingInspection: { time: number; clientX: number; clientY: number } | null = null;
+          const boundsFor = () => over.getBoundingClientRect();
+          const currentScale = () => {
+            const scale = u.scales.x;
+            return scale.min === undefined || scale.max === undefined
+              ? null
+              : { min: scale.min, max: scale.max };
+          };
+          const rebaseTouchGesture = () => {
+            const scale = currentScale();
+
+            if (!scale || touchPointers.size === 0) {
+              touchGesture = null;
+              return;
+            }
+
+            const points = [...touchPointers.values()];
+
+            for (const point of points) {
+              point.startX = point.x;
+              point.startY = point.y;
+            }
+
+            const first = points[0];
+            const second = points[1] ?? first;
+            const midpointX = (first.x + second.x) / 2;
+            const bounds = boundsFor();
+            const fraction = Math.min(
+              1,
+              Math.max(0, (midpointX - bounds.left) / Math.max(1, bounds.width)),
+            );
+            const distance =
+              points.length > 1
+                ? Math.max(1, Math.hypot(second.x - first.x, second.y - first.y))
+                : 1;
+
+            touchGesture = {
+              ...scale,
+              distance,
+              anchorTime: scale.min + (scale.max - scale.min) * fraction,
+              moved: false,
+            };
+          };
           const pointerMove = (event: PointerEvent) => {
-            const bounds = over.getBoundingClientRect();
+            if (touchPointers.size > 0) return;
+
+            const bounds = boundsFor();
             const x = event.clientX - bounds.left;
             const time = u.posToVal(x, 'x');
 
@@ -64,23 +119,115 @@ export function createNavigationPlugin(
             });
           };
           const down = (event: PointerEvent) => {
-            if (event.pointerType === 'touch' || event.button !== 0) return;
+            if (event.pointerType === 'touch') {
+              touchPointers.set(event.pointerId, {
+                x: event.clientX,
+                y: event.clientY,
+                startX: event.clientX,
+                startY: event.clientY,
+              });
+              over.setPointerCapture(event.pointerId);
+              rebaseTouchGesture();
+              event.preventDefault();
+              return;
+            }
 
-            const scale = u.scales.x;
+            if (event.button !== 0) return;
 
-            if (scale.min === undefined || scale.max === undefined) return;
+            const scale = currentScale();
 
-            drag = { pointerId: event.pointerId, x: event.clientX, min: scale.min, max: scale.max };
+            if (!scale) return;
+
+            drag = { pointerId: event.pointerId, x: event.clientX, ...scale };
             over.setPointerCapture(event.pointerId);
             event.preventDefault();
           };
           const move = (event: PointerEvent) => {
+            if (event.pointerType === 'touch') {
+              const point = touchPointers.get(event.pointerId);
+
+              if (!point) return;
+
+              point.x = event.clientX;
+              point.y = event.clientY;
+              const gesture = touchGesture;
+
+              if (!gesture) {
+                rebaseTouchGesture();
+                return;
+              }
+
+              const points = [...touchPointers.values()];
+              const first = points[0];
+              const second = points[1] ?? first;
+              const midpointX = (first.x + second.x) / 2;
+              const bounds = boundsFor();
+              const width = Math.max(1, bounds.width);
+              const fraction = Math.min(1, Math.max(0, (midpointX - bounds.left) / width));
+              const distance =
+                points.length > 1
+                  ? Math.max(1, Math.hypot(second.x - first.x, second.y - first.y))
+                  : gesture.distance;
+              const moved =
+                Math.abs(point.x - point.startX) > 3 || Math.abs(point.y - point.startY) > 3;
+              gesture.moved ||= moved;
+
+              if (points.length === 1) {
+                const delta = ((point.x - point.startX) / width) * (gesture.max - gesture.min);
+                emit(gesture.min - delta, gesture.max - delta);
+              } else {
+                const initialSpan = gesture.max - gesture.min;
+                const nextSpan = Math.min(
+                  domainEnd - domainStart,
+                  Math.max(
+                    (domainEnd - domainStart) / MAX_CHART_ZOOM_FACTOR,
+                    (initialSpan * gesture.distance) / distance,
+                  ),
+                );
+                emit(
+                  gesture.anchorTime - nextSpan * fraction,
+                  gesture.anchorTime + nextSpan * (1 - fraction),
+                );
+              }
+
+              event.preventDefault();
+              return;
+            }
+
             if (!drag || drag.pointerId !== event.pointerId) return;
 
             const delta = ((event.clientX - drag.x) / plotWidth(over)) * (drag.max - drag.min);
             emit(drag.min - delta, drag.max - delta);
           };
           const up = (event: PointerEvent) => {
+            if (event.pointerType === 'touch') {
+              const point = touchPointers.get(event.pointerId);
+
+              if (!point) return;
+
+              const gesture = touchGesture;
+              const wasTap =
+                event.type !== 'pointercancel' &&
+                gesture !== null &&
+                !gesture.moved &&
+                touchPointers.size === 1;
+
+              if (wasTap) {
+                const bounds = boundsFor();
+                const time = u.posToVal(event.clientX - bounds.left, 'x');
+
+                if (Number.isFinite(time)) inspect(time, event.clientX, event.clientY);
+              }
+
+              touchPointers.delete(event.pointerId);
+
+              if (over.hasPointerCapture(event.pointerId))
+                over.releasePointerCapture(event.pointerId);
+
+              rebaseTouchGesture();
+              return;
+            }
+
             if (!drag || drag.pointerId !== event.pointerId) return;
 
             drag = null;

@@ -6,7 +6,7 @@
   display: none;
 }
 .vsw-uplot .u-over {
-  touch-action: pan-y;
+  touch-action: none;
 }
 .vsw-uplot canvas {
   display: block;

@@ -59,6 +59,7 @@ function SignalPlotRow({
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
   const appliedDataRef = useRef<uPlot.AlignedData | null>(null);
+  const hasPopulatedDataRef = useRef(false);
   const data = useMemo(() => buildSignalPanelData(panel), [panel]);
   const [referenceVisible, setReferenceVisible] = useState(true);
   const [comparisonVisible, setComparisonVisible] = useState(true);
@@ -83,6 +84,7 @@ function SignalPlotRow({
     });
     chartRef.current = chart;
     appliedDataRef.current = data;
+    hasPopulatedDataRef.current = data[0].length > 0;
     const resize = new ResizeObserver(([entry]) => {
       const nextWidth = Math.floor(entry?.contentRect.width ?? 0);
       const nextHeight = Math.floor(entry?.contentRect.height ?? 0);
@@ -106,6 +108,7 @@ function SignalPlotRow({
       chart.destroy();
       chartRef.current = null;
       appliedDataRef.current = null;
+      hasPopulatedDataRef.current = false;
     };
     // Chart identity is tied to panel identity and the selected domain.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,8 +120,12 @@ function SignalPlotRow({
     if (!chart) return;
 
     if (appliedDataRef.current !== data) {
-      chart.setData(data, true);
+      // Reset scales only when the chart receives its first populated dataset.
+      // Subsequent viewport-driven data refreshes must preserve the user's zoom.
+      const shouldResetScales = !hasPopulatedDataRef.current && data[0].length > 0;
+      chart.setData(data, shouldResetScales);
       appliedDataRef.current = data;
+      hasPopulatedDataRef.current ||= data[0].length > 0;
     }
 
     chart.setScale('x', viewport);
