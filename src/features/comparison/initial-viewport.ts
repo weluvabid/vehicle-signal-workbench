@@ -10,8 +10,3 @@ export function getInitialVisibleFraction(sampleCount: number): number {
   const fraction = REFERENCE_VISIBLE_FRACTION * (REFERENCE_SAMPLE_COUNT / sampleCount) ** 0.301;
   return Math.min(MAX_INITIAL_VISIBLE_FRACTION, Math.max(REFERENCE_VISIBLE_FRACTION, fraction));
 }
-
-export function getInitialViewport(startSeconds: number, endSeconds: number, fraction: number) {
-  const start = startSeconds + (endSeconds - startSeconds) * (1 - fraction);
-  return { startSeconds: start, endSeconds };
-}

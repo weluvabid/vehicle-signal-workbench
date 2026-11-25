@@ -39,7 +39,7 @@ The generated recordings go through the CSV ingestion pipeline. The parser and n
 
 ## How it is put together
 
-The frontend is built with Next.js and React, with ECharts for chart rendering. Dedicated workers handle ingestion and querying so that this work doesn't run on the UI thread. Measurement data is held in typed-array-backed structures, and the UI requests the data needed for the current viewport rather than owning the full measurement registry.
+The frontend is built with Next.js and React, with uPlot rendering three synchronized signal charts. Dedicated workers handle ingestion and querying so that this work doesn't run on the UI thread. Measurement data is held in typed-array-backed structures, and the UI requests the data needed for the current viewport rather than owning the full measurement registry.
 
 The project grew out of performance experiments with browser execution, memory, worker boundaries, and rendering. The implementation is still evolving as those experiments expose new limits.
 

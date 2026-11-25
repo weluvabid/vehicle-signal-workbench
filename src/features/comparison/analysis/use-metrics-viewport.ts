@@ -6,15 +6,7 @@ import type { SignalSelection } from '@/features/comparison/types';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
 import type { MetricsQueryResult } from '@/features/ingestion/worker-protocol';
 import { buildMetricsPanelQueries } from './metrics-query';
-
 const METRICS_DEBOUNCE_MS = 120;
-const MAX_WORKER_SAMPLES = 30;
-
-export interface WorkerComputeStatistics {
-  readonly medianMs: number;
-  readonly p95Ms: number;
-  readonly count: number;
-}
 
 interface MetricsViewportOptions {
   readonly client: MeasurementWorkerClient;
@@ -24,16 +16,7 @@ interface MetricsViewportOptions {
   readonly offsetSeconds: number;
 }
 
-function summarizeWorkerSamples(samples: readonly number[]): WorkerComputeStatistics | null {
-  if (samples.length === 0) return null;
-
-  const sorted = [...samples].sort((left, right) => left - right);
-  const percentile = (p: number) =>
-    sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
-  return { medianMs: percentile(0.5), p95Ms: percentile(0.95), count: samples.length };
-}
-
-/** Debounces the same range used by Channel analysis and consumes timings returned by that worker query. */
+/** Debounces the viewport used by Channel analysis and cancels superseded worker queries. */
 export function useMetricsViewport(options: MetricsViewportOptions) {
   const [viewport, setViewport] = useState<{
     start: number;
@@ -44,12 +27,10 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
   const [result, setResult] = useState<MetricsQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [workerCompute, setWorkerCompute] = useState<WorkerComputeStatistics | null>(null);
   const panels = useMemo(
     () => buildMetricsPanelQueries(options.selections, options.reference),
     [options.selections, options.reference],
   );
-  const samples = useRef<number[]>([]);
   const identity = `${options.reference.id}:${options.comparison.id}:${options.offsetSeconds}:${panels.map((panel) => `${panel.referenceChannelId}:${panel.comparisonChannelId}`).join('|')}`;
   const currentIdentity = useRef(identity);
   const previousIdentity = useRef(identity);
@@ -59,9 +40,7 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
 
     previousIdentity.current = identity;
     currentIdentity.current = identity;
-    samples.current = [];
     setResult(null);
-    setWorkerCompute(null);
     setLoading(false);
     setError(null);
   }, [identity]);
@@ -111,26 +90,6 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
           if (!current || currentIdentity.current !== identity) return;
 
           setResult(next);
-
-          // Initial viewport is the cold baseline. Only settled user zoom ranges
-          // contribute, even if the initial query was superseded before completion.
-          if (viewport.isInitial) return;
-
-          const workerComputeMs = next.timings?.workerComputeMs;
-
-          if (
-            !Number.isFinite(workerComputeMs) ||
-            workerComputeMs === undefined ||
-            workerComputeMs < 0
-          )
-            return;
-
-          const nextSamples = samples.current;
-          nextSamples.push(workerComputeMs);
-
-          if (nextSamples.length > MAX_WORKER_SAMPLES) nextSamples.shift();
-
-          setWorkerCompute(summarizeWorkerSamples(nextSamples));
         })
         .catch((cause: unknown) => {
           if (!current || (cause instanceof DOMException && cause.name === 'AbortError')) return;
@@ -163,6 +122,5 @@ export function useMetricsViewport(options: MetricsViewportOptions) {
     result,
     loading,
     error,
-    workerCompute,
   };
 }

@@ -34,10 +34,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<readonly SignalPanelResult[]>([]);
-  const [resultsRange, setResultsRange] = useState<{
-    readonly start: number;
-    readonly end: number;
-  } | null>(null);
   const [initialPreparationState, setInitialPreparationState] = useState<{
     readonly contextKey: string;
     readonly value: {
@@ -126,7 +122,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
         const elapsedMs = performance.now() - queryStartedAt;
         setResults(nextResults);
         hasStartedInitialQuery.current = true;
-        setResultsRange({ start: viewport.start, end: viewport.end });
 
         if (isInitialPreparation) {
           setInitialPreparationState({
@@ -252,7 +247,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
     loading,
     error,
     results,
-    resultsRange,
     requestViewport,
     selectionKey,
     initialPreparation,

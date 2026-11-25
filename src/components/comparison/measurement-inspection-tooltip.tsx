@@ -1,8 +1,9 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import type { SignalChartPanel } from './signal-chart-types';
-import { formatChartValue } from './chart-value-format';
+import type { SignalChartPanel } from '@/features/comparison/chart/signal-chart-types';
+import { formatChartNumber } from '@/features/measurements/number-format';
+import { sampleSignalAt } from '@/features/comparison/chart/measurement-inspection';
 
 interface MeasurementInspectionTooltipProps {
   readonly panels: readonly SignalChartPanel[];
@@ -13,46 +14,14 @@ interface MeasurementInspectionTooltipProps {
   readonly height: number;
 }
 
-interface Sample {
-  readonly value: number | null;
-  readonly interpolated: boolean;
-}
-
-function sampleAt(points: readonly (readonly [number, number | null])[], target: number): Sample {
-  let low = 0;
-  let high = points.length;
-
-  while (low < high) {
-    const middle = low + Math.floor((high - low) / 2);
-    if (points[middle][0] < target) low = middle + 1;
-    else high = middle;
-  }
-
-  const right = points[low];
-  if (right && right[0] === target) {
-    return { value: right[1] !== null && Number.isFinite(right[1]) ? right[1] : null, interpolated: false };
-  }
-
-  const left = points[low - 1];
-  if (!left || !right || left[1] === null || right[1] === null) return { value: null, interpolated: false };
-  if (!Number.isFinite(left[1]) || !Number.isFinite(right[1])) return { value: null, interpolated: false };
-
-  const span = right[0] - left[0];
-  if (!(span > 0)) return { value: null, interpolated: false };
-
-  return {
-    value: left[1] + (right[1] - left[1]) * ((target - left[0]) / span),
-    interpolated: true,
-  };
-}
 
 function signed(value: number): string {
-  return `${value > 0 ? '+' : ''}${formatChartValue(value)}`;
+  return `${value > 0 ? '+' : ''}${formatChartNumber(value)}`;
 }
 
 function MeasurementRow({ panel, time }: { panel: SignalChartPanel; time: number }) {
-  const referenceSample = sampleAt(panel.reference, time);
-  const comparisonSample = sampleAt(panel.comparison, time);
+  const referenceSample = sampleSignalAt(panel.reference, time);
+  const comparisonSample = sampleSignalAt(panel.comparison, time);
   const reference = referenceSample.value;
   const comparison = comparisonSample.value;
   const delta = reference !== null && comparison !== null ? comparison - reference : null;
@@ -79,14 +48,14 @@ function MeasurementRow({ panel, time }: { panel: SignalChartPanel; time: number
         <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground">Reference</p>
           <p className="truncate font-mono text-sm tabular-nums">
-            {reference === null ? '—' : formatChartValue(reference)}
+            {reference === null ? '—' : formatChartNumber(reference)}
             {panel.unit ? <span className="ml-1 text-[10px] text-muted-foreground">{panel.unit}</span> : null}
           </p>
         </div>
         <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground">Comparison</p>
           <p className="truncate font-mono text-sm tabular-nums">
-            {comparison === null ? '—' : formatChartValue(comparison)}
+            {comparison === null ? '—' : formatChartNumber(comparison)}
             {panel.unit ? <span className="ml-1 text-[10px] text-muted-foreground">{panel.unit}</span> : null}
           </p>
         </div>
@@ -134,7 +103,7 @@ export function MeasurementInspectionTooltip({
         <div>
           <p className="text-xs font-semibold">Measurement comparison</p>
           <p className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-            {formatChartValue(time)} s
+            {formatChartNumber(time)} s
           </p>
         </div>
         <span className="rounded-full border px-2 py-1 text-[10px] text-muted-foreground">

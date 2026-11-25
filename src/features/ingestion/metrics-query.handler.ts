@@ -40,11 +40,6 @@ export async function handleMetricsQuery(
     }
 
     const results: MetricsPanelQueryResult[] = [];
-    let indexBuildMs = 0;
-    let workerComputeMs = 0;
-    const recordIndexBuild = (durationMs: number) => {
-      indexBuildMs += durationMs;
-    };
 
     for (const panel of request.panels) {
       await checkpoint();
@@ -65,8 +60,6 @@ export async function handleMetricsQuery(
         timeSeconds: comparison.timeSeconds,
         values: comparisonChannel.values,
       };
-      const indexBuildBeforePanel = indexBuildMs;
-      const computeStartedAt = performance.now();
       const referenceStatistics = queryTieredChannelStatistics(
         request.referenceDatasetId,
         panel.referenceChannelId,
@@ -75,7 +68,6 @@ export async function handleMetricsQuery(
         request.startSeconds,
         request.endSeconds,
         cancelled,
-        recordIndexBuild,
       );
       const comparisonStatistics = queryTieredChannelStatistics(
         request.comparisonDatasetId,
@@ -85,7 +77,6 @@ export async function handleMetricsQuery(
         request.startSeconds - request.comparisonOffsetSeconds,
         request.endSeconds - request.comparisonOffsetSeconds,
         cancelled,
-        recordIndexBuild,
       );
       const differenceStatistics = calculateSignalDifferenceInTimeRange(
         {
@@ -103,10 +94,6 @@ export async function handleMetricsQuery(
         request.comparisonOffsetSeconds,
         cancelled,
       );
-      workerComputeMs += Math.max(
-        0,
-        performance.now() - computeStartedAt - (indexBuildMs - indexBuildBeforePanel),
-      );
       results.push({ referenceStatistics, comparisonStatistics, differenceStatistics });
     }
 
@@ -119,7 +106,6 @@ export async function handleMetricsQuery(
         panels: results,
         startSeconds: request.startSeconds,
         endSeconds: request.endSeconds,
-        timings: { workerComputeMs, indexBuildMs },
       },
     });
   } catch (error) {

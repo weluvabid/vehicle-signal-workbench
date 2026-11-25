@@ -1,7 +1,6 @@
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import type { SignalSelection } from '@/features/comparison/types';
-
-const SERIES_COLORS = ['#a1a1aa', '#60a5fa', '#d6a85f', '#34d399', '#c084fc', '#f472b6'] as const;
+import { createChannelLookup, getSignalColor } from '../chart/signal-presentation';
 
 export interface MetricsPanelQuery {
   readonly referenceChannelId: string;
@@ -16,14 +15,15 @@ export function buildMetricsPanelQueries(
   selections: readonly SignalSelection[],
   reference: DatasetDescriptor,
 ): readonly MetricsPanelQuery[] {
+  const channelById = createChannelLookup(reference.channels);
   return selections.map((selection, index) => {
-    const channel = reference.channels.find((item) => item.id === selection.referenceChannelId);
+    const channel = channelById.get(selection.referenceChannelId);
     return {
       referenceChannelId: selection.referenceChannelId,
       comparisonChannelId: selection.comparisonChannelId,
       label: channel?.label ?? selection.referenceChannelId,
       unit: channel?.unit ?? null,
-      color: SERIES_COLORS[index % SERIES_COLORS.length],
+      color: getSignalColor(index),
     };
   });
 }
