@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { CircleHelp, Github, Plus } from 'lucide-react';
+import { CircleHelp, Plus } from 'lucide-react';
+import { SiGithub } from '@icons-pack/react-simple-icons';
 import ghostMark from '../../../brand/me/brand/mark.svg';
 import { Button } from '@/components/ui/button';
 import { COMPARISON_LABELS } from '@/constants/comparison-labels';
@@ -138,7 +139,7 @@ export function SiteHeader({ onNewWorkload, helpOpen, onHelpOpenChange }: SiteHe
                 />
               }
             >
-              <Github className="size-[17px]" />
+              <SiGithub className="size-[17px]" aria-hidden="true" />
             </TooltipTrigger>
             <TooltipContent>View source on GitHub</TooltipContent>
           </Tooltip>

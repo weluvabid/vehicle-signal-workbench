@@ -1,70 +1,80 @@
-import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
-import { useAnimationFrameRate } from '@/features/comparison/performance/use-animation-frame-rate';
+'use client';
 
-interface LivePerformanceDockProps {
-  readonly fps: number | null;
+import { Activity, Plus } from 'lucide-react';
+import { useAnimationFrameRate } from '@/features/comparison/performance/use-animation-frame-rate';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+interface LivePerformanceControlProps {
   readonly ingestion: string;
   readonly throughput: string;
   readonly memory: string;
   readonly rows: string;
 }
 
-export function LivePerformanceDock({
-  fps,
-  ingestion,
-  throughput,
-  memory,
-  rows,
-}: LivePerformanceDockProps) {
-  const items = [
-    {
-      label: LABELS.frameRate,
-      value: fps === null ? '—' : String(fps),
-      unit: 'FPS',
-      detail: LABELS.liveRendering,
-    },
-    { label: LABELS.csvIngestion, value: ingestion, unit: '', detail: throughput },
-    { label: LABELS.typedArrayMemory, value: memory, unit: '', detail: LABELS.retainedBuffers },
-    { label: LABELS.timestampRows, value: rows, unit: '', detail: LABELS.bothRecordings },
-  ];
-
+function PerformanceReceipt({ ingestion, throughput, memory, rows }: LivePerformanceControlProps) {
   return (
-    <section
-      className="w-full min-w-0 border-t border-border/80 bg-background/95"
-      aria-label={LABELS.livePerformance}
-      data-testid="live-performance-dock"
-    >
-      <div className="mx-auto box-border w-full min-w-0 max-w-[1800px] px-3 py-3 sm:px-5 sm:py-4 lg:px-6">
-        <h2 className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-          {LABELS.livePerformance}
-        </h2>
-        <div className="grid w-full min-w-0 grid-cols-[repeat(2,minmax(0,1fr))] items-start gap-x-4 gap-y-3 md:grid-cols-[repeat(4,minmax(0,1fr))] md:gap-6 lg:gap-10">
-          {items.map((item) => (
-            <div key={item.label} className="min-w-0">
-              <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">
-                {item.label}
-              </p>
-              <p className="mt-0.5 flex min-w-0 items-baseline gap-1 overflow-hidden font-mono text-base font-medium tabular-nums sm:text-xl">
-                <span className="min-w-0 truncate">{item.value}</span>
-                {item.unit && (
-                  <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                    {item.unit}
-                  </span>
-                )}
-              </p>
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground/75 sm:text-[11px]">
-                {item.detail}
-              </p>
-            </div>
-          ))}
+    <div className="w-[min(20rem,calc(100vw-2rem))] space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.16em]">Performance receipt</h2>
+        <Activity className="size-4 text-muted-foreground" aria-hidden="true" />
+      </div>
+      <div className="space-y-2.5 font-mono text-xs tabular-nums">
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="font-sans text-muted-foreground">CSV ingestion</span>
+          <span className="font-medium">{ingestion}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="font-sans text-muted-foreground">Typed-array memory</span>
+          <span className="font-medium">{memory}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="font-sans text-muted-foreground">Timestamp rows</span>
+          <span className="font-medium">{rows}</span>
         </div>
       </div>
-    </section>
+      <div className="rounded-lg border bg-muted/35 px-3 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Throughput
+        </p>
+        <p className="mt-1 font-mono text-sm font-semibold tabular-nums">{throughput}</p>
+      </div>
+    </div>
   );
 }
 
-/** Keeps animation-frame state local to the dock instead of the chart workspace. */
-export function LivePerformanceMonitor(props: Omit<LivePerformanceDockProps, 'fps'>) {
+export function FrameRatePill() {
   const fps = useAnimationFrameRate();
-  return <LivePerformanceDock {...props} fps={fps} />;
+
+  return (
+    <div className="sticky top-[4.75rem] z-40 -mb-2 flex h-7 shrink-0 justify-end pointer-events-none">
+      <div
+        className="pointer-events-auto inline-flex h-7 items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-2.5 text-[11px] font-medium tabular-nums text-muted-foreground shadow-sm backdrop-blur"
+        aria-label={`Frame rate: ${fps === null ? 'unavailable' : `${fps} frames per second`}`}
+      >
+        <Activity className="size-3 text-emerald-500" aria-hidden="true" />
+        <span>{fps === null ? '—' : fps}</span>
+        <span className="text-[9px] font-semibold uppercase tracking-wide">FPS</span>
+      </div>
+    </div>
+  );
+}
+
+export function LivePerformanceMonitor(props: LivePerformanceControlProps) {
+  return (
+    <div className="flex justify-end">
+      <Popover>
+        <PopoverTrigger
+          aria-label="Show performance metrics"
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 bg-background/90 px-3 text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Activity className="size-4" aria-hidden="true" />
+          <span aria-hidden="true" className="h-4 w-px bg-border" />
+          <Plus className="size-4" aria-hidden="true" />
+        </PopoverTrigger>
+        <PopoverContent className="p-4" side="top" align="end">
+          <PerformanceReceipt {...props} />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
 }

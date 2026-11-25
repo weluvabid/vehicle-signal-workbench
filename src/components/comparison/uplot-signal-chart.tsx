@@ -219,21 +219,6 @@ function SignalPlotRow({
             </PopoverContent>
           </Popover>
         </div>
-        {index === 0 && (
-          <div
-            className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
-            aria-label="Chart legend"
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="w-5 border-t border-dashed" style={{ borderColor: panel.color }} />
-              {LABELS.referenceSeries}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span className="w-5 border-t-2" style={{ borderColor: panel.color }} />
-              {LABELS.comparisonSeries}
-            </span>
-          </div>
-        )}
       </header>
       <div className={`flex min-w-0 ${SIGNAL_CHART_HEIGHT}`}>
         <div

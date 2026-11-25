@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock3, RotateCcw } from 'lucide-react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { buildSignalChartPanels } from '@/features/comparison/chart/signal-panels';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
@@ -10,6 +10,7 @@ import type { SignalSelection } from '@/features/comparison/types';
 import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
 import { useMetricsViewport } from '@/features/comparison/analysis/use-metrics-viewport';
 import { getInitialVisibleFraction } from '@/features/comparison/initial-viewport';
+import { SIGNAL_CHART_HEIGHT } from '@/features/comparison/chart/chart-constants';
 import {
   calculateComparisonPerformanceMetrics,
   type IngestionMetrics,
@@ -20,15 +21,13 @@ import { ChannelAnalysisCard } from '@/components/comparison/analysis/channel-an
 import { TimelineZoomControls } from '@/components/comparison/timeline-zoom-controls';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CHART_INTENTS } from '@/intents/chart-intents';
-import { LivePerformanceMonitor } from '@/components/comparison/performance/live-performance-dock';
+import { FrameRatePill, LivePerformanceMonitor } from '@/components/comparison/performance/live-performance-dock';
 
 const UPlotSignalChart = dynamic(
   () => import('./uplot-signal-chart').then((module) => module.UPlotSignalChart),
   {
     ssr: false,
-    loading: () => (
-      <p className="py-12 text-center text-sm text-muted-foreground">{LABELS.chartLoading}</p>
-    ),
+    loading: () => <ChartLoadingSkeleton />,
   },
 );
 
@@ -44,6 +43,39 @@ interface SignalComparisonPlotProps {
 }
 
 const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+
+function ChartLoadingSkeleton() {
+  return (
+    <div className="flex min-w-0 flex-col gap-2" aria-label={LABELS.chartLoading} aria-busy="true">
+      {['speed', 'rpm', 'throttle'].map((chart, index) => (
+        <div key={chart}>
+          {index > 0 && <div className="my-2 border-t border-border/60" />}
+          <section className="min-w-0">
+            <div className="mb-3 flex min-h-8 items-center justify-between gap-4 px-1">
+              <div className="h-4 w-36 animate-pulse rounded bg-muted sm:w-44" />
+              <div className="size-6 animate-pulse rounded-full bg-muted" />
+            </div>
+            <div className={`flex min-w-0 ${SIGNAL_CHART_HEIGHT}`}>
+              <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border bg-background">
+                <div className="absolute inset-y-3 left-0 flex w-12 flex-col justify-between border-r border-border/50 px-2 py-1">
+                  <div className="h-2 w-6 animate-pulse rounded bg-muted" />
+                  <div className="h-2 w-7 animate-pulse rounded bg-muted" />
+                  <div className="h-2 w-5 animate-pulse rounded bg-muted" />
+                </div>
+                <div className="absolute inset-y-4 left-14 right-3 flex flex-col justify-between">
+                  {[0, 1, 2, 3].map((line) => (
+                    <div key={line} className="h-px w-full border-t border-dashed border-border/60" />
+                  ))}
+                  <div className="h-2 w-20 animate-pulse self-end rounded bg-muted" />
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const { loading, error, results, requestViewport, selectionKey } = useSignalViewport(props);
@@ -92,28 +124,44 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         </p>
       )}
 
-      <div className="flex min-w-0 items-center justify-end gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label={LABELS.resetZoom}
-                  aria-keyshortcuts="0"
-                  onClick={() => window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM))}
-                  className="size-9 rounded-lg bg-background/90"
-                />
-              }
-            >
-              <RotateCcw aria-hidden="true" />
-            </TooltipTrigger>
-            <TooltipContent>{LABELS.resetZoom}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TimelineZoomControls />
+      <FrameRatePill />
+
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <div
+          className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
+          aria-live="polite"
+          aria-label="Selected time interval"
+        >
+          <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="truncate tabular-nums">
+            {metrics.viewport
+              ? `${TIME_FORMATTER.format(metrics.viewport.start)}–${TIME_FORMATTER.format(metrics.viewport.end)} s`
+              : '—'}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label={LABELS.resetZoom}
+                    aria-keyshortcuts="0"
+                    onClick={() => window.dispatchEvent(new Event(CHART_INTENTS.RESET_ZOOM))}
+                    className="size-9 rounded-lg bg-background/90"
+                  />
+                }
+              >
+                <RotateCcw aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>{LABELS.resetZoom}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TimelineZoomControls />
+        </div>
       </div>
 
       <section className="w-full min-w-0" aria-label={LABELS.chartGroupLabel}>
@@ -135,12 +183,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold">{LABELS.channelAnalysis}</h2>
-            <p className="text-xs text-muted-foreground">
-              {LABELS.indexedStatistics}
-              {metrics.viewport
-                ? ` · ${TIME_FORMATTER.format(metrics.viewport.start)}–${TIME_FORMATTER.format(metrics.viewport.end)} s`
-                : ''}
-            </p>
+            <p className="text-xs text-muted-foreground">{LABELS.indexedStatistics}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground" aria-live="polite">
