@@ -1,7 +1,10 @@
 import type uPlot from 'uplot';
 import { resolveSamplingPixelWidth } from '@/features/comparison/chart/sampling-budget';
 import { clampChartRange, type ChartViewport } from '@/features/comparison/chart/chart-range';
-import { MAX_CHART_ZOOM_FACTOR } from '@/features/comparison/chart/chart-constants';
+import {
+  INSPECTION_MIN_VIEWPORT_WIDTH,
+  MAX_CHART_ZOOM_FACTOR,
+} from '@/features/comparison/chart/chart-constants';
 
 function plotWidth(element: HTMLElement): number {
   return Math.max(1, Math.floor(element.getBoundingClientRect().width));
@@ -77,7 +80,11 @@ export function createNavigationPlugin(
             };
           };
           const pointerMove = (event: PointerEvent) => {
-            if (touchPointers.size > 0) return;
+            if (
+              touchPointers.size > 0 ||
+              window.innerWidth < INSPECTION_MIN_VIEWPORT_WIDTH
+            )
+              return;
 
             const bounds = boundsFor();
             const x = event.clientX - bounds.left;
@@ -209,6 +216,7 @@ export function createNavigationPlugin(
               const wasTap =
                 event.type !== 'pointercancel' &&
                 gesture !== null &&
+                window.innerWidth >= INSPECTION_MIN_VIEWPORT_WIDTH &&
                 !gesture.moved &&
                 touchPointers.size === 1;
 

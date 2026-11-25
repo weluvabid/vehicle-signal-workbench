@@ -12,6 +12,7 @@ import { clampChartRange, type ChartViewport } from '@/features/comparison/chart
 import { createSignalChart } from '@/features/comparison/chart/uplot/create-signal-chart';
 import { resolveSamplingPixelWidth } from '@/features/comparison/chart/sampling-budget';
 import {
+  INSPECTION_MIN_VIEWPORT_WIDTH,
   MAX_CHART_ZOOM_FACTOR,
   MIN_CHART_SPAN_SECONDS,
   SIGNAL_CHART_HEIGHT,
@@ -248,6 +249,7 @@ export function UPlotSignalChart({
   const groupRef = useRef<HTMLDivElement>(null);
   const [groupSize, setGroupSize] = useState({ width: 0, height: 0 });
   const [inspection, setInspection] = useState<{ time: number; x: number; y: number } | null>(null);
+  const [inspectionEnabled, setInspectionEnabled] = useState(false);
   const handleInspect = useCallback((time: number, clientX: number, clientY: number) => {
     const bounds = groupRef.current?.getBoundingClientRect();
 
@@ -267,6 +269,19 @@ export function UPlotSignalChart({
   useLayoutEffect(() => {
     callbacksRef.current = { onViewportChange, onMetricsViewportChange };
   }, [onViewportChange, onMetricsViewportChange]);
+
+  useEffect(() => {
+    const media = window.matchMedia(`(min-width: ${INSPECTION_MIN_VIEWPORT_WIDTH}px)`);
+    const update = () => setInspectionEnabled(media.matches);
+
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    if (!inspectionEnabled) setInspection(null);
+  }, [inspectionEnabled]);
 
   useEffect(() => {
     const group = groupRef.current;
@@ -351,7 +366,9 @@ export function UPlotSignalChart({
       className="relative flex min-w-0 flex-col gap-2"
       data-testid="signal-chart-group"
       aria-label={LABELS.chartGroupLabel}
-      onPointerLeave={clearInspection}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== 'touch') clearInspection();
+      }}
     >
       {panels.map((panel, index) => (
         <div key={panel.id}>
@@ -370,7 +387,7 @@ export function UPlotSignalChart({
           />
         </div>
       ))}
-      {inspection && (
+      {inspectionEnabled && inspection && (
         <MeasurementInspectionTooltip
           panels={panels}
           time={inspection.time}
