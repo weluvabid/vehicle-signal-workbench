@@ -47,11 +47,7 @@ export class MeasurementWorkerClient {
     options: CsvImportOptions,
     onProgress?: (fraction: number) => void,
   ): Promise<CsvImportResult> {
-    return this.dispatch<CsvImportResult>(
-      { type: 'import', file, options },
-      'import',
-      onProgress,
-    );
+    return this.dispatch<CsvImportResult>({ type: 'import', file, options }, 'import', onProgress);
   }
 
   queryComparisonBatch(

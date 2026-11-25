@@ -30,7 +30,7 @@ function PopoverContent({
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
-        className={cn("z-50 outline-none", positionerClassName)}
+        className={cn('z-50 outline-none', positionerClassName)}
         align={align}
         side={side}
         sideOffset={sideOffset}

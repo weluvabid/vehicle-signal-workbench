@@ -16,7 +16,10 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return (
     <p
       data-slot="alert-description"
-      className={cn('text-sm text-muted-foreground [&_a]:underline [&_a]:underline-offset-4', className)}
+      className={cn(
+        'text-sm text-muted-foreground [&_a]:underline [&_a]:underline-offset-4',
+        className,
+      )}
       {...props}
     />
   );

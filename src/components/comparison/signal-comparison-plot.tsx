@@ -59,7 +59,10 @@ function ChartLoadingSkeleton() {
                 </div>
                 <div className="absolute inset-y-4 left-14 right-3 flex flex-col justify-between">
                   {[0, 1, 2, 3].map((line) => (
-                    <div key={line} className="h-px w-full border-t border-dashed border-border/60" />
+                    <div
+                      key={line}
+                      className="h-px w-full border-t border-dashed border-border/60"
+                    />
                   ))}
                   <div className="h-2 w-20 animate-pulse self-end rounded bg-muted" />
                 </div>
@@ -245,7 +248,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           })}
         </div>
       </section>
-
     </div>
   );
 }

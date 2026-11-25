@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { Activity, ArrowRight } from 'lucide-react';
+import { Activity, ArrowRight, Info } from 'lucide-react';
 import { ComparisonWizard } from '@/components/ingestion/comparison-wizard';
 import { SignalComparisonPlot } from '@/components/comparison/signal-comparison-plot';
 import { useComparisonWorkspace } from '@/features/comparison/use-comparison-workspace';
@@ -108,7 +108,7 @@ export function ComparisonWorkspace() {
               </p>
             </div>
             <Card className="border-border/80 bg-card/60">
-              <CardContent className="flex flex-col items-start gap-4 p-6 sm:p-8">
+              <CardContent className="flex min-h-60 flex-col items-center justify-center gap-4 p-6 text-center sm:min-h-64 sm:p-8">
                 <div className="grid size-12 place-items-center rounded-xl border bg-muted/30">
                   <Activity className="size-5" />
                 </div>
@@ -119,19 +119,19 @@ export function ComparisonWorkspace() {
                 <Button onClick={() => setWizardOpen(true)}>
                   {LABELS.chooseWorkload} <ArrowRight className="size-4" />
                 </Button>
-                <div className="flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-[11px] text-muted-foreground">
                   <span>{LABELS.browserGenerated}</span>
                   <span>{LABELS.workerIngestion}</span>
                   <span>{LABELS.maximumRows}</span>
                 </div>
               </CardContent>
             </Card>
-            <Alert className="flex items-start gap-3 border-border/70 bg-muted/20">
-              <Activity className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <AlertDescription>
-                <span className="font-medium text-foreground">Performance tip:</span>{' '}
-                Disabling per-chunk loading animation updates reduced measured ingestion time by
-                approximately 400–800 ms in our browser tests.
+            <Alert className="flex items-center justify-center gap-3 border-border/70 bg-muted/20 text-center">
+              <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <AlertDescription className="flex-1">
+                <span className="font-medium text-foreground">Performance tip:</span> Disabling
+                per-chunk loading animation updates reduced measured ingestion time by approximately
+                400–800 ms in our browser tests.
               </AlertDescription>
             </Alert>
           </div>

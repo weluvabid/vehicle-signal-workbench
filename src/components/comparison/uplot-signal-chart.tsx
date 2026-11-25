@@ -67,6 +67,7 @@ function SignalPlotRow({
   onViewport,
   onInitialViewport,
   onInspect,
+  onInspectClear,
 }: {
   panel: SignalChartPanel;
   index: number;
@@ -78,6 +79,7 @@ function SignalPlotRow({
   onViewport: (range: ChartViewport, width: number) => void;
   onInitialViewport: (range: ChartViewport, width: number) => void;
   onInspect: (time: number, clientX: number, clientY: number, toggle?: boolean) => void;
+  onInspectClear: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
@@ -225,6 +227,9 @@ function SignalPlotRow({
           ref={hostRef}
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border bg-background"
           data-testid="signal-chart"
+          onPointerLeave={(event) => {
+            if (event.pointerType !== 'touch') onInspectClear();
+          }}
           role="img"
           aria-label={`${panel.label} comparison chart`}
         ></div>
@@ -396,6 +401,7 @@ export function UPlotSignalChart({
             onViewport={handleViewport}
             onInitialViewport={handleInitialViewport}
             onInspect={handleInspect}
+            onInspectClear={clearInspection}
           />
         </div>
       ))}

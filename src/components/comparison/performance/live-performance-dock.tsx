@@ -6,14 +6,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 export interface PerformanceMetricsDisplay {
   readonly ingestion: string;
-  readonly throughput: string;
+  readonly rowsPerSecond: string;
+  readonly samplesPerSecond: string;
   readonly memory: string;
   readonly rows: string;
 }
 
 function PerformanceDetails({
   ingestion,
-  throughput,
+  rowsPerSecond,
+  samplesPerSecond,
   memory,
   rows,
 }: PerformanceMetricsDisplay) {
@@ -38,9 +40,16 @@ function PerformanceDetails({
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Throughput
         </p>
-        <p className="mt-1 min-w-0 break-all font-mono text-sm font-semibold tabular-nums">
-          {throughput}
-        </p>
+        <dl className="mt-2 space-y-2 text-sm tabular-nums">
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-muted-foreground">Rows per second</dt>
+            <dd className="font-mono font-semibold">{rowsPerSecond}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-muted-foreground">Samples per second</dt>
+            <dd className="font-mono font-semibold">{samplesPerSecond}</dd>
+          </div>
+        </dl>
       </div>
     </div>
   );

@@ -37,7 +37,8 @@ test('calculates aggregate rows, samples, memory and ingestion throughput', () =
   assert.equal(result.validChannelSamples, 180);
   assert.equal(result.retainedBytes, 2_048);
   assert.equal(result.ingestion, '2.00 s');
-  assert.equal(result.throughput, '0.00M rows/s · 0.00M samples/s');
+  assert.equal(result.rowsPerSecond, '0.00M');
+  assert.equal(result.samplesPerSecond, '0.00M');
 });
 
 test('handles missing ingestion metrics and storage sizes', () => {
@@ -48,5 +49,6 @@ test('handles missing ingestion metrics and storage sizes', () => {
   );
   assert.equal(result.ingestion, '—');
   assert.equal(result.memory, '—');
-  assert.equal(result.throughput, '—');
+  assert.equal(result.rowsPerSecond, '—');
+  assert.equal(result.samplesPerSecond, '—');
 });

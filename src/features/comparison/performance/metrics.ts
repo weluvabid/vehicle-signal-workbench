@@ -10,7 +10,8 @@ export interface ComparisonPerformanceMetrics {
   readonly totalRows: number;
   readonly validChannelSamples: number;
   readonly ingestionSeconds: number;
-  readonly throughput: string;
+  readonly rowsPerSecond: string;
+  readonly samplesPerSecond: string;
   readonly ingestion: string;
   readonly memory: string;
   readonly rows: string;
@@ -47,10 +48,9 @@ export function calculateComparisonPerformanceMetrics(
     totalRows,
     validChannelSamples,
     ingestionSeconds,
-    throughput:
-      ingestionSeconds > 0
-        ? `${formatRate(totalRows / ingestionSeconds)} rows/s · ${formatRate(validChannelSamples / ingestionSeconds)} samples/s`
-        : '—',
+    rowsPerSecond: ingestionSeconds > 0 ? formatRate(totalRows / ingestionSeconds) : '—',
+    samplesPerSecond:
+      ingestionSeconds > 0 ? formatRate(validChannelSamples / ingestionSeconds) : '—',
     ingestion: ingestion ? `${ingestionSeconds.toFixed(2)} s` : '—',
     memory: retainedBytes > 0 ? `${(retainedBytes / 1_048_576).toFixed(1)} MiB` : '—',
     rows: totalRows.toLocaleString(),
