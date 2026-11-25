@@ -8,8 +8,14 @@ const panel: SignalChartPanel = {
   label: 'Vehicle Speed',
   unit: 'km/h',
   color: '#a78bfa',
-  reference: [[0, 0], [2, 20]],
-  comparison: [[1, 15], [2, null]],
+  reference: [
+    [0, 0],
+    [2, 20],
+  ],
+  comparison: [
+    [1, 15],
+    [2, null],
+  ],
 };
 
 test('aligns both series to the sorted union of timestamps', () => {
@@ -23,9 +29,21 @@ test('aligns both series to the sorted union of timestamps', () => {
 test('preserves non-finite measurements as chart gaps', () => {
   const data = buildSignalPanelData({
     ...panel,
-    reference: [[0, 1], [1, Number.NaN], [2, 3]],
-    comparison: [[0, Number.POSITIVE_INFINITY], [1, Number.POSITIVE_INFINITY], [2, Number.POSITIVE_INFINITY]],
+    reference: [
+      [0, 1],
+      [1, Number.NaN],
+      [2, 3],
+    ],
+    comparison: [
+      [0, Number.POSITIVE_INFINITY],
+      [1, Number.POSITIVE_INFINITY],
+      [2, Number.POSITIVE_INFINITY],
+    ],
   });
 
-  assert.deepEqual(data, [[0, 1, 2], [1, null, 3], [null, null, null]]);
+  assert.deepEqual(data, [
+    [0, 1, 2],
+    [1, null, 3],
+    [null, null, null],
+  ]);
 });

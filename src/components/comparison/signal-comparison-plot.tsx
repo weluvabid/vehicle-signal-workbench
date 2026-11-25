@@ -116,10 +116,7 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         <TimelineZoomControls />
       </div>
 
-      <section
-        className="w-full min-w-0"
-        aria-label={LABELS.chartGroupLabel}
-      >
+      <section className="w-full min-w-0" aria-label={LABELS.chartGroupLabel}>
         <UPlotSignalChart
           key={`${selectionKey}:${props.offsetSeconds}:${props.startSeconds}:${props.endSeconds}`}
           panels={panels}

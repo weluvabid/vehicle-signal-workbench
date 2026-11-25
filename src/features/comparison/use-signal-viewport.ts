@@ -177,6 +177,7 @@ export function useSignalViewport(options: SignalViewportOptions) {
 
       const width = Math.max(1, Math.min(8_192, Math.floor(pixelWidth)));
       const key = [start.toPrecision(13), end.toPrecision(13), width, selectionKey].join(':');
+
       if (key === lastRequestKey.current) return;
 
       lastRequestKey.current = key;

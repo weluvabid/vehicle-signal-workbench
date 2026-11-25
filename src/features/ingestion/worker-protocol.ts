@@ -25,7 +25,6 @@ export interface MetricsPanelQueryResult {
   readonly differenceStatistics: DifferenceStatistics;
 }
 
-
 export interface MetricsQueryResult {
   readonly panels: readonly MetricsPanelQueryResult[];
   readonly startSeconds: number;

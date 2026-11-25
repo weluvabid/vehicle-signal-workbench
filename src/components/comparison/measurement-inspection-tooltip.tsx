@@ -14,7 +14,6 @@ interface MeasurementInspectionTooltipProps {
   readonly height: number;
 }
 
-
 function signed(value: number): string {
   return `${value > 0 ? '+' : ''}${formatChartNumber(value)}`;
 }
@@ -37,10 +36,14 @@ function MeasurementRow({ panel, time }: { panel: SignalChartPanel; time: number
         <div className="flex min-w-0 items-center gap-2">
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: panel.color }} />
           <h4 className="truncate text-xs font-semibold">{panel.label}</h4>
-          {panel.unit && <span className="shrink-0 text-[10px] text-muted-foreground">({panel.unit})</span>}
+          {panel.unit && (
+            <span className="shrink-0 text-[10px] text-muted-foreground">({panel.unit})</span>
+          )}
         </div>
         <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
-          {referenceSample.interpolated || comparisonSample.interpolated ? 'Interpolated' : 'Sampled'}
+          {referenceSample.interpolated || comparisonSample.interpolated
+            ? 'Interpolated'
+            : 'Sampled'}
         </span>
       </div>
 
@@ -49,14 +52,18 @@ function MeasurementRow({ panel, time }: { panel: SignalChartPanel; time: number
           <p className="text-[10px] text-muted-foreground">Reference</p>
           <p className="truncate font-mono text-sm tabular-nums">
             {reference === null ? '—' : formatChartNumber(reference)}
-            {panel.unit ? <span className="ml-1 text-[10px] text-muted-foreground">{panel.unit}</span> : null}
+            {panel.unit ? (
+              <span className="ml-1 text-[10px] text-muted-foreground">{panel.unit}</span>
+            ) : null}
           </p>
         </div>
         <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground">Comparison</p>
           <p className="truncate font-mono text-sm tabular-nums">
             {comparison === null ? '—' : formatChartNumber(comparison)}
-            {panel.unit ? <span className="ml-1 text-[10px] text-muted-foreground">{panel.unit}</span> : null}
+            {panel.unit ? (
+              <span className="ml-1 text-[10px] text-muted-foreground">{panel.unit}</span>
+            ) : null}
           </p>
         </div>
       </div>
@@ -119,8 +126,8 @@ export function MeasurementInspectionTooltip({
         ))}
       </div>
       <p className="mt-3 border-t border-border/70 pt-2 text-[10px] leading-relaxed text-muted-foreground">
-        Status thresholds are not configured. Values and differences are shown without assigning
-        an arbitrary severity.
+        Status thresholds are not configured. Values and differences are shown without assigning an
+        arbitrary severity.
       </p>
     </aside>
   );
