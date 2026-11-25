@@ -13,7 +13,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  transpilePackages: ['echarts', 'zrender'],
   allowedDevOrigins: [],
 };
 

@@ -5,8 +5,3 @@ export const CHART_INTENTS = {
   ZOOM_IN: 'vsw:zoom-in',
   ZOOM_OUT: 'vsw:zoom-out',
 } as const;
-
-export const CHART_DATA_ZOOM_IDS = {
-  horizontalInside: 'viewport-inside',
-  horizontalSlider: 'viewport-slider',
-} as const;

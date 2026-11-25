@@ -1,0 +1,13 @@
+.vsw-uplot {
+  font-family: inherit;
+  color: inherit;
+}
+.vsw-uplot .u-legend {
+  display: none;
+}
+.vsw-uplot .u-over {
+  touch-action: pan-y;
+}
+.vsw-uplot canvas {
+  display: block;
+}

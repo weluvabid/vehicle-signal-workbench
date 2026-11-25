@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { mapComparisonPanels } from './signal-panel-mapper';
 import type { SignalPanelResult } from './signal-panel-mapper';
@@ -182,7 +182,6 @@ export function useSignalViewport(options: SignalViewportOptions) {
 
       const width = Math.max(1, Math.min(8_192, Math.floor(pixelWidth)));
       const key = [start.toPrecision(13), end.toPrecision(13), width, selectionKey].join(':');
-
       if (key === lastRequestKey.current) return;
 
       lastRequestKey.current = key;
@@ -192,7 +191,9 @@ export function useSignalViewport(options: SignalViewportOptions) {
 
       // A new viewport makes the active result stale immediately. The worker
       // acknowledges cancellation at cooperative yield points in its batch.
-      activeQuery.current?.cancel();
+      if (activeQuery.current) {
+        activeQuery.current.cancel();
+      }
 
       if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
 
@@ -211,7 +212,10 @@ export function useSignalViewport(options: SignalViewportOptions) {
     ],
   );
 
-  useEffect(() => {
+  // Reset request state during the layout phase. The chart child issues its
+  // initial viewport request from a passive effect; resetting here in a passive
+  // parent effect can cancel that first debounced request.
+  useLayoutEffect(() => {
     mounted.current = true;
     lastRequestKey.current = '';
     hasStartedInitialQuery.current = false;

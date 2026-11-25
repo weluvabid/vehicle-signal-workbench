@@ -30,7 +30,7 @@ export function LivePerformanceDock({
 
   return (
     <section
-      className="fixed inset-x-0 bottom-0 z-40 box-border w-auto min-w-0 max-w-none overflow-x-clip border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_rgb(0_0_0/0.18)] backdrop-blur-xl"
+      className="w-full min-w-0 border-t border-border/80 bg-background/95"
       aria-label={LABELS.livePerformance}
       data-testid="live-performance-dock"
     >

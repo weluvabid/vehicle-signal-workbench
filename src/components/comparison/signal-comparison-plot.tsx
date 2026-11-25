@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
-import type { CSSProperties } from 'react';
 import type { DatasetDescriptor } from '@/features/measurements/model';
 import { buildSignalChartPanels } from '@/features/comparison/chart/signal-panels';
 import type { MeasurementWorkerClient } from '@/features/ingestion/measurement-worker.client';
@@ -23,8 +22,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { CHART_INTENTS } from '@/intents/chart-intents';
 import { LivePerformanceMonitor } from '@/components/comparison/performance/live-performance-dock';
 
-const EChartsSignalChart = dynamic(
-  () => import('./echarts-signal-chart').then((module) => module.EChartsSignalChart),
+const UPlotSignalChart = dynamic(
+  () => import('./uplot-signal-chart').then((module) => module.UPlotSignalChart),
   {
     ssr: false,
     loading: () => (
@@ -118,11 +117,10 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
       </div>
 
       <section
-        className="relative w-full min-w-0 h-[calc(var(--signal-panel-count)*360px+58px)] shrink-0 sm:h-[calc(var(--signal-panel-count)*410px+58px)] lg:h-[calc(var(--signal-panel-count)*450px+58px)]"
-        style={{ '--signal-panel-count': Math.max(1, panels.length) } as CSSProperties}
+        className="w-full min-w-0"
         aria-label={LABELS.chartGroupLabel}
       >
-        <EChartsSignalChart
+        <UPlotSignalChart
           key={`${selectionKey}:${props.offsetSeconds}:${props.startSeconds}:${props.endSeconds}`}
           panels={panels}
           domainStartSeconds={props.startSeconds}

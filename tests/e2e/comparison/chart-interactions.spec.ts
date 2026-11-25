@@ -22,7 +22,9 @@ test('rapid zoom and pan interactions keep chart and worker-backed statistics co
   await page.mouse.move(x, y);
 
   for (let index = 0; index < 5; index += 1) {
+    await page.keyboard.down('Control');
     await page.mouse.wheel(0, index % 2 === 0 ? -240 : 180);
+    await page.keyboard.up('Control');
   }
 
   await page.mouse.move(x, y);
@@ -51,7 +53,9 @@ test('chart remains interactive after a generated workload is loaded', async ({ 
   if (!bounds) return;
 
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.keyboard.down('Control');
   await page.mouse.wheel(0, -240);
+  await page.keyboard.up('Control');
   await page.getByRole('button', { name: 'Reset zoom' }).click();
   await expect(chart).toBeVisible();
   expect(errors).toEqual([]);

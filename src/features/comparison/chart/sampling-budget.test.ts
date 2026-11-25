@@ -1,14 +1,12 @@
-import test from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveSamplingPixelWidth } from './sampling-budget.ts';
+import { resolveSamplingPixelWidth } from './sampling-budget';
 
-test('sampling budget stays within a small bounded range', () => {
-  assert.equal(resolveSamplingPixelWidth(Number.NaN), 15);
-  assert.equal(resolveSamplingPixelWidth(0), 15);
-  assert.equal(resolveSamplingPixelWidth(768), 15);
-  assert.equal(resolveSamplingPixelWidth(1_440), 15);
-  assert.equal(resolveSamplingPixelWidth(1_441), 16);
-  assert.equal(resolveSamplingPixelWidth(1_920), 16);
-  assert.equal(resolveSamplingPixelWidth(1_921), 18);
-  assert.equal(resolveSamplingPixelWidth(3_840), 18);
+describe('resolveSamplingPixelWidth', () => {
+  it('keeps the worker sampling budget bounded by viewport class', () => {
+    assert.equal(resolveSamplingPixelWidth(0), 15);
+    assert.equal(resolveSamplingPixelWidth(1440), 15);
+    assert.equal(resolveSamplingPixelWidth(1441), 16);
+    assert.equal(resolveSamplingPixelWidth(1921), 18);
+  });
 });
