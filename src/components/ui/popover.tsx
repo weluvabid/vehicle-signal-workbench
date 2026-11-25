@@ -19,16 +19,18 @@ function PopoverContent({
   align = 'start',
   side = 'right',
   sideOffset = 12,
+  positionerClassName,
   ...props
 }: PopoverPrimitive.Popup.Props & {
   align?: 'start' | 'center' | 'end';
   side?: 'top' | 'right' | 'bottom' | 'left';
   sideOffset?: number;
+  positionerClassName?: string;
 }) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
-        className="z-50 outline-none"
+        className={cn("z-50 outline-none", positionerClassName)}
         align={align}
         side={side}
         sideOffset={sideOffset}
@@ -36,7 +38,7 @@ function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            'w-80 origin-[var(--transform-origin)] rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none',
+            'origin-[var(--transform-origin)] rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none',
             className,
           )}
           {...props}

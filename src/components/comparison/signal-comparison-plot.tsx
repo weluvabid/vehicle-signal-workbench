@@ -11,17 +11,13 @@ import { useSignalViewport } from '@/features/comparison/use-signal-viewport';
 import { useMetricsViewport } from '@/features/comparison/analysis/use-metrics-viewport';
 import { getInitialVisibleFraction } from '@/features/comparison/initial-viewport';
 import { SIGNAL_CHART_HEIGHT } from '@/features/comparison/chart/chart-constants';
-import {
-  calculateComparisonPerformanceMetrics,
-  type IngestionMetrics,
-} from '@/features/comparison/performance/metrics';
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 import { Button } from '@/components/ui/button';
 import { ChannelAnalysisCard } from '@/components/comparison/analysis/channel-analysis-card';
 import { TimelineZoomControls } from '@/components/comparison/timeline-zoom-controls';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CHART_INTENTS } from '@/intents/chart-intents';
-import { FrameRatePill, LivePerformanceMonitor } from '@/components/comparison/performance/live-performance-dock';
+import { FrameRatePill } from '@/components/comparison/performance/live-performance-dock';
 
 const UPlotSignalChart = dynamic(
   () => import('./uplot-signal-chart').then((module) => module.UPlotSignalChart),
@@ -39,7 +35,6 @@ interface SignalComparisonPlotProps {
   readonly offsetSeconds: number;
   readonly startSeconds: number;
   readonly endSeconds: number;
-  readonly ingestionMetrics: IngestionMetrics | null;
 }
 
 const TIME_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
@@ -98,16 +93,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
   const initialVisibleFraction = getInitialVisibleFraction(
     Math.max(props.reference.sampleCount, props.comparison.sampleCount),
   );
-  const performance = useMemo(
-    () =>
-      calculateComparisonPerformanceMetrics(
-        props.reference,
-        props.comparison,
-        props.ingestionMetrics,
-      ),
-    [props.reference, props.comparison, props.ingestionMetrics],
-  );
-
   return (
     <div
       className="flex min-h-0 min-w-0 w-full max-w-full flex-col gap-4 overflow-x-clip pb-2"
@@ -261,12 +246,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
         </div>
       </section>
 
-      <LivePerformanceMonitor
-        ingestion={performance.ingestion}
-        throughput={performance.throughput}
-        memory={performance.memory}
-        rows={performance.rows}
-      />
     </div>
   );
 }

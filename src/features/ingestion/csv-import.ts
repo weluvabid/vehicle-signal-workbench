@@ -59,6 +59,7 @@ export function importCsv(
   post: (message: IngestionResponse) => void,
 ): void {
   const { requestId, file, options } = request;
+  const ingestionStartedAt = performance.now();
 
   if (file.size === 0) {
     post({ type: 'error', requestId, code: 'EMPTY_FILE', message: 'The selected file is empty.' });
@@ -328,7 +329,8 @@ export function importCsv(
 
         activeImports.delete(requestId);
         terminal = true;
-        post({ type: 'complete', requestId, dataset: measuredDescriptor });
+        const ingestionDurationMs = performance.now() - ingestionStartedAt;
+        post({ type: 'complete', requestId, dataset: measuredDescriptor, ingestionDurationMs });
       } catch (error) {
         fail(error);
       }

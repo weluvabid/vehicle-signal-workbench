@@ -59,8 +59,7 @@ export function useComparisonIngestion({
         const file = await generateDriveRecording(preset.rows, role, setProgress);
         setStage(importStage);
         setProgress(0);
-        const startedAt = performance.now();
-        const dataset = await client.import(
+        const result = await client.import(
           file,
           {
             timestampColumn: 'Timestamp',
@@ -68,7 +67,11 @@ export function useComparisonIngestion({
           },
           setProgress,
         );
-        return { dataset, bytes: file.size, ingestionDurationMs: performance.now() - startedAt };
+        return {
+          dataset: result.dataset,
+          bytes: file.size,
+          ingestionDurationMs: result.ingestionDurationMs,
+        };
       };
 
       try {

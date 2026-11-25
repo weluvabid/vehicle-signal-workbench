@@ -4,6 +4,10 @@ import { CircleHelp, Plus } from 'lucide-react';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import ghostMark from '../../../brand/me/brand/mark.svg';
 import { Button } from '@/components/ui/button';
+import {
+  PerformancePopover,
+  type PerformanceMetricsDisplay,
+} from '@/components/comparison/performance/live-performance-dock';
 import { COMPARISON_LABELS } from '@/constants/comparison-labels';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -19,9 +23,15 @@ interface SiteHeaderProps {
   onNewWorkload: () => void;
   helpOpen: boolean;
   onHelpOpenChange: (open: boolean) => void;
+  performance: PerformanceMetricsDisplay | null;
 }
 
-export function SiteHeader({ onNewWorkload, helpOpen, onHelpOpenChange }: SiteHeaderProps) {
+export function SiteHeader({
+  onNewWorkload,
+  helpOpen,
+  onHelpOpenChange,
+  performance,
+}: SiteHeaderProps) {
   return (
     <TooltipProvider>
       <header className="sticky top-3 z-50 isolate mx-auto mt-3 flex w-full shrink-0 items-center justify-between gap-3 rounded-full border border-foreground/15 bg-background/80 px-3 py-2 shadow-lg shadow-black/20 backdrop-blur-[10px] sm:px-4">
@@ -34,6 +44,12 @@ export function SiteHeader({ onNewWorkload, helpOpen, onHelpOpenChange }: SiteHe
         </Link>
 
         <div className="flex items-center gap-1">
+          {performance && (
+            <>
+              <PerformancePopover {...performance} />
+              <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger
               render={

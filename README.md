@@ -112,7 +112,7 @@ By default, the files are written to `data/samples/generated/`. Use `--output-di
 
 The hosted demo runs on Vercel and uses generated recordings rather than files uploaded by a user. Generating those recordings is part of the demo workflow before they are passed through ingestion and the rest of the workbench. Because this involves synthetic-data generation and communication between the page and its worker, the overall time shown in the hosted demo can occasionally be longer than the ingestion timings documented below.
 
-That end-to-end time should not be read as ingestion time alone. The local ingestion and performance tests are a better way to assess the ingestion pipeline directly. I have left the hosted demo workflow as-is; this timing variation is specific to how the synthetic demo is generated and run.
+That end-to-end time should not be read as ingestion time alone. The Performance popover reports worker-side ingestion time: it starts when the worker begins handling an import and stops after parsing, normalization, typed-array construction, index creation, and dataset registration finish. It excludes synthetic recording generation, worker startup, request dispatch, and completion-message delivery.
 
 ## A note on the numbers
 

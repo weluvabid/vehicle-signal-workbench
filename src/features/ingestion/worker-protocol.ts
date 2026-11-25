@@ -96,7 +96,12 @@ export type WorkerErrorCode =
 
 export type IngestionResponse =
   | { readonly type: 'progress'; readonly requestId: number; readonly fraction: number }
-  | { readonly type: 'complete'; readonly requestId: number; readonly dataset: DatasetDescriptor }
+  | {
+      readonly type: 'complete';
+      readonly requestId: number;
+      readonly dataset: DatasetDescriptor;
+      readonly ingestionDurationMs: number;
+    }
   | { readonly type: 'metrics'; readonly requestId: number; readonly result: MetricsQueryResult }
   | {
       readonly type: 'comparison-batch';

@@ -9,6 +9,12 @@ import type {
 } from './worker-protocol';
 
 type WorkerOperationRequest = Extract<IngestionRequest, { readonly requestId: number }>;
+
+export interface CsvImportResult {
+  readonly dataset: DatasetDescriptor;
+  readonly ingestionDurationMs: number;
+}
+
 type WithoutRequestId<T> = T extends { readonly requestId: number } ? Omit<T, 'requestId'> : never;
 type OperationKind = 'import' | 'comparison-batch' | 'metrics';
 
@@ -40,8 +46,8 @@ export class MeasurementWorkerClient {
     file: File,
     options: CsvImportOptions,
     onProgress?: (fraction: number) => void,
-  ): Promise<DatasetDescriptor> {
-    return this.dispatch<DatasetDescriptor>(
+  ): Promise<CsvImportResult> {
+    return this.dispatch<CsvImportResult>(
       { type: 'import', file, options },
       'import',
       onProgress,
@@ -267,7 +273,10 @@ export class MeasurementWorkerClient {
       } else if (message.type === 'cancelled') {
         operation.reject(new DOMException('Viewport query superseded.', 'AbortError'));
       } else if (message.type === 'complete' && operation.kind === 'import') {
-        operation.resolve(message.dataset);
+        operation.resolve({
+          dataset: message.dataset,
+          ingestionDurationMs: message.ingestionDurationMs,
+        });
       } else if (message.type === 'comparison-batch' && operation.kind === 'comparison-batch') {
         operation.resolve(message.result);
       } else if (message.type === 'metrics' && operation.kind === 'metrics') {
