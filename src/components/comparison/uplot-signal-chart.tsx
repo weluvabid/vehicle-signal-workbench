@@ -3,7 +3,15 @@
 import type uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import './uplot-signal-chart.css';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Info } from 'lucide-react';
 import type { SignalChartPanel } from '@/features/comparison/chart/signal-chart-types';
 import { CHART_INTENTS } from '@/intents/chart-intents';
@@ -20,6 +28,20 @@ import {
 import { COMPARISON_LABELS as LABELS } from '@/constants/comparison-labels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { MeasurementInspectionTooltip } from './measurement-inspection-tooltip';
+
+function subscribeToInspectionBreakpoint(onChange: () => void) {
+  const media = window.matchMedia(`(min-width: ${INSPECTION_MIN_VIEWPORT_WIDTH}px)`);
+  media.addEventListener('change', onChange);
+  return () => media.removeEventListener('change', onChange);
+}
+
+function getInspectionBreakpointSnapshot() {
+  return window.matchMedia(`(min-width: ${INSPECTION_MIN_VIEWPORT_WIDTH}px)`).matches;
+}
+
+function getInspectionBreakpointServerSnapshot() {
+  return false;
+}
 
 interface UPlotSignalChartProps {
   readonly panels: readonly SignalChartPanel[];
@@ -55,7 +77,7 @@ function SignalPlotRow({
   viewport: ChartViewport;
   onViewport: (range: ChartViewport, width: number) => void;
   onInitialViewport: (range: ChartViewport, width: number) => void;
-  onInspect: (time: number, clientX: number, clientY: number) => void;
+  onInspect: (time: number, clientX: number, clientY: number, toggle?: boolean) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
@@ -249,14 +271,22 @@ export function UPlotSignalChart({
   const groupRef = useRef<HTMLDivElement>(null);
   const [groupSize, setGroupSize] = useState({ width: 0, height: 0 });
   const [inspection, setInspection] = useState<{ time: number; x: number; y: number } | null>(null);
-  const [inspectionEnabled, setInspectionEnabled] = useState(false);
-  const handleInspect = useCallback((time: number, clientX: number, clientY: number) => {
-    const bounds = groupRef.current?.getBoundingClientRect();
+  const inspectionEnabled = useSyncExternalStore(
+    subscribeToInspectionBreakpoint,
+    getInspectionBreakpointSnapshot,
+    getInspectionBreakpointServerSnapshot,
+  );
+  const handleInspect = useCallback(
+    (time: number, clientX: number, clientY: number, toggle = false) => {
+      const bounds = groupRef.current?.getBoundingClientRect();
 
-    if (!bounds) return;
+      if (!bounds) return;
 
-    setInspection({ time, x: clientX - bounds.left, y: clientY - bounds.top });
-  }, []);
+      const next = { time, x: clientX - bounds.left, y: clientY - bounds.top };
+      setInspection((current) => (toggle && current ? null : next));
+    },
+    [],
+  );
   const clearInspection = useCallback(() => setInspection(null), []);
   const samplingWidthRef = useRef(1);
   const viewportRef = useRef(viewport);
@@ -272,16 +302,13 @@ export function UPlotSignalChart({
 
   useEffect(() => {
     const media = window.matchMedia(`(min-width: ${INSPECTION_MIN_VIEWPORT_WIDTH}px)`);
-    const update = () => setInspectionEnabled(media.matches);
+    const clearOnPhone = () => {
+      if (!media.matches) setInspection(null);
+    };
 
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
+    media.addEventListener('change', clearOnPhone);
+    return () => media.removeEventListener('change', clearOnPhone);
   }, []);
-
-  useEffect(() => {
-    if (!inspectionEnabled) setInspection(null);
-  }, [inspectionEnabled]);
 
   useEffect(() => {
     const group = groupRef.current;

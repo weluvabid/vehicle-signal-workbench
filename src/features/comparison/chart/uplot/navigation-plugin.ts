@@ -14,7 +14,7 @@ export function createNavigationPlugin(
   domainStart: number,
   domainEnd: number,
   notify: (range: ChartViewport, width: number) => void,
-  inspect: (time: number, clientX: number, clientY: number) => void,
+  inspect: (time: number, clientX: number, clientY: number, toggle?: boolean) => void,
 ): uPlot.Plugin {
   return {
     hooks: {
@@ -80,11 +80,7 @@ export function createNavigationPlugin(
             };
           };
           const pointerMove = (event: PointerEvent) => {
-            if (
-              touchPointers.size > 0 ||
-              window.innerWidth < INSPECTION_MIN_VIEWPORT_WIDTH
-            )
-              return;
+            if (touchPointers.size > 0 || window.innerWidth < INSPECTION_MIN_VIEWPORT_WIDTH) return;
 
             const bounds = boundsFor();
             const x = event.clientX - bounds.left;
@@ -224,7 +220,7 @@ export function createNavigationPlugin(
                 const bounds = boundsFor();
                 const time = u.posToVal(event.clientX - bounds.left, 'x');
 
-                if (Number.isFinite(time)) inspect(time, event.clientX, event.clientY);
+                if (Number.isFinite(time)) inspect(time, event.clientX, event.clientY, true);
               }
 
               touchPointers.delete(event.pointerId);

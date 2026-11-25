@@ -16,7 +16,7 @@ interface CreateSignalChartOptions {
   readonly domainEnd: number;
   readonly initialRange: ChartViewport;
   readonly onViewport: (range: ChartViewport, width: number) => void;
-  readonly onInspect: (time: number, clientX: number, clientY: number) => void;
+  readonly onInspect: (time: number, clientX: number, clientY: number, toggle?: boolean) => void;
   readonly onInitialViewport: (range: ChartViewport, width: number) => void;
 }
 
