@@ -26,6 +26,7 @@ function getAdjacentZoom(factor: number, direction: -1 | 1): number {
 
 export function TimelineZoomControls() {
   const [factor, setFactor] = useState(1);
+  const [zoomPopoverOpen, setZoomPopoverOpen] = useState(false);
   const factorRef = useRef(1);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export function TimelineZoomControls() {
           </TooltipTrigger>
           <TooltipContent>{LABELS.zoomOut}</TooltipContent>
         </Tooltip>
-        <Popover>
+        <Popover open={zoomPopoverOpen} onOpenChange={setZoomPopoverOpen}>
           <PopoverTrigger
             className="h-7 min-w-11 rounded px-1.5 font-mono text-xs tabular-nums text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`${LABELS.zoomLevel}: ${ZOOM_FORMATTER.format(factor)}×`}
@@ -110,7 +111,10 @@ export function TimelineZoomControls() {
                   type="button"
                   size="sm"
                   variant={Math.abs(factor - level) < 1e-6 ? 'secondary' : 'ghost'}
-                  onClick={() => set(level)}
+                  onClick={() => {
+                    set(level);
+                    setZoomPopoverOpen(false);
+                  }}
                 >
                   {ZOOM_FORMATTER.format(level)}×
                 </Button>
@@ -121,7 +125,10 @@ export function TimelineZoomControls() {
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => set(1)}
+              onClick={() => {
+                set(1);
+                setZoomPopoverOpen(false);
+              }}
             >
               {LABELS.fitAll}
             </Button>

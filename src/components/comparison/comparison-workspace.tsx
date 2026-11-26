@@ -126,12 +126,12 @@ export function ComparisonWorkspace() {
                 </div>
               </CardContent>
             </Card>
-            <Alert className="flex items-center justify-center gap-3 border-border/70 bg-muted/20 text-center">
-              <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <AlertDescription className="flex-1">
+            <Alert className="flex items-start justify-start gap-3 border-border/70 bg-muted/20 px-4 py-3 text-left">
+              <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <AlertDescription className="min-w-0 flex-1 text-left leading-relaxed">
                 <span className="font-medium text-foreground">Performance tip:</span> Disabling
                 per-chunk loading animation updates reduced measured ingestion time by approximately
-                400–800 ms in our browser tests.
+                400–800 ms in my browser tests.
               </AlertDescription>
             </Alert>
           </div>

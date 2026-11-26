@@ -17,7 +17,6 @@ import { ChannelAnalysisCard } from '@/components/comparison/analysis/channel-an
 import { TimelineZoomControls } from '@/components/comparison/timeline-zoom-controls';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CHART_INTENTS } from '@/intents/chart-intents';
-import { FrameRatePill } from '@/components/comparison/performance/live-performance-dock';
 
 const UPlotSignalChart = dynamic(
   () => import('./uplot-signal-chart').then((module) => module.UPlotSignalChart),
@@ -111,8 +110,6 @@ export function SignalComparisonPlot(props: SignalComparisonPlotProps) {
           {LABELS.noSamplesInInterval}
         </p>
       )}
-
-      <FrameRatePill />
 
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div

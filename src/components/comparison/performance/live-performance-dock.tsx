@@ -1,7 +1,6 @@
 'use client';
 
 import { Activity } from 'lucide-react';
-import { useAnimationFrameRate } from '@/features/comparison/performance/use-animation-frame-rate';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export interface PerformanceMetricsDisplay {
@@ -74,22 +73,5 @@ export function PerformancePopover(props: PerformanceMetricsDisplay) {
         <PerformanceDetails {...props} />
       </PopoverContent>
     </Popover>
-  );
-}
-
-export function FrameRatePill() {
-  const fps = useAnimationFrameRate();
-
-  return (
-    <div className="pointer-events-none sticky top-[4.75rem] z-40 -mb-2 flex h-7 shrink-0 justify-end">
-      <div
-        className="pointer-events-auto inline-flex h-7 items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-2.5 text-[11px] font-medium tabular-nums text-muted-foreground shadow-sm backdrop-blur"
-        aria-label={`Frame rate: ${fps === null ? 'unavailable' : `${fps} frames per second`}`}
-      >
-        <Activity className="size-3 text-emerald-500" aria-hidden="true" />
-        <span>{fps === null ? '—' : fps}</span>
-        <span className="text-[9px] font-semibold uppercase tracking-wide">FPS</span>
-      </div>
-    </div>
   );
 }
