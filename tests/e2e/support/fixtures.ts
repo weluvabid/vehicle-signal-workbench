@@ -24,5 +24,5 @@ export async function generateWorkload(
   await dialog.getByRole('button', { name: /Generate & ingest/ }).click();
   await expect(dialog).toBeHidden({ timeout: timeoutMs });
   await expect(page.getByTestId('comparison-results')).toBeVisible({ timeout: timeoutMs });
-  await expect(page.getByTestId('signal-chart')).toBeVisible({ timeout: timeoutMs });
+  await expect(page.getByTestId('signal-chart').first()).toBeVisible({ timeout: timeoutMs });
 }

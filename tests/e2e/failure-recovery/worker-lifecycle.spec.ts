@@ -29,5 +29,5 @@ test('worker startup failure is surfaced and a subsequent generated workload can
   await expect(dialog.getByRole('alert')).toContainText('E2E forced worker startup failure');
   await dialog.getByRole('button', { name: 'Generate & ingest' }).click();
   await expect(dialog).toBeHidden({ timeout: 60_000 });
-  await expect(page.getByTestId('signal-chart')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('signal-chart').first()).toBeVisible({ timeout: 60_000 });
 });

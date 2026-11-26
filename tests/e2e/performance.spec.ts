@@ -41,7 +41,7 @@ test.describe('generated-workload browser stress tests', () => {
     await openWorkspace(page);
     const startedAt = performance.now();
     await generateWorkload(page, '40', 8 * 60_000);
-    await expect(page.getByTestId('signal-chart')).toBeVisible();
+    await expect(page.getByTestId('signal-chart').first()).toBeVisible();
     await expect(page.getByTestId('comparison-results')).toBeVisible();
     await attachBrowserMetrics(page, '1m-generated-workload-browser-metrics.json', startedAt);
   });
@@ -55,7 +55,7 @@ test.describe('generated-workload browser stress tests', () => {
     await openWorkspace(page);
     const startedAt = performance.now();
     await generateWorkload(page, '400', 20 * 60_000);
-    await expect(page.getByTestId('signal-chart')).toBeVisible();
+    await expect(page.getByTestId('signal-chart').first()).toBeVisible();
     await expect(page.getByTestId('comparison-results')).toBeVisible();
     await attachBrowserMetrics(page, '10m-generated-workload-browser-metrics.json', startedAt);
   });

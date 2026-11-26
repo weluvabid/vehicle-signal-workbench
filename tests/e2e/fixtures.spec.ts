@@ -23,7 +23,7 @@ test('generated recordings produce a synchronized comparison and channel analysi
   page.on('pageerror', (error) => errors.push(error.message));
   await openWorkspace(page);
   await generateWorkload(page);
-  await expect(page.getByTestId('signal-chart').locator('canvas').first()).toBeVisible();
+  await expect(page.getByTestId('signal-chart').first().locator('canvas').first()).toBeVisible();
   await expect(page.getByRole('region', { name: 'Synchronized signal charts' })).toBeVisible();
   await expect(page.getByText('Channel analysis')).toBeVisible();
   expect(errors).toEqual([]);

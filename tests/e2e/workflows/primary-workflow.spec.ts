@@ -8,7 +8,7 @@ test('complete generated comparison workflow: generate, inspect and navigate', a
   await openWorkspace(page);
   await generateWorkload(page);
 
-  const chart = page.getByTestId('signal-chart');
+  const chart = page.getByTestId('signal-chart').first();
   await expect(chart).toBeVisible();
   await expect(chart.locator('canvas').first()).toBeVisible();
 
@@ -38,7 +38,7 @@ test('chart resize and workspace teardown do not produce browser exceptions', as
   await openWorkspace(page);
   await generateWorkload(page);
 
-  const chart = page.getByTestId('signal-chart');
+  const chart = page.getByTestId('signal-chart').first();
   const canvas = chart.locator('canvas').first();
 
   for (const viewport of [
@@ -49,14 +49,17 @@ test('chart resize and workspace teardown do not produce browser exceptions', as
     await expect(chart).toBeVisible();
     await expect
       .poll(async () => {
-        const chartBounds = await chart.boundingBox();
+        const hostContentSize = await chart.evaluate((element) => ({
+          width: element.clientWidth,
+          height: element.clientHeight,
+        }));
         const canvasBounds = await canvas.boundingBox();
 
-        if (!chartBounds || !canvasBounds) return Number.POSITIVE_INFINITY;
+        if (!canvasBounds) return Number.POSITIVE_INFINITY;
 
         return (
-          Math.abs(chartBounds.width - canvasBounds.width) +
-          Math.abs(chartBounds.height - canvasBounds.height)
+          Math.abs(hostContentSize.width - canvasBounds.width) +
+          Math.abs(hostContentSize.height - canvasBounds.height)
         );
       })
       .toBeLessThan(2);

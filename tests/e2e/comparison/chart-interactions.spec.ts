@@ -9,7 +9,7 @@ test('rapid zoom and pan interactions keep chart and worker-backed statistics co
   await openWorkspace(page);
   await generateWorkload(page);
 
-  const chart = page.getByTestId('signal-chart');
+  const chart = page.getByTestId('signal-chart').first();
   const canvas = chart.locator('canvas').first();
   await expect(canvas).toBeVisible();
   const bounds = await canvas.boundingBox();
@@ -44,7 +44,7 @@ test('chart remains interactive after a generated workload is loaded', async ({ 
   await openWorkspace(page);
   await generateWorkload(page);
 
-  const chart = page.getByTestId('signal-chart');
+  const chart = page.getByTestId('signal-chart').first();
   await expect(chart).toBeVisible();
   const canvas = chart.locator('canvas').first();
   const bounds = await canvas.boundingBox();
