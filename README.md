@@ -22,7 +22,7 @@ That made me wonder whether keeping the progress animation active was doing unne
 
 That wasn't an optimization I had planned. It came from noticing something odd in a browser and following the question.
 
-I also kept increasing the workload to see where the browser would give up. In one experiment, I ingested around **250 MB of data — roughly 52 million data points — on an iPhone SE (2020)**. It completed without crashing most of the time, though it wasn't reliable on every attempt. Some larger workloads failed. That was part of the point: I wanted to find the limits, not assume them.
+I also kept increasing the workload to see where the browser would give up. In one experiment, I ingested around **250 MB of data — roughly 62.5 million data points — on an iPhone SE (2020)**. It completed without crashing most of the time, though it wasn't reliable on every attempt. Some larger workloads failed. That was part of the point: I wanted to find the limits, not assume them.
 
 ## What is here
 
